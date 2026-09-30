@@ -1,0 +1,99 @@
+# Drivers API
+
+Base: `/api/v1`. Lists return `{ data, meta: { page, limit, total, totalPages } }`. Errors: `{ statusCode, message, details? }`.
+Permission column = `Module.DRIVERS` action (`view|create|edit|delete|approve|export`).
+
+Enums: DriverStatus `APPLIED, DOCS_REVIEW, BACKGROUND_CHECK, TRAINING, APPROVED, ACTIVE, SUSPENDED, DEACTIVATED, REJECTED`; VehicleType `CAR, BIKE, E_BIKE, SCOOTER, ON_FOOT`; DriverDocType `LICENCE, VEHICLE_REGISTRATION, INSURANCE, PHOTO, WORK_ELIGIBILITY, BACKGROUND_CHECK, OTHER`; DocStatus `PENDING, APPROVED, REJECTED, EXPIRED`; Incentive type `PEAK_BOOST, QUEST, FIRST_WEEK, WEATHER, SUPPLY_ALERT`; Shift status `OPEN, BOOKED, STARTED, COMPLETED, MISSED, CANCELLED`; SOS status `OPEN, ACKNOWLEDGED, RESOLVED`; background check `NOT_STARTED, IN_PROGRESS, CLEAR, CONSIDER, FAILED`.
+
+## Admin `/admin/drivers` (staff)
+
+| Method | Path | Perm | Request | Response |
+|---|---|---|---|---|
+| GET | `/` | view | page,limit,search,sortBy,sortDir,status,cityId,zoneId,vehicleType,online(true/false),ratingMin,ratingMax,expiringDays,backgroundCheck | paginated driver rows (id,name,status,isOnline,rating,rates,nextDocExpiry...) |
+| GET | `/summary` | view | cityId | `{byStatus,online,onTrip,docsExpiring30d,openSos}` |
+| GET | `/export` | export | same filters as list | `{csv}` |
+| GET | `/expiring-documents` | view | days(30),type,page,limit | paginated `{id,driverId,driverName,type,status,expiresAt,fileUrl}` |
+| GET | `/analytics` | view | cityId,zoneId,days(7),limit | `{windowDays,fleet,topDrivers[]}` |
+| GET | `/heat-map` | view | cityId | zones `[{zoneId,zoneName,centerLat,centerLng,onlineDrivers,onTripDrivers,openOrders,demandScore}]` |
+| GET | `/incentives` | view | page,limit,zoneId,cityId,driverId,type,active | paginated Incentive |
+| POST | `/incentives` | create | name,type,startsAt,endsAt,zoneId?,cityId?,driverId?,amountPerTrip?,percentBoost?,questTrips?,bonusAmount?,daysOfWeek?,startTime?,endTime?,active? | Incentive |
+| PATCH | `/incentives/:id` | edit | any creatable field except type/driverId | Incentive |
+| DELETE | `/incentives/:id` | delete | - | `{ok}` |
+| POST | `/supply-alert` | create | zoneId,boostAmount,durationMinutes(5-720),message?,includeOnline? | Incentive (SUPPLY_ALERT); pushes `driver.supply_alert` to zone + online drivers |
+| GET | `/shifts/slots` | view | zoneId,status,from,to,page,limit | open slots with `booked` |
+| POST | `/shifts/slots` | create | zoneId,startsAt,endsAt,capacity | slot |
+| PATCH | `/shifts/slots/:id` | edit | capacity?,startsAt?,endsAt? | slot |
+| DELETE | `/shifts/slots/:id` | delete | - | `{ok}` (cancels) |
+| GET | `/shifts` | view | zoneId,driverId,status,from,to | paginated booked shifts |
+| GET | `/training-modules` | view | - | TrainingModule[] |
+| POST | `/training-modules` | create | title,content,sortOrder?,quiz[{question,options[],correctIndex}],passMark?,active? | module |
+| PATCH | `/training-modules/:id` | edit | same, all optional | module |
+| DELETE | `/training-modules/:id` | delete | - | `{ok}` |
+| GET | `/sos` | view | status,driverId,page,limit | paginated SosAlert |
+| POST | `/sos/:id/acknowledge` | edit | note? | SosAlert |
+| POST | `/sos/:id/resolve` | edit | note? | SosAlert |
+| GET | `/:id` | view | - | full detail (documents, requiredDocuments, insurance, backgroundCheck, training, onboarding checklist, zones, bank (masked), taxInfo (masked), performance, earnings, recentTrips, offers, cases, sosAlerts) |
+| POST | `/` | create | email,firstName,lastName,phone,cityId,password?,vehicle fields | `{id,temporaryPassword?}` |
+| PATCH | `/:id` | edit | names,phone,cityId,vehicle fields,payoutSchedule,insulatedBagConfirmed,notes | updated row |
+| DELETE | `/:id` | delete | - | `{ok}` (only if no trips) |
+| POST | `/:id/start-review` | edit | - | checklist |
+| PATCH | `/:id/documents/:docId` | approve | status(APPROVED/REJECTED),rejectReason (required on reject),expiresAt (required for licence/insurance/registration) | document |
+| PUT | `/:id/insurance` | edit | coversDelivery,expiresAt,provider?,policyNumber? | insurance |
+| POST | `/:id/background-check/start` | edit | - | `{provider,ref,status}` (Certn, mock without key) |
+| POST | `/:id/background-check/override` | approve | status,note | `{status,driverStatus}` |
+| POST | `/:id/approve` | approve | zoneIds?,insulatedBagConfirmed?,note?,override? | `{status}` (activates if zoneIds) |
+| POST | `/:id/activate` | approve | zoneIds[],insulatedBagConfirmed | `{status,zoneIds}`; sends welcome + first-week boost |
+| POST | `/:id/reject` | approve | reason | `{status}` |
+| POST | `/:id/suspend` | approve | reason,respondWithinDays?,evidence? | `{status,respondBy}` |
+| POST | `/:id/deactivate` | approve | reason,respondWithinDays?,evidence? | `{status,respondBy,unpaidBalance}` |
+| POST | `/:id/reinstate` | approve | reason? | `{status}` |
+| PUT | `/:id/zones` | edit | zoneIds[] | `{before,after}` |
+
+Mutations are audit-logged. `DRIVER_STATUS_CHANGED` event emitted on status changes.
+
+## Public webhook
+
+| POST | `/public/webhooks/certn` | none | Certn payload | `{ok}` |
+
+## Driver app `/driver/*` (DRIVER users)
+
+| Method | Path | Request | Response |
+|---|---|---|---|
+| GET | `/profile` | - | profile + onboarding checklist |
+| PATCH | `/profile` | firstName,lastName,language,avatarUrl,vehicle fields,payoutSchedule | profile |
+| POST | `/notice/ack` | - | `{ok}` (Ontario platform worker notice) |
+| GET | `/checklist` | - | `{steps,missing,driverActions,percent,complete}` |
+| GET | `/documents` | - | `{required[],history[]}` |
+| POST | `/documents` | type,fileUrl (from `/uploads`),fileName?,expiresAt? | document (PENDING) |
+| PATCH | `/documents/:id` | fileUrl,fileName?,expiresAt? | document (reset to PENDING) |
+| PUT | `/bank` | institution,transit,accountNumber (only last 4 kept),holder,debitCardLast4 | masked bank |
+| PUT | `/tax` | sin (last 3 kept),legalName,address | masked tax info |
+| GET | `/training` | - | modules (quiz without answers) + progress |
+| POST | `/training/:moduleId/quiz` | answers[] (index per question) | `{attempt,passed,score,progress}` |
+| PUT | `/zones` | zoneIds[] (subset of approved) | `{zoneIds}` |
+| POST | `/online` | zoneId?,lat?,lng? | `{isOnline,activeZoneId}`; 400 lists blocking reasons |
+| POST | `/offline` | - | `{isOnline:false}` (blocked while on trip) |
+| POST | `/location` | lat,lng,heading?,speed?,orderId? | `{ok,onTrip,etaMin?}` (WS `driver.location` also supported) |
+| GET | `/trip/offer` | - | current pending offer or null (DispatchService) |
+| POST | `/trip/offer/:offerId/accept` | - | Order |
+| POST | `/trip/offer/:offerId/decline` | reason? | `{ok}` |
+| GET | `/trip/active` | - | tracking view (DRIVER-masked) or null |
+| POST | `/trip/:orderId/arrived-restaurant` | lat?,lng? | Order |
+| POST | `/trip/:orderId/picked-up` | code,lat?,lng? | Order (PICKED_UP) |
+| POST | `/trip/:orderId/arrived-customer` | lat?,lng? | Order |
+| POST | `/trip/:orderId/delivered` | proofPhotoUrl?,pin?,note?,lat?,lng? | Order (DELIVERED) |
+| POST | `/trip/:orderId/call` | party(CUSTOMER/RESTAURANT) | `{sessionId,proxyNumber,expiresAt,provider}` |
+| GET | `/earnings` | - | `{today,week:{trips,basePay,tips,boosts,total},unpaidBalance,lifetimeEarnings,payoutSchedule}` |
+| GET | `/trips` | page,limit,from,to | paginated trip history |
+| POST | `/cash-out` | - | Payout (PayoutsService.instantCashOut); 503 if unavailable |
+| GET | `/shifts/available` | zoneId,from,to | open slots with capacity |
+| POST | `/shifts/:slotId/book` | - | booked shift |
+| GET | `/shifts` | - | my shifts |
+| DELETE | `/shifts/:id` | - | cancelled shift |
+| GET | `/incentives` | - | active incentives applicable to me |
+| GET | `/ratings` | - | performance rates + recent reviews |
+| GET | `/heat-map` | - | zone demand/supply (same as admin) |
+| POST | `/sos` | orderId?,lat?,lng?,message? | SosAlert; ops get `sos.alert` |
+| GET | `/sos` | - | my SOS history |
+
+Realtime: `driver.status`, `driver.offer`, `driver.offer.cancelled`, `driver.supply_alert` (driver room/zone room); ops room receives `driver.location`, `driver.status`, `sos.alert`.

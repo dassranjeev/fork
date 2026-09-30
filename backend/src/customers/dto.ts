@@ -1,0 +1,209 @@
+import { Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
+  IsDateString,
+  IsEmail,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+  ValidateNested,
+} from 'class-validator';
+import { FulfilmentMode, OrderType, PaymentMethod } from '../common/enums';
+import { PageQueryDto } from '../common/pagination';
+
+// ------------------------------------------------------------------ profile
+export class UpdateProfileDto {
+  @IsOptional() @IsString() @MaxLength(80) firstName?: string;
+  @IsOptional() @IsString() @MaxLength(80) lastName?: string;
+  @IsOptional() @IsIn(['en', 'fr']) language?: string;
+  @IsOptional() @IsString() avatarUrl?: string | null;
+}
+
+export class SetDietaryDto {
+  @IsOptional() @IsArray() @ArrayMaxSize(30) @IsString({ each: true }) dietaryPreferences?: string[];
+  @IsOptional() @IsArray() @ArrayMaxSize(30) @IsString({ each: true }) allergens?: string[];
+}
+
+export class SetConsentsDto {
+  @IsOptional() @IsBoolean() marketingEmail?: boolean;
+  @IsOptional() @IsBoolean() marketingSms?: boolean;
+  @IsOptional() @IsBoolean() push?: boolean;
+}
+
+export class SetNotificationPrefsDto {
+  @IsOptional() @IsBoolean() orderUpdates?: boolean;
+  @IsOptional() @IsBoolean() promotions?: boolean;
+  @IsOptional() @IsBoolean() newsletters?: boolean;
+  @IsOptional() @IsBoolean() driverMessages?: boolean;
+}
+
+export class GuestUpgradeDto {
+  @IsString() @MinLength(8) password: string;
+  @IsOptional() @IsString() firstName?: string;
+  @IsOptional() @IsString() lastName?: string;
+  @IsOptional() @IsString() phone?: string;
+}
+
+// ------------------------------------------------------------------ addresses
+export class AddressDto {
+  @IsOptional() @IsString() @MaxLength(40) label?: string;
+  @IsString() @IsNotEmpty() line1: string;
+  @IsOptional() @IsString() line2?: string | null;
+  @IsString() @IsNotEmpty() city: string;
+  @IsOptional() @IsString() province?: string;
+  @IsString() @IsNotEmpty() postalCode: string;
+  @IsOptional() @IsNumber() @Min(-90) @Max(90) lat?: number | null;
+  @IsOptional() @IsNumber() @Min(-180) @Max(180) lng?: number | null;
+  @IsOptional() @IsString() dropoffNotes?: string | null;
+  @IsOptional() @IsBoolean() isDefault?: boolean;
+}
+
+export class UpdateAddressDto {
+  @IsOptional() @IsString() @MaxLength(40) label?: string;
+  @IsOptional() @IsString() line1?: string;
+  @IsOptional() @IsString() line2?: string | null;
+  @IsOptional() @IsString() city?: string;
+  @IsOptional() @IsString() province?: string;
+  @IsOptional() @IsString() postalCode?: string;
+  @IsOptional() @IsNumber() @Min(-90) @Max(90) lat?: number | null;
+  @IsOptional() @IsNumber() @Min(-180) @Max(180) lng?: number | null;
+  @IsOptional() @IsString() dropoffNotes?: string | null;
+  @IsOptional() @IsBoolean() isDefault?: boolean;
+}
+
+// ------------------------------------------------------------------ cart
+export class CartItemDto {
+  @IsUUID() menuItemId: string;
+  @IsInt() @Min(1) @Max(50) quantity: number;
+  @IsOptional() @IsArray() @IsUUID('all', { each: true }) modifierOptionIds?: string[];
+  @IsOptional() @IsString() @MaxLength(300) notes?: string;
+}
+
+export class ReplaceCartDto {
+  @IsUUID() restaurantId: string;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CartItemDto)
+  items: CartItemDto[];
+  @IsOptional() @IsString() promoCode?: string | null;
+}
+
+export class AddCartItemDto extends CartItemDto {
+  @IsOptional() @IsUUID() restaurantId?: string;
+  @IsOptional() @IsBoolean() replaceCart?: boolean;
+}
+
+export class UpdateCartItemDto {
+  @IsOptional() @IsInt() @Min(0) @Max(50) quantity?: number;
+  @IsOptional() @IsArray() @IsUUID('all', { each: true }) modifierOptionIds?: string[];
+  @IsOptional() @IsString() @MaxLength(300) notes?: string;
+}
+
+export class SetPromoDto {
+  @IsOptional() @IsString() code?: string | null;
+}
+
+// ------------------------------------------------------------------ checkout
+export class CheckoutQuoteDto {
+  @IsIn(Object.values(OrderType)) type: OrderType;
+  @IsOptional() @IsIn(Object.values(FulfilmentMode)) fulfilment?: FulfilmentMode;
+  @IsOptional() @IsUUID() addressId?: string;
+  @IsOptional() @IsNumber() lat?: number;
+  @IsOptional() @IsNumber() lng?: number;
+  @IsOptional() @IsNumber() @Min(0) tip?: number;
+  @IsOptional() @IsBoolean() useWallet?: boolean;
+  @IsOptional() @IsString() promoCode?: string;
+  @IsOptional() @IsDateString() scheduledFor?: string;
+}
+
+export class PlaceOrderDto extends CheckoutQuoteDto {
+  @IsIn(Object.values(PaymentMethod)) paymentMethod: PaymentMethod;
+  @IsOptional() @IsString() paymentToken?: string;
+  @IsOptional() @IsString() giftCardCode?: string;
+  @IsOptional() @IsBoolean() contactless?: boolean;
+  @IsOptional() @IsString() @MaxLength(1000) customerNotes?: string;
+}
+
+// ------------------------------------------------------------------ orders
+export class TipDto {
+  @IsNumber() @Min(0) tip: number;
+}
+
+export class ReviewDto {
+  @IsOptional() @IsInt() @Min(1) @Max(5) restaurantRating?: number;
+  @IsOptional() @IsInt() @Min(1) @Max(5) driverRating?: number;
+  @IsOptional() @IsArray() @IsString({ each: true }) restaurantTags?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) driverTags?: string[];
+  @IsOptional() @IsString() @MaxLength(1000) comment?: string;
+  @IsOptional() @IsString() @MaxLength(1000) driverComment?: string;
+}
+
+export class ItemRemovalResponseDto {
+  @IsBoolean() approve: boolean;
+}
+
+export class CustomerOrdersQuery extends PageQueryDto {
+  @IsOptional() @IsString() status?: string;
+}
+
+// ------------------------------------------------------------------ privacy (PIPEDA)
+export class DataRequestDto {
+  @IsIn(['ACCESS', 'CORRECTION', 'CONSENT_WITHDRAWAL']) type: 'ACCESS' | 'CORRECTION' | 'CONSENT_WITHDRAWAL';
+  @IsOptional() @IsString() @MaxLength(1000) notes?: string;
+}
+
+export class DeletionRequestDto {
+  @IsOptional() @IsString() @MaxLength(1000) reason?: string;
+}
+
+// ------------------------------------------------------------------ guest checkout
+export class GuestSessionDto {
+  @IsEmail() email: string;
+  @IsOptional() @IsString() phone?: string;
+  @IsOptional() @IsString() firstName?: string;
+  @IsOptional() @IsString() lastName?: string;
+}
+
+// ------------------------------------------------------------------ admin
+export class AdminCustomerListQuery extends PageQueryDto {
+  @IsOptional() @IsIn(['true', 'false']) blocked?: string;
+  @IsOptional() @IsIn(['true', 'false']) fraudFlag?: string;
+}
+
+export class WalletAdjustDto {
+  /** positive = credit, negative = debit */
+  @IsNumber() amount: number;
+  @IsString() @IsNotEmpty() @MaxLength(500) reason: string;
+}
+
+export class BlockCustomerDto {
+  @IsString() @IsNotEmpty() @MaxLength(500) reason: string;
+}
+
+export class SetFlagsDto {
+  @IsOptional() @IsBoolean() fraudFlag?: boolean;
+  @IsOptional() @IsString() @MaxLength(60) addFlag?: string;
+  @IsOptional() @IsString() @MaxLength(60) removeFlag?: string;
+}
+
+export class SetNotesDto {
+  @IsString() @MaxLength(2000) note: string;
+}
+
+export class ApproveDataRequestDto {
+  @IsOptional() @IsString() @MaxLength(1000) notes?: string;
+}
+
+export class RejectDataRequestDto {
+  @IsString() @MaxLength(1000) reason: string;
+}

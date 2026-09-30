@@ -1,0 +1,475 @@
+
+=== PAGE 1 ===
+FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+FORKSY — FOOD DELIVERY NETWORK
+SOPs, Requirements & Functions
+Complete workflow and functional specification for the FORKSY platform — Admin Console, Restaurant Portal & Kitchen 
+Display, Driver App and Customer App — with standard operating procedures and a phased launch roadmap. Prepared 
+by Ranjeev Wassan, JDASS Corp · September 28, 2026.
+Applications Staff roles (RBAC) Standard procedures Time to pilot-ready
+4 + 1 API 9 10 SOPs ~26 wks
+At a glance  A three-sided food delivery marketplace connecting customers, restaurants and drivers, run from one Admin 
+Console. Delivery + pickup MVP → one-city Ontario pilot by week 27 → scale from month 9.
+Contents
+01 Project overview 08 Payments, commissions & payouts
+02 System architecture 09 Notifications, support & refunds
+03 Admin Console: Super Admin & staff 10 Security, compliance & NFRs
+04 Restaurant Portal & Kitchen Management 11 Integrations & tech stack
+05 Driver App & order assignment 12 Reporting & analytics
+06 Customer App & website 13 Standard Operating Procedures
+07 End-to-end order lifecycle 14 Roadmap, MVP & open decisions
+01  Project overview
+Purpose, scope and the applications that make up the FORKSY ecosystem.
+Key point  FORKSY supports delivery, pickup and scheduled orders, launching in Ontario with CAD pricing, HST handling and 
+English/French readiness.
+Objective: give restaurants a lower-cost, better-controlled alternative to SkipTheDishes, Uber Eats and DoorDash, with transparent 
+commissions, their own kitchen tools and faster payouts.
+# Application Users Platform
+1 Admin Console Super Admin, internal staff by role Web (desktop-first)
+2 Restaurant Portal + Kitchen Display (KDS) Owners, managers, cashiers, kitchen staff Web + tablet app
+3 Driver App Independent / fleet drivers iOS + Android
+4 Customer App + Website Consumers, corporate accounts iOS + Android + responsive web
+5 Core API & services All apps Cloud backend
+In scope: ordering, dispatch, live tracking, payments and payouts, promotions, support, reporting, multi-city and multi-zone 
+operations.
+Out of scope for v1: grocery/convenience delivery, alcohol delivery (licensing-dependent), drone/robot delivery, in-house POS 
+hardware.
+Page 1 of 14
+=== PAGE 2 ===
+FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+02  System architecture
+All four apps talk to one API — no app holds business rules of its own.
+Figure 1 — FORKSY system architecture: 4 apps, 1 gateway, 8 core services
+Order status changes are pushed to every party in real time over WebSockets, with push notifications and SMS as fallbacks. Each 
+service owns its own data and emits events (e.g. order.accepted, driver.assigned) that other services subscribe to.
+03  Admin Console: Super Admin & staff
+Every setting, user and transaction on the platform — controlled by role-based permissions.
+Key point  Access is limited by role-based permissions (RBAC), and every action is written to a non-editable audit log.
+3.1  Staff roles and access
+Role Primary responsibility Key permissions Restricted from
+Super Admin Owns the platform Everything, incl. roles, commission rules, payout 
+release, system config None
+Operations Manager City/zone performance Zones, delivery fees, restaurant & driver approvals, 
+live ops map Role creation, system config
+Dispatcher Live order flow Live map, manual driver assignment, order status 
+overrides Financials, user deletion
+Customer Support Agent Customer tickets View orders, refunds up to set limit, credits, chat/call 
+customers Commission, payouts, config
+Restaurant Success Mgr Merchant onboarding & 
+health
+Onboarding, menu review, merchant tickets, promo 
+setup Driver data, payouts
+Page 2 of 14
+=== PAGE 3 ===
+FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+Role Primary responsibility Key permissions Restricted from
+Driver Operations Driver fleet Onboarding, document checks, deactivation, 
+incentives Restaurant financials
+Finance Manager Money in and out Settlements, payouts, refunds above limit, invoices, 
+tax reports Order dispatch, config
+Marketing Manager Growth Promo codes, banners, push campaigns, loyalty rules Refunds, payouts
+Analyst (read-only) Reporting All dashboards and exports Any write action
+Roles are editable: the Super Admin can clone a role, toggle permissions per module (view / create / edit / delete / approve / 
+export) and scope a role to specific cities or zones.
+3.2  Admin modules and functions
+▪ Dashboard: live orders, GMV, active drivers, late orders, cancellations, open tickets, by city/zone.
+▪ Live Operations Map: every active order and driver in real time; colour flags for delays; drag-to-reassign.
+▪ Order Management: search/filter all orders; view timeline; edit, cancel, refund, reassign; force status.
+▪ Restaurant Management: applications, KYC/documents, approval, commission tier, menus, hours, pause/suspend, ratings.
+▪ Driver Management: applications, background checks, licence/insurance/vehicle docs with expiry alerts, zones, ratings, 
+deactivation.
+▪ Customer Management: profiles, order history, wallet/credits, block/fraud flags, account deletion requests.
+▪ Zones & Geofencing: city/zone polygons; delivery radius, base fee, per-km fee, minimum order, service hours.
+▪ Pricing & Commission Rules: commission % per restaurant or tier, service fee, small-order fee, busy-time multipliers.
+▪ Promotions & Marketing: promo codes, platform- vs restaurant-funded discounts, free delivery, banners, push, referrals.
+▪ Finance: settlements, payout batches, refunds ledger, HST reports, invoices, Stripe reconciliation.
+▪ Support & Disputes: ticket queue, live chat, refund approvals, escalation rules, SLA timers.
+▪ Content & CMS: cuisines, categories, banners, FAQ, legal pages, email/SMS templates.
+▪ Settings: app versions, feature flags, gateway and map keys, notification rules, languages, taxes.
+▪ Audit Log: who changed what, when, from which IP; non-editable, retained 7 years.
+04  Restaurant Portal & Kitchen Management
+A web portal for owners and managers plus a tablet Kitchen Display System, for single and multi-location brands.
+4.1  Restaurant user roles
+Role Access
+Owner All locations, financials, payouts, bank details, staff, commission statements
+Location Manager One location: menu, hours, orders, staff, reports
+Cashier / Front-of-house Accept/reject orders, pickup handoff, mark items out of stock
+Kitchen Staff KDS only: view tickets, bump items/orders to Ready
+4.2  Onboarding
+1. Restaurant applies (business name, address, cuisine, HST number, contact).
+2. Uploads documents: business licence, health certificate, void cheque/bank details, menu and photos.
+3. Restaurant Success Manager reviews, sets commission tier, geo-pins the location.
+4. Menu built or imported (CSV/POS sync), reviewed, then published.
+Page 3 of 14
+=== PAGE 4 ===
+FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+5. Test order completed; restaurant goes live and tablet is activated.
+4.3  Menu management
+▪ Categories, items, photos, descriptions, prices, tax class, calorie/allergen tags.
+▪ Modifier groups (size, add-ons, spice level) with required/optional and min/max rules.
+▪ Combos and meal deals; item availability by daypart (breakfast, lunch, late night).
+▪ One-tap 86 / out of stock on items and modifiers, auto-restock next day.
+▪ Separate pricing for delivery vs pickup (optional).
+4.4  Fulfilment modes
+Mode Flow Restaurant settings
+Delivery (FORKSY drivers) FORKSY dispatches a driver to pick up Prep time, delivery radius, minimum order
+Delivery (restaurant's own drivers) Restaurant delivers; FORKSY tracks Own-fleet fee, radius, lower commission tier
+Pickup / Takeout Customer collects with order code Pickup prep time, instructions, parking notes
+Scheduled Order placed for a later slot Slots per 15 min, max orders per slot, lead time
+Dine-in / QR (phase 3) Table QR order to kitchen Table map, service charge
+4.5  Order management
+▪ New orders ring on tablet and portal until actioned; auto-reject after 3 min (default).
+▪ Accept with prep time (+5/+10/+15 min), or reject with reason (busy, item unavailable, closing).
+▪ Partial fulfilment: remove an unavailable item, trigger customer approval and partial refund.
+▪ Busy mode: add prep time to all orders or pause new orders for 15/30/60 min.
+▪ Order history, reprint receipts, customer notes, allergy flags highlighted.
+▪ Driver ETA to restaurant shown on each ticket; handoff confirmed by order code.
+4.6  Kitchen Display System (KDS)
+▪ Tickets in columns: New → Preparing → Ready → Picked up.
+▪ Colour timers per ticket (green on time, amber near due, red late).
+▪ Station routing: items split to grill, fryer, cold, drinks; each station bumps its own items.
+▪ Prep-time targets per item; kitchen load indicator feeds the quoted ETA.
+▪ Kitchen and receipt printer support, large-font mode, offline queue if Wi-Fi drops.
+4.7  Restaurant business tools
+▪ Store hours, holiday hours, temporary closures.
+▪ Sales reports: orders, gross sales, commission, fees, refunds, net payout, top items, peak hours.
+▪ Payout statements (weekly, or daily instant payout), downloadable invoices.
+▪ Ratings and reviews with reply function; self-serve promotions (% off, BOGO, free item, free delivery).
+▪ POS integration (Square, Toast, Clover) to avoid double entry.
+05  Driver App & order assignment
+Drivers are auto-assigned by a scoring engine, timed to arrive as the food is ready.
+5.1  Driver onboarding
+1. Sign up: name, phone (OTP), email, city, vehicle type (car, bike, e-bike, scooter, on foot).
+Page 4 of 14
+=== PAGE 5 ===
+FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+2. Documents: driver's licence, vehicle registration, delivery-compatible insurance, photo, work eligibility.
+3. Background check through a third-party provider (e.g. Certn); results sync to Driver Operations.
+4. Bank details for payouts; T4A tax information collected.
+5. In-app training module + quiz (food safety, handoff, safety).
+6. Approval, insulated bag confirmed, account activated for chosen zones.
+5.2  Driver app functions
+▪ Go online/offline; choose zones; scheduled shifts in busy areas.
+▪ Offer card: restaurant, pickup and drop-off distance, estimated pay, 30-second accept window.
+▪ Turn-by-turn navigation (Google Maps / Waze hand-off); batched orders shown in sequence.
+▪ Status steps: Arrived at restaurant → Picked up (order code) → Arrived at customer → Delivered.
+▪ Proof of delivery: photo for contactless drop, PIN for high-value orders.
+▪ Masked call/chat with customer, restaurant and support; SOS/safety button.
+▪ Earnings: base + distance + time + tip + boosts; daily/weekly totals; instant cash-out.
+▪ Ratings, acceptance, completion and on-time rates; heat map of busy zones.
+5.3  Assignment flow
+Figure 2 — Driver assignment flow with escalation to dispatcher
+Rule  Offers go out one driver at a time with 30 seconds each. After 3 unaccepted offers the radius widens and pay is boosted; 
+after 2 widenings the order is flagged on the dispatcher's live map.
+5.4  Assignment scoring factors
+Factor What it measures Effect
+Distance to restaurant Road ETA, not straight-line Closer ranks higher
+Ready-time match Driver ETA vs kitchen ready time Driver arrives ≤ 2 min before food
+Vehicle fit Order size, distance, weather Bikes excluded from long or large orders
+Current load Orders already carried Batching if same direction and within time limit
+Page 5 of 14
+=== PAGE 6 ===
+FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+Factor What it measures Effect
+Driver performance Acceptance, on-time, rating Tie-breaker
+Fairness Time since last offer Spreads work across online drivers
+Batching rules: max 2 orders per trip, same or adjacent restaurants, second drop within 1.5 km of the first, no order held more than 
+10 extra minutes.
+Driver pay model (proposed): base fare + per-km + per-minute waiting after 5 min + 100% of tips + peak boosts; minimum per trip 
+set per city.
+06  Customer App & website
+Find food, order in under 60 seconds and track it live — iOS, Android or web, one account.
+6.1  Account and profile
+▪ Sign up with phone (OTP), email, Google or Apple; guest checkout on web.
+▪ Saved addresses with drop-off notes and map pin; saved payment methods.
+▪ Dietary preferences and allergen filters; language (EN/FR).
+▪ Order history, favourites, one-tap reorder; account deletion (privacy request).
+6.2  Discovery
+▪ Home feed by location: nearby, popular, new, deals, fastest delivery, cuisine tiles.
+▪ Search by restaurant, dish or cuisine; filters for price, rating, fee, ETA, dietary tags, pickup-only.
+▪ Restaurant page: menu, photos, ratings, hours, delivery fee, ETA, minimum order, promos.
+▪ Closed restaurants show next opening time and allow scheduled orders.
+6.3  Cart and checkout
+▪ Item customisation with modifiers and special instructions.
+▪ Single-restaurant cart (v1); group order link (phase 2).
+▪ Delivery or Pickup; ASAP or scheduled slot.
+▪ Transparent price breakdown: subtotal, delivery fee, service fee, small-order fee, HST, tip, discounts.
+▪ Card, Apple Pay, Google Pay, FORKSY wallet/credits, gift cards; promo code field.
+▪ Driver tip (10/15/20% or custom), editable up to 1 hour after delivery.
+6.4  Tracking and delivery
+▪ Live status: Placed → Accepted → Preparing → Driver at restaurant → On the way → Delivered.
+▪ Live driver map with ETA, driver name, photo, vehicle; masked call/chat.
+▪ Pickup orders: ready notification, pickup code, restaurant directions.
+▪ Contactless drop-off with photo confirmation.
+6.5  After the order
+▪ Rate restaurant and driver separately (1–5 stars + tags + comment).
+▪ Report an issue with photo upload; automated refund or credit within rules.
+▪ Loyalty (phase 2): FORKSY+ subscription, points per order, referral credits.
+▪ In-app help centre and live chat with support.
+Page 6 of 14
+=== PAGE 7 ===
+FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+07  End-to-end order lifecycle
+One shared status model — each status has one owner and a time limit that triggers escalation.
+Figure 3 — Order status lifecycle: 10 states, 3 end states
+Payment rule  Payment is authorised at Placed and captured at Delivered/Collected, so a rejected order releases the hold 
+instead of refunding a charge.
+# Status Set by Time limit (default) If breached
+1 Placed Customer — —
+2 Accepted Restaurant 3 min from Placed Auto-cancel, customer notified, hold released
+3 Driver assigned Dispatch engine Before Ready Escalate to dispatcher (5.3)
+4 Preparing Restaurant (KDS) Quoted prep time Amber at 80%, red when late; ETA updated
+5 Ready Restaurant (KDS) — —
+6 Picked up Driver (order code) 10 min after Ready Dispatcher alert; food-safety check
+7 On the way Driver app (auto) Route ETA + 10 min Support contacts customer
+8 Delivered / Collected Driver (photo/PIN) or 
+restaurant — Capture payment, trigger rating & settlement
+Cancellation rules: customers cancel free until Accepted; afterwards a fee up to the food cost applies unless the restaurant is late. 
+Restaurant cancellation after Accepted counts against its reliability score. Driver unassign after pickup requires support approval.
+Page 7 of 14
+=== PAGE 8 ===
+FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+08  Payments, commissions & payouts
+FORKSY collects the full payment, keeps its commission and fees, and pays out on a set schedule via Stripe Connect.
+8.1  Revenue streams (proposed defaults, set per city)
+Stream Paid by Proposed default
+Delivery commission Restaurant 18–25% of food subtotal (tiered)
+Pickup commission Restaurant 6–10%
+Own-driver delivery commission Restaurant 10–14%
+Delivery fee Customer Distance-based, from $1.99
+Service fee Customer 8–12%, capped
+Small-order fee Customer $2 under $15 subtotal
+FORKSY+ subscription Customer Monthly fee, free delivery over threshold
+Sponsored listings / ads Restaurant CPC or fixed placement
+8.2  Money flow per order
+1. Customer pays total (food + fees + HST + tip); card authorised at Placed.
+2. Capture on Delivered/Collected; funds land in the FORKSY platform account.
+3. Ledger split: restaurant (food + HST − commission − restaurant promos), driver (delivery pay + 100% tip), FORKSY (commission 
++ fees − platform promos).
+4. Refunds charged to the party that caused the issue (restaurant for wrong/missing items, platform for delivery failure).
+8.3  Payouts
+Party Schedule Method Statement
+Restaurants Weekly (default), daily optional Direct deposit (EFT) Order-level report + commission invoice 
+with HST
+Drivers Weekly, or instant cash-out (small 
+fee) Direct deposit / debit card Per-trip earnings; annual T4A
+8.4  Tax
+▪ Collect and remit HST on food and fees per Ontario rules; tax class set per menu item.
+▪ Commission invoices to restaurants include FORKSY's HST number.
+▪ Confirm marketplace-facilitator obligations with an accountant before launch.
+09  Notifications, support & refunds
+Every status change notifies the affected parties; most issues resolve in-app without an agent.
+9.1  Notification matrix
+Event Customer Restaurant Driver Admin / Ops
+Order placed Push + email receipt Tablet alert + sound — —
+Accepted / rejected Push — — Alert if rejection rate high
+Driver offer — — Push + in-app ring —
+Driver assigned Push with driver info Driver ETA on ticket — —
+Page 8 of 14
+=== PAGE 9 ===
+FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+Event Customer Restaurant Driver Admin / Ops
+Order late Push with new ETA KDS red flag Push Live-map flag
+Picked up / delivered Push + photo Ticket closed Earnings update —
+No driver found Push (delay notice) Ticket flag — Dispatcher alert
+Document expiring — Email (licences) Push + email Task in queue
+Payout sent — Email statement Push + email Finance log
+Channels: push (FCM/APNs), SMS (Twilio) for OTP and critical alerts, email (SendGrid) for receipts and statements, in-app inbox.
+9.2  Support tiers
+1. Self-serve: in-app issue reporting with automatic rules (e.g. missing item under $15, good history → instant credit).
+2. Tier 1 agent: live chat/call; refunds up to $50; credits; order reassignment.
+3. Tier 2 / supervisor: refunds above $50, fraud, restaurant or driver disputes, account bans.
+4. Finance: chargebacks, payout disputes, commission corrections.
+9.3  Refund and dispute rules
+Issue Evidence Default resolution Charged to
+Missing / wrong item Photo, order ticket Item refund or credit Restaurant
+Order never arrived Driver GPS, delivery photo Full refund if GPS/photo don't confirm Platform or driver (repeat)
+Very late (> 30 min past ETA) Timestamps Delivery fee refund + credit Platform
+Food quality Photo, rating Partial credit, case reviewed Restaurant
+Restaurant cancelled after Accepted Timestamps Full refund Restaurant (reliability score)
+Fraud controls: refund frequency limits per account, device fingerprinting, flagged accounts routed to Tier 2.
+10  Security, compliance & NFRs
+Security and Canadian privacy compliance are launch requirements, not later additions.
+10.1  Security
+▪ Card data never touches FORKSY servers (Stripe tokenisation) — PCI DSS SAQ-A scope.
+▪ 2FA mandatory for staff and restaurant owners; SSO for internal staff.
+▪ Encryption in transit (TLS 1.2+) and at rest; secrets in a managed vault.
+▪ Masked phone numbers; driver sees exact address only after pickup.
+▪ Rate limiting, bot protection on sign-up/checkout, annual penetration test.
+10.2  Compliance (Canada / Ontario)
+Area Requirement
+Privacy PIPEDA: consent, purpose limits, access and deletion requests, breach reporting
+Anti-spam CASL: opt-in consent for marketing email/SMS, unsubscribe in every message
+Accessibility AODA / WCAG 2.1 AA for web and apps
+Language French support if expanding to Quebec (Bill 96)
+Page 9 of 14
+=== PAGE 10 ===
+FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+Area Requirement
+Gig workers Ontario Digital Platform Workers' Rights Act: pay transparency, minimum pay, deactivation notice
+Food safety Valid municipal health permits; insulated bags required
+Tax HST registration and remittance; T4A for drivers
+Action required  Have legal counsel confirm each compliance item above before launch.
+10.3  Non-functional requirements
+Requirement Target
+Availability 99.9% monthly uptime for ordering and dispatch
+API response p95 under 300 ms
+Live tracking refresh Driver location every 4–5 s while on a trip
+Scale (year 1) 5,000 concurrent users, 500 orders/hour peak, horizontal scaling
+Data backups Daily full + point-in-time recovery, 30-day retention
+Disaster recovery RPO 15 min, RTO 1 hour
+App quality 4.5+ star rating; 99.5% crash-free sessions
+Localisation EN/FR, CAD, metric, time zones per city
+11  Integrations & tech stack
+One shared mobile codebase and managed cloud services, so a small team can build and run it.
+Layer Recommendation Alternatives
+Mobile apps (customer, driver, KDS) React Native or Flutter Native Swift / Kotlin
+Web (site, restaurant portal, admin) Next.js (React) Vue / Nuxt
+Backend API Node.js (NestJS) or Python (FastAPI) Laravel, Go
+Real-time WebSockets (Socket.IO) + Redis pub/sub Firebase, Ably
+Database PostgreSQL + PostGIS MySQL
+Cache / queues Redis, BullMQ or SQS RabbitMQ, Kafka at scale
+Search OpenSearch or Algolia Postgres full-text (MVP)
+Hosting AWS ca-central-1 (Canadian data residency) GCP Montreal/Toronto, Azure Canada
+Payments Stripe Connect Moneris, Adyen
+Maps, routing, ETA Google Maps Platform Mapbox, HERE
+SMS, masked calls Twilio Vonage
+Push Firebase Cloud Messaging + APNs OneSignal
+Email SendGrid Amazon SES, Postmark
+Background checks Certn Sterling
+POS integration Square, Toast, Clover; Deliverect Otter
+Analytics Mixpanel or GA4 + BigQuery Amplitude
+Monitoring Sentry, Datadog / CloudWatch New Relic, Grafana
+Page 10 of 14
+=== PAGE 11 ===
+FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+All external integrations sit behind internal adapters, so a provider can be swapped without changing the apps.
+12  Reporting & analytics
+Every dashboard is fed from one data warehouse, so figures match across Admin, restaurant and finance views.
+Dashboard Audience Key metrics Refresh
+Executive Super Admin GMV, net revenue, take rate, orders, AOV, active customers, CAC, 
+LTV, margin per order Daily
+Live Operations Ops, Dispatch Active & late orders, avg delivery time, unassigned orders, drivers 
+vs demand by zone Real time
+Restaurant Performance Ops, Restaurant 
+Success
+Acceptance rate, prep accuracy, cancellations, ratings, error rate, 
+sales Daily
+Driver Performance Driver Ops Acceptance, completion, on-time %, earnings/hour, utilisation, 
+ratings Daily
+Customer & Growth Marketing New vs returning, retention cohorts, promo ROI, referrals, app 
+funnel Daily
+Finance Finance Settlements, payouts, refunds by cause, chargebacks, HST 
+collected, reconciliation
+Daily + month-
+end
+Support Support leads Tickets per 100 orders, first response, resolution time, refund $ by 
+agent Real time
+Restaurant self-serve Restaurant owners Sales, top items, peak hours, ratings, payouts, promo results Real time
+All reports export to CSV/Excel; scheduled email reports can be set per dashboard.
+13  Standard Operating Procedures
+Ten SOPs cover daily operation. Each has one owning role and is reviewed quarterly.
+SOP Title Owner Frequency
+SOP-01 Restaurant onboarding and go-live Restaurant Success Manager Per restaurant
+SOP-02 Driver onboarding and activation Driver Operations Per driver
+SOP-03 Daily operations open/close Operations Manager Daily
+SOP-04 Live order monitoring and dispatch Dispatcher Continuous
+SOP-05 Late / stuck order handling Dispatcher + Support Per incident
+SOP-06 Customer complaint and refund Support Agent Per ticket
+SOP-07 Restaurant and driver payouts Finance Manager Weekly
+SOP-08 Deactivation and account review Driver Ops / Restaurant Success Per case
+SOP-09 Staff access and role changes Super Admin Per change + quarterly
+SOP-10 Incident and outage response Super Admin / Tech Lead Per incident
+SOP-01  Restaurant onboarding and go-live
+1. Verify business registration, HST number and health permit within 2 business days.
+2. Call to confirm fulfilment modes, hours, prep times and commission tier; send agreement for e-signature.
+3. Build or import menu; check prices, modifiers, photos, allergen tags and tax classes.
+Page 11 of 14
+=== PAGE 12 ===
+FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+4. Activate tablet; train staff on accepting orders, 86-ing items and KDS (30 min).
+5. Place a test order end to end; confirm payout bank details with a micro-deposit.
+6. Set status to Live; add to launch promo if applicable; follow up after 7 days.
+SOP-02  Driver onboarding and activation
+1. Review application and documents; reject blurry or expired documents with a reason.
+2. Run background check; wait for a Clear result before continuing.
+3. Confirm insurance covers delivery use; record expiry dates for automatic reminders.
+4. Driver completes training module and quiz (80% pass mark).
+5. Activate for zones; send welcome message with first-week boost.
+SOP-03  Daily operations open/close
+1. Open (1 hour before first restaurant opens): check system health, payment gateway status and driver supply forecast per 
+zone.
+2. Send supply alerts or boosts to drivers for zones predicted short.
+3. Call restaurants whose tablets are not online at opening time.
+4. Close: confirm no open orders; review late, cancelled and refunded orders; log incidents; hand over notes.
+SOP-04  Live order monitoring and dispatch
+1. Keep the Live Operations Map open; act on every red flag within 2 minutes.
+2. Unassigned orders after escalation: assign manually, call nearby drivers, or offer pickup/credit.
+3. Restaurant not accepting: call at 2 minutes; pause the store if unreachable.
+4. Busy zones: adjust radius limits or turn on busy-mode fees per the zone playbook.
+SOP-05  Late or stuck order handling
+1. Identify cause: kitchen delay, no driver, driver stalled, or address issue.
+2. Contact the responsible party (masked call); update customer ETA in the app.
+3. Driver stationary > 10 min with food: call; if unreachable, reassign and flag account.
+4. Order > 30 min past ETA: apply standard credit proactively; log reason code.
+SOP-06  Customer complaint and refund
+1. Open ticket; verify order, timestamps, GPS trail and photos.
+2. Apply the refund rule table (9.3); stay within agent limit, else escalate.
+3. Record reason code and the party charged; notify restaurant or driver.
+4. Close with customer confirmation; check account for refund-frequency flags.
+SOP-07  Restaurant and driver payouts
+1. Monday: lock the previous week's ledger (Mon–Sun).
+2. Reconcile captured payments vs Stripe balance; resolve gaps over $1.
+3. Review adjustments: refunds charged to restaurants, disputes, bonuses.
+4. Finance Manager approves; Super Admin releases batches over the set threshold.
+5. Payouts sent by Wednesday; statements emailed automatically; exceptions logged.
+SOP-08  Deactivation and account review
+1. Triggers: low rating, fraud flag, safety complaint, expired documents, repeated cancellations.
+2. Notify in writing with the reason and time to respond (per Ontario gig-worker rules).
+Page 12 of 14
+=== PAGE 13 ===
+FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+3. Review evidence; reinstate, warn, suspend or deactivate; record decision and reviewer.
+4. Offer an appeal route; finalise payout of any money owed.
+SOP-09  Staff access and role changes
+1. Access requests by ticket with manager approval; grant the lowest role that covers the job.
+2. Remove access the same day a staff member leaves.
+3. Quarterly: export the user–role list, confirm with managers, remove unused accounts.
+SOP-10  Incident and outage response
+1. Classify: P1 (ordering or payments down), P2 (feature degraded), P3 (minor).
+2. P1: page on-call engineer within 5 min; status banner in all apps; pause new orders if payments fail.
+3. Update stakeholders every 30 min until resolved.
+4. Credit affected customers, compensate lost orders, write a post-incident report within 48 hours.
+14  Roadmap, MVP & open decisions
+Build a delivery + pickup MVP, pilot it in one Ontario city, and expand once pilot KPIs hold for four straight weeks.
+Figure 4 — Phased roadmap with decision gates (proposed; not to scale)
+14.1  MVP scope (Phase 1)
+▪ Customer: sign-up, discovery, search, cart, checkout (card/Apple/Google Pay), delivery + pickup, live tracking, ratings, issue 
+reporting.
+▪ Restaurant: onboarding, menu with modifiers, accept/reject, prep time, busy mode, basic KDS, sales and payout reports.
+▪ Driver: onboarding + documents, offers, navigation hand-off, status steps, proof of delivery, earnings.
+▪ Admin: RBAC, dashboard, live map, order/restaurant/driver/customer management, zones and fees, commissions, promos, 
+refunds, payouts, audit log.
+▪ Deferred: group orders, subscription, POS integrations, batching, dine-in QR, ads, scheduled driver shifts.
+14.2  Pilot exit KPIs (Gate 3)
+Avg delivery time On-time delivery Restaurant acceptance Orders with an issue
+≤ 40 min ≥ 90% ≥ 95% ≤ 3%
+Page 13 of 14
+=== PAGE 14 ===
+FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+KPI Target
+Unassigned-order escalations ≤ 2%
+Customer repeat rate within 30 days ≥ 35%
+Contribution margin per order Positive
+14.3  Open decisions
+# Decision needed Status
+1 Pilot city and zones (e.g. Vaughan, Mississauga or another GTA area) Open
+2 Build in-house or with an outsourced dev partner Open
+3 React Native or Flutter for mobile apps Open
+4 Final commission tiers and customer fee levels Open
+5 Drivers as independent contractors only, or partial employed fleet Open
+6 Insurance provider for delivery-use coverage Open
+7 Launch with French in apps, or English first Open
+8 Alcohol delivery: pursue AGCO licensing in Phase 3 or not Open
+Commission rates, fees and timelines are proposed starting values for review. Compliance items require confirmation by legal counsel before launch.
+Page 14 of 14

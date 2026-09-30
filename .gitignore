@@ -1,0 +1,20 @@
+node_modules/
+dist/
+build/
+coverage/
+uploads/
+
+# secrets / local config
+.env
+.env.*
+!.env.example
+
+# embedded Postgres data + logs
+tools/pg/data/
+*.log
+.boot*.log
+.admin.log
+
+# editor / assistant local state
+.claude/
+.DS_Store

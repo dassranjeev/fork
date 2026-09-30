@@ -1,0 +1,308 @@
+/**
+ * Cross-module contracts. Feature modules are built independently against these interfaces.
+ * Concrete classes live at the paths listed in docs/ARCHITECTURE.md and are provided by @Global() modules,
+ * so any module can simply inject them without importing the owning module.
+ */
+import {
+  ActorType,
+  FulfilmentMode,
+  LedgerType,
+  OrderStatus,
+  OrderType,
+  PartyType,
+  PaymentMethod,
+  RefundChargedTo,
+  RefundType,
+} from './enums';
+import { Order, Payout, Promotion, Refund } from '../database/entities';
+
+export interface ActorRef {
+  type: ActorType;
+  /** users.id of the actor (null for SYSTEM) */
+  id?: string | null;
+  name?: string;
+  ip?: string;
+  /** STAFF only: support approval granted (needed to unassign a driver after pickup). */
+  supportApproved?: boolean;
+}
+
+// ------------------------------------------------------------------ pricing / checkout
+export interface QuoteItemInput {
+  menuItemId: string;
+  quantity: number;
+  modifierOptionIds?: string[];
+  notes?: string;
+}
+
+export interface QuoteInput {
+  customerId?: string;
+  restaurantId: string;
+  type: OrderType;
+  /** default: PLATFORM_DRIVER for DELIVERY (or OWN_DRIVER when restaurant ownDeliveryEnabled and requested), PICKUP for PICKUP */
+  fulfilment?: FulfilmentMode;
+  items: QuoteItemInput[];
+  deliveryAddress?: { lat: number; lng: number };
+  promoCode?: string;
+  /** tip in CAD */
+  tip?: number;
+  /** apply FORKSY wallet balance */
+  useWallet?: boolean;
+  scheduledFor?: Date | null;
+}
+
+export interface QuoteLine {
+  menuItemId: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  taxAmount: number;
+  taxClassCode: string | null;
+  modifiers: { groupName: string; optionId: string; name: string; priceDelta: number }[];
+  notes?: string;
+  stationId?: string | null;
+  allergens: string[];
+}
+
+export interface Quote {
+  restaurantId: string;
+  type: OrderType;
+  fulfilment: FulfilmentMode;
+  lines: QuoteLine[];
+  subtotal: number;
+  deliveryFee: number;
+  serviceFee: number;
+  smallOrderFee: number;
+  taxAmount: number;
+  tip: number;
+  discountTotal: number;
+  platformPromoAmount: number;
+  restaurantPromoAmount: number;
+  promotion?: { id: string; code: string | null; name: string } | null;
+  walletUsed: number;
+  total: number; // card amount = total - walletUsed
+  distanceKm: number | null;
+  prepTimeMin: number;
+  etaMinutes: number | null;
+  zoneId: string | null;
+  cityId: string | null;
+  commissionPct: number;
+  commissionAmount: number;
+  restaurantPayout: number;
+  warnings: string[];
+}
+
+export interface PlaceOrderInput extends QuoteInput {
+  addressId?: string;
+  deliveryAddress?: { lat: number; lng: number; line1?: string; line2?: string; city?: string; province?: string; postalCode?: string; dropoffNotes?: string; label?: string };
+  paymentMethod: PaymentMethod;
+  /** Stripe PaymentMethod id / token from the app; never raw card data */
+  paymentToken?: string;
+  giftCardCode?: string;
+  contactless?: boolean;
+  customerNotes?: string;
+  source?: 'app' | 'web' | 'admin' | 'phone';
+}
+
+export interface TransitionOpts {
+  reason?: string;
+  note?: string;
+  /** restaurant accept: prep time in minutes (else restaurant default) */
+  prepTimeMin?: number;
+  /** staff override: ignore transition rules and time limits */
+  force?: boolean;
+  /** driver actions */
+  code?: string; // pickup code / PIN
+  proofPhotoUrl?: string;
+  lat?: number;
+  lng?: number;
+}
+
+// ------------------------------------------------------------------ service interfaces
+export interface IPricingService {
+  quote(input: QuoteInput): Promise<Quote>;
+  /** commission % for a restaurant + fulfilment (restaurant override -> tier -> default) */
+  commissionPct(restaurantId: string, fulfilment: FulfilmentMode): Promise<number>;
+  /** estimated driver pay for a trip (base + per-km + waiting; zone/city rules; incentives). */
+  driverPay(input: { cityId?: string | null; zoneId?: string | null; pickupKm: number; dropKm: number; waitMin?: number; tip?: number; at?: Date }): Promise<{ base: number; boost: number; total: number }>;
+}
+
+export interface IOrdersService {
+  placeOrder(customerId: string, input: PlaceOrderInput): Promise<Order>;
+  getById(id: string, relations?: string[]): Promise<Order>;
+  /** Single entry point for every status change (validates transition, owner, time limits, writes OrderEvent, emits realtime, notifies, triggers payment capture/settlement). */
+  transition(orderId: string, to: OrderStatus, actor: ActorRef, opts?: TransitionOpts): Promise<Order>;
+  cancel(orderId: string, actor: ActorRef, reason: string): Promise<Order>;
+  /** Restaurant removes an unavailable item -> customer approval + partial refund flow */
+  removeItem(orderId: string, orderItemId: string, actor: ActorRef, reason: string): Promise<Order>;
+  addEvent(orderId: string, type: string, actor: ActorRef, note?: string, data?: Record<string, any>): Promise<void>;
+  /** update ETA, emit order.eta */
+  setEta(orderId: string, estimatedReadyAt?: Date | null, estimatedDeliveryAt?: Date | null): Promise<void>;
+  updateTip(orderId: string, customerId: string, tip: number): Promise<Order>;
+  /** manual (dispatcher) or automatic assignment; driverId is DriverProfile.id */
+  assignDriver(orderId: string, driverId: string, actor: ActorRef, opts?: { boost?: number }): Promise<Order>;
+  unassignDriver(orderId: string, actor: ActorRef, reason: string): Promise<Order>;
+  /** Snapshot for the live map and tracking screens. `viewer` masks fields; omitted = full internal view. */
+  trackingView(orderId: string, viewer?: 'CUSTOMER' | 'DRIVER' | 'RESTAURANT' | 'STAFF'): Promise<any>;
+  /** Driver arrival markers (Arrived at restaurant / Arrived at customer). Does not change the order status. */
+  driverArrived(orderId: string, stage: 'RESTAURANT' | 'CUSTOMER', actor: ActorRef, opts?: { lat?: number; lng?: number }): Promise<Order>;
+  /** Customer answers a partial-fulfilment (item removed) approval request. */
+  respondToItemRemoval(orderId: string, customerId: string, approve: boolean): Promise<Order>;
+}
+
+export interface IDispatchService {
+  /** Start (or restart) the offer loop for an order that needs a platform driver. */
+  startDispatch(orderId: string): Promise<void>;
+  cancelDispatch(orderId: string, reason?: string): Promise<void>;
+  acceptOffer(offerId: string, driverId: string): Promise<Order>;
+  declineOffer(offerId: string, driverId: string, reason?: string): Promise<void>;
+  /** pending offer (if any) for a driver profile */
+  currentOffer(driverId: string): Promise<any | null>;
+  /** Ranked candidate drivers with score breakdown (used by admin manual assignment UI) */
+  candidates(orderId: string, limit?: number): Promise<{ driverId: string; name: string; distanceKm: number; etaMin: number; score: number; breakdown: Record<string, number> }[]>;
+}
+
+export interface IPaymentsService {
+  /** Authorise (hold) at PLACED. Returns provider intent id / client secret if the app must confirm. */
+  authorize(order: Order, opts: { paymentToken?: string; amount: number; customerEmail?: string | null }): Promise<{ ok: boolean; intentId?: string; clientSecret?: string; error?: string }>;
+  capture(order: Order, amount?: number): Promise<void>;
+  release(order: Order): Promise<void>;
+  refund(order: Order, amount: number, reason?: string): Promise<{ externalId?: string }>;
+  adjustTip(order: Order, newTip: number): Promise<void>;
+  /** Saved cards (Stripe customer). Card data never touches our servers. */
+  createSetupIntent(customerId: string): Promise<{ clientSecret: string; customerId?: string }>;
+  listPaymentMethods(customerId: string): Promise<{ id: string; brand: string; last4: string; expMonth: number; expYear: number; isDefault?: boolean }[]>;
+  detachPaymentMethod(customerId: string, paymentMethodId: string): Promise<void>;
+}
+
+export interface IPayoutsService {
+  /** Driver instant cash-out of the unpaid balance (fee from settings payments.instantPayoutFee*). */
+  instantCashOut(driverId: string, actor: ActorRef): Promise<Payout>;
+}
+
+export interface IGiftCardsService {
+  /** Redeem a gift card code into the customer's wallet. Returns amount added and new wallet balance. */
+  redeem(customerId: string, code: string): Promise<{ amount: number; balance: number }>;
+}
+
+export interface ILedgerService {
+  /** Called when an order reaches DELIVERED/COLLECTED: writes restaurant / driver / platform ledger rows. Idempotent. */
+  settleOrder(order: Order): Promise<void>;
+  /** Unpaid balance for a party (rows with payoutId IS NULL). partyId = merchantId | driver profile id */
+  balance(partyType: PartyType, partyId: string | null): Promise<number>;
+  add(entry: { partyType: PartyType; partyId: string | null; restaurantId?: string | null; orderId?: string | null; type: LedgerType; amount: number; description?: string; meta?: Record<string, any> }): Promise<void>;
+}
+
+export interface IRefundsService {
+  /**
+   * Issue a refund / credit. Enforces the staff refund limit (actor role) - over-limit => PENDING_APPROVAL.
+   * Writes payment + ledger rows (charged party) + wallet credit when type=CREDIT, notifies the customer.
+   */
+  issue(input: {
+    orderId: string;
+    amount: number;
+    type?: RefundType;
+    chargedTo: RefundChargedTo;
+    reasonCode: string;
+    notes?: string;
+    ticketId?: string;
+    actor: ActorRef & { refundLimit?: number | null; staff?: boolean };
+    auto?: boolean;
+  }): Promise<Refund>;
+  /** Approve a PENDING_APPROVAL refund (finance / supervisor). The approver's own refundLimit is enforced. */
+  approve(refundId: string, actor: ActorRef & { refundLimit?: number | null }, notes?: string): Promise<Refund>;
+  reject(refundId: string, actor: ActorRef & { refundLimit?: number | null }, reason?: string): Promise<Refund>;
+}
+
+export interface IWalletService {
+  balance(customerId: string): Promise<number>;
+  credit(customerId: string, amount: number, type: 'CREDIT' | 'REFUND' | 'TOPUP' | 'GIFT_CARD' | 'REFERRAL' | 'ADJUSTMENT' | 'PROMO', opts?: { orderId?: string; note?: string; actorId?: string }): Promise<number>;
+  /** throws if insufficient */
+  debit(customerId: string, amount: number, type: 'PURCHASE' | 'ADJUSTMENT', opts?: { orderId?: string; note?: string; actorId?: string }): Promise<number>;
+}
+
+export interface PromotionEvaluation {
+  promotion: Promotion;
+  discountTotal: number;
+  platformAmount: number;
+  restaurantAmount: number;
+  freeDelivery: boolean;
+}
+
+export interface IPromotionsService {
+  /**
+   * Validate a code (or auto-apply promos when code is undefined) against an order draft.
+   * Throws BadRequestException with a customer-friendly message for a bad code.
+   * Returns null when nothing applies.
+   */
+  evaluate(input: {
+    code?: string;
+    customerId?: string;
+    restaurantId: string;
+    cityId?: string | null;
+    zoneId?: string | null;
+    orderType: OrderType;
+    subtotal: number;
+    deliveryFee: number;
+    items: { menuItemId: string; quantity: number; unitPrice: number }[];
+  }): Promise<PromotionEvaluation | null>;
+  redeem(promotionId: string, customerId: string, orderId: string, discount: number): Promise<void>;
+  /** undo a redemption when an order is cancelled before capture */
+  unredeem(orderId: string): Promise<void>;
+}
+
+// ------------------------------------------------------------------ domain events (@nestjs/event-emitter)
+/** Listen with @OnEvent(Events.X). Emit with EventEmitter2.emit(Events.X, payload). Listeners must not throw. */
+export const Events = {
+  ORDER_PLACED: 'order.placed',
+  ORDER_STATUS_CHANGED: 'order.status_changed',
+  ORDER_DELIVERED: 'order.delivered', // DELIVERED or COLLECTED (after payment capture + settlement)
+  ORDER_CANCELLED: 'order.cancelled', // CANCELLED or REJECTED
+  ORDER_LATE: 'order.late',
+  OFFER_RESPONDED: 'offer.responded',
+  REVIEW_CREATED: 'review.created',
+  REFUND_ISSUED: 'refund.issued',
+  DRIVER_STATUS_CHANGED: 'driver.status_changed',
+  RESTAURANT_STATUS_CHANGED: 'restaurant.status_changed',
+  TICKET_CREATED: 'ticket.created',
+  PAYOUT_PAID: 'payout.paid',
+} as const;
+
+export interface OrderStatusEvent {
+  order: Order;
+  from: OrderStatus | null;
+  to: OrderStatus;
+  actor: ActorRef;
+}
+export interface OfferRespondedEvent {
+  orderId: string;
+  driverId: string;
+  offerId: string;
+  status: 'ACCEPTED' | 'DECLINED' | 'EXPIRED';
+}
+export interface ReviewCreatedEvent {
+  reviewId: string;
+  orderId: string;
+  restaurantId: string;
+  driverId: string | null;
+  restaurantRating: number | null;
+  driverRating: number | null;
+}
+export interface StatusChangedEvent {
+  id: string; // driver profile id | restaurant id
+  from: string;
+  to: string;
+  reason?: string;
+  actor?: ActorRef;
+}
+
+export interface PayoutPaidEvent {
+  payoutId: string;
+  partyType: PartyType;
+  /** merchantId | driver profile id */
+  partyId: string;
+  net: number;
+  fee: number;
+  instant: boolean;
+  batchId: string | null;
+}

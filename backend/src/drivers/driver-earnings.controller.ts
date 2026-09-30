@@ -1,0 +1,75 @@
+import { Body, Delete, Get, Param, Post, Query } from '@nestjs/common';
+import { CurrentUser, DriverController } from '../common/decorators';
+import { AuthUser } from '../common/auth.types';
+import { DriverAppService } from './driver-app.service';
+import { DriverOpsService } from './driver-ops.service';
+import { AvailableShiftsQuery, SosDto, TripQuery } from './drivers.dto';
+
+/** Earnings, trip history, instant cash-out, shifts, incentives, ratings, heat-map and SOS (spec §5.4-5.7). */
+@DriverController('')
+export class DriverEarningsController {
+  constructor(
+    private app: DriverAppService,
+    private ops: DriverOpsService,
+  ) {}
+
+  @Get('earnings')
+  earnings(@CurrentUser() user: AuthUser) {
+    return this.app.earnings(user.driverId!);
+  }
+
+  @Get('trips')
+  trips(@CurrentUser() user: AuthUser, @Query() q: TripQuery) {
+    return this.app.tripHistory(user.driverId!, q);
+  }
+
+  @Post('cash-out')
+  cashOut(@CurrentUser() user: AuthUser) {
+    return this.app.cashOut(user.driverId!);
+  }
+
+  @Get('shifts/available')
+  availableShifts(@CurrentUser() user: AuthUser, @Query() q: AvailableShiftsQuery) {
+    return this.app.availableShifts(user.driverId!, q);
+  }
+
+  @Post('shifts/:slotId/book')
+  bookShift(@CurrentUser() user: AuthUser, @Param('slotId') slotId: string) {
+    return this.app.bookShift(user.driverId!, slotId);
+  }
+
+  @Get('shifts')
+  myShifts(@CurrentUser() user: AuthUser) {
+    return this.app.myShifts(user.driverId!);
+  }
+
+  @Delete('shifts/:id')
+  cancelShift(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.app.cancelMyShift(user.driverId!, id);
+  }
+
+  @Get('incentives')
+  incentives(@CurrentUser() user: AuthUser) {
+    return this.app.myIncentives(user.driverId!);
+  }
+
+  @Get('ratings')
+  ratings(@CurrentUser() user: AuthUser) {
+    return this.app.ratingsPerformance(user.driverId!);
+  }
+
+  @Get('heat-map')
+  heatMap(@CurrentUser() user: AuthUser) {
+    return this.ops.heatMap();
+  }
+
+  @Post('sos')
+  raiseSos(@CurrentUser() user: AuthUser, @Body() dto: SosDto) {
+    return this.app.raiseSos(user.driverId!, dto);
+  }
+
+  @Get('sos')
+  sosHistory(@CurrentUser() user: AuthUser) {
+    return this.app.mySosHistory(user.driverId!);
+  }
+}

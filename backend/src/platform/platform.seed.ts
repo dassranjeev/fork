@@ -1,0 +1,126 @@
+import { DataSource } from 'typeorm';
+import { City, CommissionTier, Cuisine, TaxClass, Zone } from '../database/entities';
+import { SeedOptions } from '../database/seed-types';
+import { slugify } from './catalog';
+
+/** [lat, lng] rectangle around a centre point (real Mississauga neighbourhoods, approximate footprints). */
+function box(lat: number, lng: number, dLat = 0.035, dLng = 0.045): [number, number][] {
+  return [
+    [+(lat - dLat).toFixed(6), +(lng - dLng).toFixed(6)],
+    [+(lat - dLat).toFixed(6), +(lng + dLng).toFixed(6)],
+    [+(lat + dLat).toFixed(6), +(lng + dLng).toFixed(6)],
+    [+(lat + dLat).toFixed(6), +(lng - dLng).toFixed(6)],
+  ];
+}
+
+const CITIES: Partial<City>[] = [
+  { name: 'Mississauga', province: 'ON', country: 'Canada', timezone: 'America/Toronto', currency: 'CAD', active: true, centerLat: 43.589, centerLng: -79.6441 },
+  { name: 'Toronto', province: 'ON', country: 'Canada', timezone: 'America/Toronto', currency: 'CAD', active: false, centerLat: 43.6532, centerLng: -79.3832 },
+  { name: 'Vaughan', province: 'ON', country: 'Canada', timezone: 'America/Toronto', currency: 'CAD', active: false, centerLat: 43.8361, centerLng: -79.5085 },
+];
+
+/** Real Mississauga neighbourhoods used as demo delivery zones. */
+const ZONES: { name: string; lat: number; lng: number; targetDrivers: number }[] = [
+  { name: 'City Centre', lat: 43.5905, lng: -79.6438, targetDrivers: 40 },
+  { name: 'Port Credit', lat: 43.5606, lng: -79.5877, targetDrivers: 20 },
+  { name: 'Streetsville', lat: 43.5779, lng: -79.7156, targetDrivers: 15 },
+  { name: 'Erin Mills', lat: 43.5567, lng: -79.7132, targetDrivers: 20 },
+  { name: 'Meadowvale', lat: 43.5947, lng: -79.7482, targetDrivers: 15 },
+];
+
+const TAX_CLASSES: Partial<TaxClass>[] = [
+  { code: 'HST_ON', name: 'Ontario HST', ratePct: 13, active: true, isDefault: true },
+  { code: 'ZERO_RATED', name: 'Zero-rated (basic groceries)', ratePct: 0, active: true, isDefault: false },
+];
+
+const TIERS: Partial<CommissionTier>[] = [
+  { name: 'Standard', description: 'Default commission tier for new restaurants.', deliveryPct: 20, pickupPct: 8, ownDriverPct: 12, active: true, isDefault: true },
+  { name: 'Premium', description: 'Reduced rates for high-volume / strategic partners.', deliveryPct: 18, pickupPct: 6, ownDriverPct: 10, active: true, isDefault: false },
+  { name: 'Starter', description: 'Introductory tier for restaurants in their first months.', deliveryPct: 25, pickupPct: 10, ownDriverPct: 14, active: true, isDefault: false },
+];
+
+/** 20+ cuisines, slugs stable so downstream seeds (restaurants) can look them up. */
+const CUISINES = [
+  'Pizza', 'Burgers', 'Sushi', 'Chinese', 'Indian', 'Thai', 'Italian', 'Mexican', 'Mediterranean', 'Greek',
+  'Vietnamese', 'Korean', 'Japanese', 'Caribbean', 'Middle Eastern', 'BBQ', 'Vegan', 'Breakfast', 'Sandwiches',
+  'Desserts', 'Coffee & Tea', 'Seafood', 'Halal', 'Wings', 'Salads', 'Bubble Tea',
+];
+
+/** Idempotent: find by natural key, insert if missing. Foundational (city/tax/tier/cuisine/zone) data always seeds, regardless of opts.demo. */
+export async function seedPlatform(ds: DataSource, _opts: SeedOptions): Promise<void> {
+  const cityRepo = ds.getRepository(City);
+  const zoneRepo = ds.getRepository(Zone);
+  const taxRepo = ds.getRepository(TaxClass);
+  const tierRepo = ds.getRepository(CommissionTier);
+  const cuisineRepo = ds.getRepository(Cuisine);
+
+  // ---- cities ----
+  const cityByName = new Map<string, City>();
+  for (const c of CITIES) {
+    let row = await cityRepo.findOne({ where: { name: c.name } });
+    if (!row) {
+      row = await cityRepo.save(cityRepo.create(c));
+      console.log(`  + city ${c.name}`);
+    }
+    cityByName.set(c.name!, row);
+  }
+  const mississauga = cityByName.get('Mississauga')!;
+
+  // ---- zones (Mississauga only) ----
+  for (const z of ZONES) {
+    const existing = await zoneRepo.findOne({ where: { cityId: mississauga.id, name: z.name } });
+    if (existing) {
+      const wanted = box(z.lat, z.lng);
+      if (JSON.stringify(existing.polygon) !== JSON.stringify(wanted)) {
+        await zoneRepo.update(existing.id, { polygon: wanted } as any);
+        console.log(`  ~ zone ${z.name} polygon widened`);
+      }
+      continue;
+    }
+    await zoneRepo.save(
+      zoneRepo.create({
+        cityId: mississauga.id,
+        name: z.name,
+        active: true,
+        polygon: box(z.lat, z.lng),
+        centerLat: z.lat,
+        centerLng: z.lng,
+        targetDrivers: z.targetDrivers,
+        serviceHours: {},
+      }),
+    );
+    console.log(`  + zone ${z.name} (Mississauga)`);
+  }
+
+  // ---- tax classes ----
+  for (const t of TAX_CLASSES) {
+    const existing = await taxRepo.findOne({ where: { code: t.code } });
+    if (existing) continue;
+    await taxRepo.save(taxRepo.create(t));
+    console.log(`  + tax class ${t.code}`);
+  }
+
+  // ---- commission tiers ----
+  for (const t of TIERS) {
+    const existing = await tierRepo.findOne({ where: { name: t.name } });
+    if (existing) continue;
+    await tierRepo.save(tierRepo.create(t));
+    console.log(`  + commission tier ${t.name}`);
+  }
+
+  // ---- cuisines ----
+  let sortOrder = 1;
+  for (const name of CUISINES) {
+    const slug = slugify(name);
+    const existing = await cuisineRepo.findOne({ where: { slug } });
+    if (!existing) {
+      await cuisineRepo.save(cuisineRepo.create({ name, slug, sortOrder, active: true }));
+      console.log(`  + cuisine ${name}`);
+    }
+    sortOrder++;
+  }
+
+  // Ops checklist templates (SOP-03) and default settings (orders.newOrdersPaused, taxes.defaultTaxClass, ...)
+  // are foundational SETTING_DEFINITIONS entries (src/settings/settings.service.ts) inserted automatically by
+  // SettingsService.onModuleInit() on every app boot (including this seed run), so no action needed here.
+}
