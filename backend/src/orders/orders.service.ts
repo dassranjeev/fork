@@ -112,6 +112,21 @@ export class OrdersService implements IOrdersService {
     const requiresPin = quote.total >= highValue && quote.fulfilment !== FulfilmentMode.PICKUP;
     const autoRejectSec = restaurant.autoRejectSeconds || this.settings.get<number>('orders.autoRejectSeconds', 180);
 
+    const itemRows = quote.lines.map((l) =>
+        this.items.create({
+          menuItemId: l.menuItemId,
+          name: l.name,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+          lineTotal: l.lineTotal,
+          taxAmount: l.taxAmount,
+          taxClassCode: l.taxClassCode,
+          modifiers: l.modifiers,
+          notes: l.notes ?? null,
+          stationId: l.stationId ?? null,
+          allergens: l.allergens ?? [],
+        }),
+    );
     let order = this.orders.create({
       code,
       customerId,
@@ -156,23 +171,9 @@ export class OrdersService implements IOrdersService {
       cancellationFee: 0,
       source: input.source ?? 'app',
       meta: {},
-      items: quote.lines.map((l) =>
-        this.items.create({
-          menuItemId: l.menuItemId,
-          name: l.name,
-          quantity: l.quantity,
-          unitPrice: l.unitPrice,
-          lineTotal: l.lineTotal,
-          taxAmount: l.taxAmount,
-          taxClassCode: l.taxClassCode,
-          modifiers: l.modifiers,
-          notes: l.notes ?? null,
-          stationId: l.stationId ?? null,
-          allergens: l.allergens ?? [],
-        }),
-      ),
     });
     order = await this.orders.save(order);
+    await this.items.save(itemRows.map((i) => Object.assign(i, { orderId: order.id })));
 
     // authorize the card amount (total minus any wallet applied); only debit the wallet once the hold succeeds.
     const cardAmount = round2(quote.total - quote.walletUsed);

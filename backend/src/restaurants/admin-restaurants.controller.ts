@@ -72,6 +72,13 @@ export class AdminRestaurantsController {
   }
 
   // ------------------------------------------------------------------ restaurants CRUD
+  // declared before :id so it is not captured by the param route
+  @Get('reviews')
+  @Permission(Module.RESTAURANTS, Action.VIEW)
+  reviews(@Query() q: ReviewsQuery) {
+    return this.store.listReviews(null, q);
+  }
+
   @Get()
   @Permission(Module.RESTAURANTS, Action.VIEW)
   list(@Query() q: RestaurantsQuery) {
@@ -331,12 +338,6 @@ export class AdminRestaurantsController {
   }
 
   // ------------------------------------------------------------------ reviews moderation
-  @Get('reviews')
-  @Permission(Module.RESTAURANTS, Action.VIEW)
-  reviews(@Query() q: ReviewsQuery) {
-    return this.store.listReviews(null, q);
-  }
-
   @Post('reviews/:reviewId/moderate')
   @Permission(Module.RESTAURANTS, Action.APPROVE)
   moderateReview(@Param('reviewId') reviewId: string, @Body() dto: ModerateReviewDto, @Req() req: any) {

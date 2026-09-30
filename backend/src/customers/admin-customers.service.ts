@@ -53,7 +53,7 @@ export class AdminCustomersService {
     if (q.blocked !== undefined) qb.andWhere('p."isBlocked" = :b', { b: q.blocked === 'true' });
     if (q.fraudFlag !== undefined) qb.andWhere('p."fraudFlag" = :f', { f: q.fraudFlag === 'true' });
     const { data, meta } = await paginateQb(qb, q, {
-      sortable: { createdAt: 'p.createdAt', totalOrders: 'p."totalOrders"', lifetimeSpend: 'p."lifetimeSpend"', lastOrderAt: 'p."lastOrderAt"' },
+      sortable: { createdAt: 'p.createdAt', totalOrders: 'p.totalOrders', lifetimeSpend: 'p.lifetimeSpend', lastOrderAt: 'p.lastOrderAt' },
       defaultSort: ['p.createdAt', 'DESC'],
     });
     const users = data.length ? await this.ds.getRepository(User).find({ where: { id: In(data.map((p) => p.userId)) } }) : [];
