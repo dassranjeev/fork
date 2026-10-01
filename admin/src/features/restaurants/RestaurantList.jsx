@@ -3,7 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { usePagedList } from "../../lib/hooks";
 import { useAuth } from "../../lib/auth";
 import { fmtDate } from "../../lib/format";
-import { BoolBadge, Card, DataTable, FilterSelect, ListToolbar, PageHeader, StatusBadge } from "../../ui";
+import { ServiceModeBadge } from "../portal/ServiceMode";
+import { Card, DataTable, FilterSelect, ListToolbar, PageHeader, StatusBadge } from "../../ui";
+import OpenPanelButton from "./OpenPanelButton";
 import { RESTAURANT_STATUSES, useLookups } from "./shared";
 
 export default function RestaurantList() {
@@ -31,13 +33,14 @@ export default function RestaurantList() {
     { key: "status", title: "Status", render: (r) => <StatusBadge status={r.status} /> },
     {
       key: "acceptingOrders",
-      title: "Accepting",
-      render: (r) => (r.status === "LIVE" ? <BoolBadge value={r.acceptingOrders} yes="Accepting" no="Not accepting" /> : <span className="text-secondary-light">—</span>),
+      title: "Service mode",
+      render: (r) => (r.status === "LIVE" ? <ServiceModeBadge mode={r.serviceMode} /> : <span className="text-secondary-light">—</span>),
     },
     { key: "rating", title: "Rating", sortable: true, render: (r) => (r.ratingCount ? `${Number(r.rating).toFixed(1)} (${r.ratingCount})` : "—") },
     { key: "commissionTierId", title: "Commission", render: (r) => tierName(r.commissionTierId) || "—" },
     { key: "reliabilityScore", title: "Reliability", render: (r) => (r.reliabilityScore != null ? `${Math.round(r.reliabilityScore)}` : "—") },
     { key: "createdAt", title: "Added", sortable: true, render: (r) => fmtDate(r.createdAt) },
+    { key: "panel", title: "", render: (r) => <OpenPanelButton restaurant={r} label="Open panel" /> },
   ];
 
   return (

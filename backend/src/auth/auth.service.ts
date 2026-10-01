@@ -575,7 +575,53 @@ export class AuthService {
 
   // ------------------------------------------------------------------ misc
   me(authUser: AuthUser) {
-    return this.users.findOne({ where: { id: authUser.id } }).then((u) => this.publicUser(u!));
+    return this.users.findOne({ where: { id: authUser.id } }).then(async (u) => ({
+      ...(await this.publicUser(u!)),
+      ...(authUser.impersonatedBy ? { impersonatedBy: authUser.impersonatedBy } : {}),
+    }));
+  }
+
+  /**
+   * Admin "open restaurant panel": short-lived access token (no refresh token, no session) for the
+   * restaurant's OWNER (fallback: any active member) carrying `imp` = admin id. Blocked from
+   * password/2FA/account-security routes via @NoImpersonation().
+   */
+  async impersonateRestaurant(restaurantId: string, admin: AuthUser, ctx: ReqCtx) {
+    const restaurant = await this.ds.getRepository(Restaurant).findOne({ where: { id: restaurantId } });
+    if (!restaurant) throw new NotFoundException('Restaurant not found');
+    const members = await this.ds
+      .getRepository(RestaurantMember)
+      .createQueryBuilder('m')
+      .where('m.merchantId = :mid AND m.active = true', { mid: restaurant.merchantId })
+      .andWhere('(m.restaurantId IS NULL OR m.restaurantId = :rid)', { rid: restaurant.id })
+      .getMany();
+    const ordered = [...members].sort((a, b) => Number(b.role === RestaurantRole.OWNER) - Number(a.role === RestaurantRole.OWNER));
+    let target: User | null = null;
+    let member: RestaurantMember | null = null;
+    for (const m of ordered) {
+      const u = await this.users.findOne({ where: { id: m.userId } });
+      if (u && u.type === UserType.RESTAURANT && u.status === UserStatus.ACTIVE) {
+        target = u;
+        member = m;
+        break;
+      }
+    }
+    if (!target || !member) throw new BadRequestException('This restaurant has no active owner or staff account to open a panel as. Add a member first.');
+    const ttl = 2 * 60 * 60;
+    const accessToken = this.jwt.sign({ sub: target.id, type: target.type, imp: admin.id } as JwtPayload, { expiresIn: ttl });
+    await this.audit.log({
+      actor: admin,
+      action: 'restaurant.impersonate',
+      entity: 'Restaurant',
+      entityId: restaurant.id,
+      after: { restaurantName: restaurant.name, targetUserId: target.id, targetEmail: target.email, targetRole: member.role, expiresInSeconds: ttl },
+      ip: ctx.ip,
+      userAgent: ctx.userAgent,
+      path: '/admin/restaurants/' + restaurant.id + '/impersonate',
+      method: 'POST',
+    });
+    const user = { ...(await this.publicUser(target)), impersonatedBy: admin.id };
+    return { accessToken, expiresIn: ttl, restaurantId: restaurant.id, restaurantName: restaurant.name, user, impersonatedBy: { id: admin.id, email: admin.email, name: admin.name } };
   }
 
   async updateProfile(userId: string, dto: { firstName?: string; lastName?: string; avatarUrl?: string; language?: string }) {

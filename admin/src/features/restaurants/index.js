@@ -4,6 +4,7 @@ const RestaurantList = React.lazy(() => import("./RestaurantList"));
 const RestaurantDetail = React.lazy(() => import("./RestaurantDetail"));
 const RestaurantCreate = React.lazy(() => import("./RestaurantCreate"));
 const Onboarding = React.lazy(() => import("./Onboarding"));
+const PanelLauncher = React.lazy(() => import("./PanelLauncher"));
 const Merchants = React.lazy(() => import("./Merchants"));
 const ReviewsModeration = React.lazy(() => import("./ReviewsModeration"));
 
@@ -13,6 +14,7 @@ export const routes = [
   { path: "restaurants/onboarding", element: <Onboarding />, perm: ["restaurants", "view"] },
   { path: "restaurants/merchants", element: <Merchants />, perm: ["restaurants", "view"] },
   { path: "restaurants/reviews", element: <ReviewsModeration />, perm: ["restaurants", "view"] },
+  { path: "restaurants/panels", element: <PanelLauncher />, perm: ["restaurants", "edit"] },
   { path: "restaurants/:id", element: <RestaurantDetail />, perm: ["restaurants", "view"] },
 ];
 
@@ -28,6 +30,7 @@ export const menu = [
       { label: "Onboarding Pipeline", to: "/restaurants/onboarding" },
       { label: "Merchants", to: "/restaurants/merchants" },
       { label: "Reviews", to: "/restaurants/reviews" },
+      { label: "Open a restaurant panel", to: "/restaurants/panels", perm: ["restaurants", "edit"] },
       { label: "Add Restaurant", to: "/restaurants/new", perm: ["restaurants", "create"] },
     ],
   },

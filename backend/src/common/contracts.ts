@@ -90,6 +90,8 @@ export interface Quote {
   commissionAmount: number;
   restaurantPayout: number;
   warnings: string[];
+  /** fulfilment types usable at this restaurant right now (service mode + capability flags) */
+  availableFulfilment?: { serviceMode: string; serviceModeLabel: string; pickup: boolean; delivery: boolean; platformDelivery: boolean; ownDelivery: boolean };
 }
 
 export interface PlaceOrderInput extends QuoteInput {
@@ -264,6 +266,8 @@ export const Events = {
   REFUND_ISSUED: 'refund.issued',
   DRIVER_STATUS_CHANGED: 'driver.status_changed',
   RESTAURANT_STATUS_CHANGED: 'restaurant.status_changed',
+  /** payload: { id, from, to, resumeAt, actor } where from/to are RestaurantServiceMode values */
+  RESTAURANT_SERVICE_MODE_CHANGED: 'restaurant.service_mode_changed',
   TICKET_CREATED: 'ticket.created',
   PAYOUT_PAID: 'payout.paid',
 } as const;

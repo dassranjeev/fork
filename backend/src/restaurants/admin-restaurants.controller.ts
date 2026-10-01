@@ -2,6 +2,7 @@ import { Body, Delete, Get, Param, Patch, Post, Query, Req } from '@nestjs/commo
 import { AdminController, CurrentUser, Permission } from '../common/decorators';
 import { Action, Module } from '../common/enums';
 import { AuthUser } from '../common/auth.types';
+import { AuthService } from '../auth/auth.service';
 import { RestaurantStoreService } from './restaurant-store.service';
 import { RestaurantAdminService } from './restaurant-admin.service';
 import { MenuService } from './menu.service';
@@ -23,6 +24,7 @@ import {
   OptionalReasonDto,
   ReasonDto,
   RejectDocDto,
+  ServiceModeDto,
   ReviewsQuery,
   StationDto,
   HoursDto,
@@ -44,6 +46,7 @@ export class AdminRestaurantsController {
     private store: RestaurantStoreService,
     private admin: RestaurantAdminService,
     private menu: MenuService,
+    private auth: AuthService,
   ) {}
 
   // ------------------------------------------------------------------ merchants
@@ -69,6 +72,12 @@ export class AdminRestaurantsController {
   @Permission(Module.RESTAURANTS, Action.EDIT)
   updateMerchant(@Param('id') id: string, @Body() dto: UpdateMerchantDto, @Req() req: any) {
     return this.admin.updateMerchant(id, dto, req);
+  }
+
+  @Patch(':id/service-mode')
+  @Permission(Module.RESTAURANTS, Action.EDIT)
+  setServiceMode(@Param('id') id: string, @Body() dto: ServiceModeDto, @CurrentUser() user: AuthUser, @Req() req: any) {
+    return this.store.setServiceMode(id, dto, user, req);
   }
 
   // ------------------------------------------------------------------ restaurants CRUD
@@ -101,6 +110,16 @@ export class AdminRestaurantsController {
   @Permission(Module.RESTAURANTS, Action.EDIT)
   update(@Param('id') id: string, @Body() dto: AdminUpdateRestaurantDto, @Req() req: any) {
     return this.store.updateProfile(id, dto, req);
+  }
+
+  /** Open the restaurant portal as this restaurant's owner (short-lived, audited, no password needed). */
+  @Post(':id/impersonate')
+  @Permission(Module.RESTAURANTS, Action.EDIT)
+  impersonate(@Param('id') id: string, @CurrentUser() user: AuthUser, @Req() req: any) {
+    return this.auth.impersonateRestaurant(id, user, {
+      ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   }
 
   @Get(':id/stats')

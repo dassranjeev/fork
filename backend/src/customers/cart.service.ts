@@ -2,7 +2,8 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, In } from 'typeorm';
 import { Cart, MenuCategory, MenuItem, MenuItemModifierGroup, ModifierGroup, ModifierOption, Restaurant } from '../database/entities';
-import { RestaurantStatus } from '../common/enums';
+import { RestaurantServiceMode, RestaurantStatus } from '../common/enums';
+import { fulfilmentAvailability } from '../common/service-mode';
 import { AvailabilityService, daypartOf, zonedParts } from '../core/core.module';
 import { newId, round2 } from './util';
 
@@ -287,9 +288,13 @@ export class CartService {
             isOpen: status.open,
             closedReason: status.open ? null : status.reason ?? null,
             opensAt: status.open ? null : (status as any).opensAt ?? null,
-            canSchedule: rest.scheduledEnabled,
+            canSchedule: rest.scheduledEnabled && rest.serviceMode !== RestaurantServiceMode.CLOSED,
             deliveryEnabled: rest.deliveryEnabled,
             pickupEnabled: rest.pickupEnabled,
+            ...(() => {
+              const av = fulfilmentAvailability(rest);
+              return { serviceMode: av.serviceMode, serviceModeLabel: av.serviceModeLabel, deliveryAvailable: av.deliveryAvailable, pickupAvailable: av.pickupAvailable };
+            })(),
           }
         : null,
       lines,

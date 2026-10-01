@@ -1,6 +1,6 @@
 import { Column, Entity, Index, JoinColumn, ManyToMany, ManyToOne, JoinTable, Relation } from 'typeorm';
 import { BaseEntity, GeoColumn, MoneyColumn, PctColumn } from '../../common/base.entity';
-import { DayPart, DocStatus, RestaurantDocType, RestaurantRole, RestaurantStatus } from '../../common/enums';
+import { DayPart, DocStatus, RestaurantDocType, RestaurantRole, RestaurantServiceMode, RestaurantStatus } from '../../common/enums';
 import { User } from './identity.entities';
 import { City, CommissionTier, Zone } from './geo.entities';
 
@@ -172,6 +172,18 @@ export class Restaurant extends BaseEntity {
   /** "Busy mode": pause until this time */
   @Column({ type: 'timestamptz', nullable: true })
   pausedUntil: Date | null;
+
+  /** Service mode chosen by the store (CLOSED / PICKUP_ONLY / PICKUP_AND_DELIVERY). Capability flags below stay an upper bound. */
+  @Index()
+  @Column({ type: 'enum', enum: RestaurantServiceMode, default: RestaurantServiceMode.PICKUP_AND_DELIVERY })
+  serviceMode: RestaurantServiceMode;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  serviceModeUpdatedAt: Date | null;
+
+  /** Optional auto-switch-back time: when reached the store returns to PICKUP_AND_DELIVERY. */
+  @Column({ type: 'timestamptz', nullable: true })
+  serviceModeResumeAt: Date | null;
 
   /** "Busy mode": extra prep minutes added to every order */
   @Column({ default: 0 })

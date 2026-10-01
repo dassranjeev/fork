@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Button, Card, DateInput, IconButton, NumberInput, MoneyInput, Switch, Tabs, TextArea, TextInput, useConfirm } from "../../ui";
 import { fmtDate } from "../../lib/format";
-import { Async, DAYS, PortalPage, useAction, useApi, usePortalFetch } from "./shared";
+import { Async, DAYS, PortalPage, useAction, useApi, usePortalFetch, useRealtimeReload } from "./shared";
 import { usePortal } from "./context";
+import ServiceModeControl from "./ServiceMode";
 
 function SaveBar({ busy, onSave, dirtyHint }) {
   return (
@@ -92,8 +93,14 @@ function FulfilmentTab({ store, reload }) {
     const r = await run("save", () => api.patch("/restaurant/store/fulfilment", body), "Fulfilment settings saved");
     if (r.ok) reload();
   };
+  const { role } = usePortal();
   return (
     <div className="row g-3">
+      <div className="col-12">
+        <Card title="Service mode" subtitle="What customers can order from this location right now. The order types below are an upper limit.">
+          <ServiceModeControl mode={store.serviceMode} resumeAt={store.serviceModeResumeAt} disabled={role === "KITCHEN"} onChanged={reload} />
+        </Card>
+      </div>
       <div className="col-lg-6">
         <Card title="Order types" className="h-100">
           <Switch label="Delivery" checked={f.deliveryEnabled} onChange={set("deliveryEnabled")} />
@@ -339,6 +346,7 @@ function AlertsTab({ store, reload }) {
 
 export default function Store() {
   const state = usePortalFetch("/restaurant/store");
+  useRealtimeReload(() => state.reload(), ["store.updated"]);
   const [tab, setTab] = useState("profile");
   return (
     <PortalPage title="Store settings">

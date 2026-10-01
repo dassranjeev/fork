@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { http, tokens } from "./api";
+import { toast } from "react-toastify";
+import { act, http, impersonation, tokens } from "./api";
 
 const AuthContext = createContext(null);
 
@@ -16,6 +17,12 @@ export function AuthProvider({ children }) {
       setUser(me);
       return me;
     } catch {
+      if (impersonation.active) {
+        const back = impersonation.info?.returnTo || "/";
+        impersonation.stop();
+        window.location.assign(back);
+        return null;
+      }
       tokens.clear();
       setUser(null);
       return null;
@@ -39,7 +46,15 @@ export function AuthProvider({ children }) {
     return res;
   }, [loadMe]);
 
+  /** Leave "view as restaurant": drop the impersonation token; the admin session is untouched. */
+  const exitImpersonation = useCallback(() => {
+    const back = impersonation.info?.returnTo || "/";
+    impersonation.stop();
+    window.location.assign(back);
+  }, []);
+
   const logout = useCallback(async () => {
+    if (impersonation.active) return exitImpersonation();
     try {
       await http.post("/auth/logout", { refreshToken: tokens.refresh });
     } catch {
@@ -47,7 +62,7 @@ export function AuthProvider({ children }) {
     }
     tokens.clear();
     setUser(null);
-  }, []);
+  }, [exitImpersonation]);
 
   const value = useMemo(() => {
     const isSuper = user?.type === "SUPER_ADMIN";
@@ -67,11 +82,14 @@ export function AuthProvider({ children }) {
       /** refund limit for the current staff member: null = unlimited */
       refundLimit: isSuper ? null : user?.refundLimit ?? 0,
       restaurantRole: user?.restaurantRole,
+      impersonating: !!user?.impersonatedBy && impersonation.active,
+      impersonationInfo: impersonation.active ? impersonation.info : null,
+      exitImpersonation,
       acceptSession,
       reload: loadMe,
       logout,
     };
-  }, [user, loading, acceptSession, loadMe, logout]);
+  }, [user, loading, acceptSession, loadMe, logout, exitImpersonation]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
@@ -93,4 +111,38 @@ export function RequireAuth({ type, children }) {
 export function Can({ module, action = "view", children, fallback = null }) {
   const { can } = useAuth();
   return can(module, action) ? children : fallback;
+}
+
+/**
+ * Admin action: open the restaurant portal for any restaurant (server-side impersonation, audited).
+ * Returns `openPanel(restaurant)`; `restaurant` = { id, name? }.
+ */
+export function useOpenPanel() {
+  const [busy, setBusy] = useState(null);
+  const { user } = useAuth();
+  const openPanel = useCallback(
+    async (restaurant) => {
+      if (!restaurant?.id || busy) return;
+      setBusy(restaurant.id);
+      const res = await act(() => http.post(`/admin/restaurants/${restaurant.id}/impersonate`, {}));
+      if (!res) return setBusy(null);
+      try {
+        localStorage.setItem("forksy.ui.portal.restaurantId", JSON.stringify(res.restaurantId));
+      } catch {
+        /* ignore */
+      }
+      impersonation.start({
+        accessToken: res.accessToken,
+        expiresAt: Date.now() + (res.expiresIn || 7200) * 1000,
+        restaurantId: res.restaurantId,
+        restaurantName: res.restaurantName,
+        adminName: res.impersonatedBy?.name || res.impersonatedBy?.email || [user?.firstName, user?.lastName].filter(Boolean).join(" "),
+        returnTo: `/restaurants/${res.restaurantId}`,
+      });
+      toast.info(`Opening ${res.restaurantName} panel...`, { autoClose: 1200 });
+      window.location.assign("/portal");
+    },
+    [busy, user]
+  );
+  return { openPanel, busy };
 }

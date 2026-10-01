@@ -9,9 +9,9 @@ import { UserStatus, UserType } from '../common/enums';
 import { SeedOptions } from './seed-types';
 import { seedPlatform } from '../platform/platform.seed';
 import { seedMarketing } from '../marketing/marketing.seed';
-import { seedRestaurants } from '../restaurants/restaurants.seed';
-import { seedDrivers } from '../drivers/drivers.seed';
-import { seedCustomers } from '../customers/customers.seed';
+import { seedRestaurants, seedRestaurantsExtra } from '../restaurants/restaurants.seed';
+import { seedDrivers, seedDriversExtra } from '../drivers/drivers.seed';
+import { seedCustomers, seedCustomersExtra } from '../customers/customers.seed';
 import { seedOrders } from '../orders/orders.seed';
 import { seedSupport } from '../support/support.seed';
 import { seedFinance } from '../finance/finance.seed';
@@ -74,6 +74,11 @@ async function main() {
     ['drivers', () => seedDrivers(ds, opts)],
     ['customers', () => seedCustomers(ds, opts)],
     ['orders (history, ledger, reviews)', () => seedOrders(ds, opts)],
+    ['extra Brampton + Mississauga restaurants, drivers, customers', async () => {
+      await seedRestaurantsExtra(ds, opts);
+      await seedDriversExtra(ds, opts);
+      await seedCustomersExtra(ds, opts);
+    }],
     ['support (tickets, cases)', () => seedSupport(ds, opts)],
     ['finance (payout batches, invoices)', () => seedFinance(ds, opts)],
   ];

@@ -1,7 +1,9 @@
 import React from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useFetch } from "../../lib/hooks";
+import { ServiceModeBadge } from "../portal/ServiceMode";
 import { Avatar, Badge, ErrorState, Loading, PageHeader, StatusBadge, Tabs } from "../../ui";
+import OpenPanelButton from "./OpenPanelButton";
 import { RestaurantActions, PRE_LIVE } from "./shared";
 import { CommissionTab, DocumentsTab, HoursTab, LocationTab, MembersTab, MenuTab, OverviewTab, PerformanceTab, ReviewsTab } from "./DetailTabs";
 
@@ -40,12 +42,13 @@ export default function RestaurantDetail() {
         title={
           <span className="d-inline-flex align-items-center gap-3 flex-wrap">
             <Avatar name={r.name} src={r.logoUrl} size={40} /> {r.name} <StatusBadge status={r.status} />
-            {r.status === "LIVE" && <Badge tone={r.acceptingOrders ? "success" : "warning"}>{r.acceptingOrders ? "Accepting orders" : "Not accepting"}</Badge>}
+            {r.status === "LIVE" && <ServiceModeBadge mode={r.serviceMode} />}
             {r.openStatus && r.status === "LIVE" && <Badge tone={r.openStatus.open ? "info" : "neutral"}>{r.openStatus.open ? "Open now" : "Closed now"}</Badge>}
           </span>
         }
         subtitle={[r.addressLine1, r.city, r.zone?.name].filter(Boolean).join(" · ")}
         crumbs={[{ label: "Restaurants", to: "/restaurants" }, { label: r.name }]}
+        actions={<OpenPanelButton restaurant={r} small={false} />}
       />
       {(r.statusReason || r.pausedUntil) && r.status !== "LIVE" && (
         <div className="alert alert-warning radius-8 mb-16">

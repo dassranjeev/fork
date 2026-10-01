@@ -18,7 +18,8 @@ import {
   Review,
   User,
 } from '../database/entities';
-import { DocStatus, RestaurantDocType, RestaurantRole, RestaurantStatus, UserStatus, UserType } from '../common/enums';
+import { DocStatus, OrderStatus, RestaurantDocType, RestaurantRole, RestaurantServiceMode, RestaurantStatus, UserStatus, UserType } from '../common/enums';
+import { fulfilmentAvailability } from '../common/service-mode';
 import { ActorRef, Events, StatusChangedEvent } from '../common/contracts';
 import { AuthUser } from '../common/auth.types';
 import { AuditService } from '../audit/audit.service';
@@ -37,6 +38,7 @@ import {
   HoursDto,
   IntegrationDto,
   MemberDto,
+  ServiceModeDto,
   StationDto,
   TabletHeartbeatDto,
   UpdateIntegrationDto,
@@ -148,7 +150,7 @@ export class RestaurantStoreService {
     ]);
     const open = await this.availability.status(r).catch(() => ({ open: false }));
     const meta = r.meta ?? {};
-    return { ...r, hours, closures, stations, integrations, documents: docs, openStatus: open, printers: meta.printers ?? {}, notificationSettings: meta.notificationSettings ?? {}, kdsSettings: meta.kds ?? {}, tablet: meta.tablet ?? {} };
+    return { ...r, ...this.modeInfo(r), hours, closures, stations, integrations, documents: docs, openStatus: open, printers: meta.printers ?? {}, notificationSettings: meta.notificationSettings ?? {}, kdsSettings: meta.kds ?? {}, tablet: meta.tablet ?? {} };
   }
 
   async updateProfile(id: string, dto: UpdateStoreDto & Partial<AdminUpdateRestaurantDto>, req?: any) {
@@ -273,16 +275,89 @@ export class RestaurantStoreService {
     return { busyExtraPrepMin: 0, pausedUntil: null, acceptingOrders: r.acceptingOrders };
   }
 
-  /** Store on/off switch ("stop taking orders"). Only meaningful while LIVE. */
+  /**
+   * Store on/off switch ("stop taking orders"). Only meaningful while LIVE.
+   * Kept coherent with serviceMode: stopping orders == CLOSED; resuming from CLOSED == PICKUP_AND_DELIVERY.
+   */
   async setAccepting(id: string, accepting: boolean, actor: AuthUser) {
     const r = await this.get(id);
     if (r.status !== RestaurantStatus.LIVE) throw new BadRequestException(`Store is ${r.status}; it cannot take orders until it is live`);
-    r.acceptingOrders = accepting;
-    if (accepting) r.pausedUntil = null;
-    await this.restaurants.save(r);
+    if (!accepting) await this.setServiceMode(id, { mode: 'CLOSED' }, actor);
+    else if (r.serviceMode === RestaurantServiceMode.CLOSED) await this.setServiceMode(id, { mode: 'PICKUP_AND_DELIVERY' }, actor);
+    const fresh = await this.get(id);
+    fresh.acceptingOrders = accepting;
+    if (accepting) fresh.pausedUntil = null;
+    await this.restaurants.save(fresh);
     await this.audit.log({ actor, action: accepting ? 'restaurant.resume_orders' : 'restaurant.pause_orders', entity: 'restaurant', entityId: id });
-    this.rt.emitToRestaurant(id, 'store.updated', { acceptingOrders: accepting });
-    return { acceptingOrders: accepting };
+    this.rt.emitToRestaurant(id, 'store.updated', { acceptingOrders: accepting, ...this.modeInfo(fresh) });
+    return { acceptingOrders: accepting, ...this.modeInfo(fresh) };
+  }
+
+  // ------------------------------------------------------------------ service mode (CLOSED / PICKUP_ONLY / PICKUP_AND_DELIVERY)
+  modeInfo(r: Restaurant) {
+    const av = fulfilmentAvailability(r);
+    return {
+      serviceMode: av.serviceMode,
+      serviceModeLabel: av.serviceModeLabel,
+      serviceModeUpdatedAt: r.serviceModeUpdatedAt,
+      serviceModeResumeAt: r.serviceModeResumeAt,
+      pickupAvailable: av.pickupAvailable,
+      deliveryAvailable: av.deliveryAvailable,
+    };
+  }
+
+  /**
+   * Single entry point for changing the service mode (store portal and admin console).
+   * Orders already placed keep their original fulfilment and carry on; only NEW orders are affected.
+   */
+  async setServiceMode(id: string, dto: ServiceModeDto, actor?: AuthUser | null, req?: any) {
+    const r = await this.get(id);
+    const mode = dto.mode as RestaurantServiceMode;
+    let resumeAt: Date | null = null;
+    if (dto.resumeAt && mode !== RestaurantServiceMode.PICKUP_AND_DELIVERY) {
+      resumeAt = new Date(dto.resumeAt);
+      if (isNaN(resumeAt.getTime()) || resumeAt.getTime() <= Date.now()) throw new BadRequestException('resumeAt must be a future time');
+      if (resumeAt.getTime() > Date.now() + 14 * 86400_000) throw new BadRequestException('resumeAt can be at most 14 days ahead');
+    }
+    const before = { serviceMode: r.serviceMode, serviceModeResumeAt: r.serviceModeResumeAt, acceptingOrders: r.acceptingOrders };
+    const from = r.serviceMode;
+    r.serviceMode = mode;
+    r.serviceModeUpdatedAt = new Date();
+    r.serviceModeResumeAt = resumeAt;
+    // keep the legacy on/off switch coherent: CLOSED == not accepting; any open mode == accepting
+    r.acceptingOrders = mode !== RestaurantServiceMode.CLOSED;
+    if (mode !== RestaurantServiceMode.CLOSED) r.pausedUntil = null;
+    await this.restaurants.save(r);
+    const after = { serviceMode: r.serviceMode, serviceModeResumeAt: r.serviceModeResumeAt, acceptingOrders: r.acceptingOrders };
+    if (req) await this.audit.logReq(req, 'restaurant.service_mode', 'restaurant', id, before, after);
+    else await this.audit.log({ actor: actor ?? null, action: 'restaurant.service_mode', entity: 'restaurant', entityId: id, before, after });
+    const info = this.modeInfo(r);
+    this.rt.emitToRestaurant(id, 'store.updated', { acceptingOrders: r.acceptingOrders, pausedUntil: r.pausedUntil, ...info, changedBy: actor?.name ?? null });
+    this.rt.emitToOps('store.updated', { id, name: r.name, ...info });
+    this.events.emit(Events.RESTAURANT_SERVICE_MODE_CHANGED, {
+      id,
+      from,
+      to: mode,
+      resumeAt,
+      actor: actor ? { type: actor.type === UserType.RESTAURANT ? 'RESTAURANT' : 'STAFF', id: actor.id, name: actor.name } : undefined,
+    });
+    const [row] = await this.ds.query(
+      `SELECT COUNT(*)::int AS n FROM orders WHERE "restaurantId" = $1 AND status IN ($2,$3,$4,$5,$6,$7)`,
+      [id, OrderStatus.PLACED, OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.DRIVER_ASSIGNED, OrderStatus.PICKED_UP],
+    );
+    return { id, ...info, openOrders: row?.n ?? 0 };
+  }
+
+  /** Auto switch-back: when serviceModeResumeAt has passed the store returns to PICKUP_AND_DELIVERY. */
+  @Cron(CronExpression.EVERY_MINUTE)
+  async resumeServiceModes() {
+    const due = await this.restaurants
+      .createQueryBuilder('r')
+      .where('r.serviceModeResumeAt IS NOT NULL AND r.serviceModeResumeAt <= now() AND r.serviceMode != :m', { m: RestaurantServiceMode.PICKUP_AND_DELIVERY })
+      .getMany();
+    for (const r of due) {
+      await this.setServiceMode(r.id, { mode: 'PICKUP_AND_DELIVERY' }, null).catch(() => undefined);
+    }
   }
 
   // ------------------------------------------------------------------ printers / notifications / kds settings (Restaurant.meta)
@@ -346,6 +421,7 @@ export class RestaurantStoreService {
       config: {
         restaurantStatus: r.status,
         acceptingOrders: r.acceptingOrders,
+        ...this.modeInfo(r),
         pausedUntil: r.pausedUntil,
         busyExtraPrepMin: r.busyExtraPrepMin,
         prepTimeMin: r.prepTimeMin,
@@ -688,6 +764,7 @@ export class RestaurantStoreService {
         name: r.name,
         status: r.status,
         acceptingOrders: r.acceptingOrders,
+        ...this.modeInfo(r),
         pausedUntil: r.pausedUntil,
         busyExtraPrepMin: r.busyExtraPrepMin,
         rating: r.rating,

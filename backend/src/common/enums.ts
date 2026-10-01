@@ -66,6 +66,13 @@ export enum RestaurantStatus {
   REJECTED = 'REJECTED',
 }
 
+/** Store-controlled service mode: which fulfilment types customers can use right now. */
+export enum RestaurantServiceMode {
+  CLOSED = 'CLOSED',
+  PICKUP_ONLY = 'PICKUP_ONLY',
+  PICKUP_AND_DELIVERY = 'PICKUP_AND_DELIVERY',
+}
+
 export enum DriverStatus {
   APPLIED = 'APPLIED',
   DOCS_REVIEW = 'DOCS_REVIEW',

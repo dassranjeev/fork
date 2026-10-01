@@ -3,7 +3,7 @@ import { InjectDataSource, InjectRepository, TypeOrmModule } from '@nestjs/typeo
 import { DataSource, Repository } from 'typeorm';
 import { randomInt } from 'crypto';
 import { City, MenuItem, Restaurant, RestaurantClosure, RestaurantHours, Zone } from '../database/entities';
-import { RestaurantStatus, DayPart } from '../common/enums';
+import { RestaurantStatus, RestaurantServiceMode, DayPart } from '../common/enums';
 import { pointInPolygon, haversineKm } from '../common/geo.util';
 import { SettingsService } from '../settings/settings.service';
 
@@ -68,6 +68,7 @@ export class AvailabilityService {
   /** Is the restaurant open (and accepting orders) at `at`? */
   async status(restaurant: Restaurant, at = new Date()): Promise<OpenStatus> {
     if (restaurant.status !== RestaurantStatus.LIVE) return { open: false, reason: 'NOT_LIVE' };
+    if (restaurant.serviceMode === RestaurantServiceMode.CLOSED) return { open: false, reason: 'CLOSED' };
     if (!restaurant.acceptingOrders) return { open: false, reason: 'PAUSED' };
     if (restaurant.pausedUntil && restaurant.pausedUntil > at) return { open: false, reason: 'BUSY_PAUSE', opensAt: restaurant.pausedUntil };
     const tz = await this.timezoneFor(restaurant);
@@ -117,6 +118,7 @@ export class AvailabilityService {
   /** Can this restaurant take an order for time `at` (ASAP = now, scheduled = future slot)? */
   async canOrderAt(restaurant: Restaurant, at: Date | null): Promise<{ ok: boolean; reason?: string }> {
     if (restaurant.status !== RestaurantStatus.LIVE) return { ok: false, reason: 'Restaurant is not live' };
+    if (restaurant.serviceMode === RestaurantServiceMode.CLOSED) return { ok: false, reason: 'This store is closed right now and is not taking orders' };
     if (!at) {
       const s = await this.status(restaurant);
       return s.open ? { ok: true } : { ok: false, reason: `Restaurant is closed (${s.reason})` };

@@ -20,7 +20,8 @@ import {
   User,
   Zone,
 } from '../database/entities';
-import { OrderStatus, RestaurantStatus } from '../common/enums';
+import { OrderStatus, RestaurantServiceMode, RestaurantStatus } from '../common/enums';
+import { fulfilmentAvailability } from '../common/service-mode';
 import { haversineKm, haversineSql, roadEstimate } from '../common/geo.util';
 import { AvailabilityService, daypartOf, GeoService, zonedParts } from '../core/core.module';
 import { SettingsService } from '../settings/settings.service';
@@ -55,8 +56,13 @@ export interface RestaurantCard {
   status: { open: boolean; reason: string | null; opensAt: Date | null; closesAt: Date | null };
   nextOpening: Date | null;
   canSchedule: boolean;
+  /** service mode right now + what the customer can order (mode-aware; delivery also needs the customer inside the delivery radius) */
+  serviceMode: RestaurantServiceMode;
+  serviceModeLabel: string;
   deliveryAvailable: boolean;
   pickupAvailable: boolean;
+  /** delivery capability + radius ignoring the service mode (lets clients show "closed" stores that normally deliver here) */
+  inDeliveryRange: boolean;
   isNew: boolean;
   isFeatured: boolean;
   isFavorite: boolean;
@@ -169,8 +175,10 @@ export class DiscoveryService {
         const nextOpening = st.open ? null : st.opensAt ?? (await this.availability.nextOpening(r, now));
         const km = r.lat != null && r.lng != null ? haversineKm(loc.lat, loc.lng, r.lat, r.lng) : null;
         const radius = Math.min(r.deliveryRadiusKm ?? 5, loc.eff.maxRadiusKm || 12);
-        const deliveryAvailable = r.deliveryEnabled && km !== null && km <= radius;
-        const pickupAvailable = r.pickupEnabled;
+        const av = fulfilmentAvailability(r);
+        const inDeliveryRange = (r.deliveryEnabled || r.ownDeliveryEnabled) && km !== null && km <= radius;
+        const deliveryAvailable = av.deliveryAvailable && inDeliveryRange;
+        const pickupAvailable = av.pickupAvailable;
         let eta: number | null = null;
         if (km !== null) {
           const road = roadEstimate(loc.lat, loc.lng, r.lat!, r.lng!);
@@ -194,9 +202,12 @@ export class DiscoveryService {
           isOpen: st.open,
           status: { open: st.open, reason: st.reason ?? null, opensAt: st.opensAt ?? null, closesAt: st.closesAt ?? null },
           nextOpening,
-          canSchedule: r.scheduledEnabled && !st.open,
+          canSchedule: r.scheduledEnabled && !st.open && av.serviceMode !== RestaurantServiceMode.CLOSED,
+          serviceMode: av.serviceMode,
+          serviceModeLabel: av.serviceModeLabel,
           deliveryAvailable,
           pickupAvailable,
+          inDeliveryRange,
           isNew: r.isNew || (!!r.wentLiveAt && now.getTime() - r.wentLiveAt.getTime() < 30 * 86400_000),
           isFeatured: r.isFeatured,
           isFavorite: opts.favorites?.has(r.id) ?? false,
@@ -217,8 +228,10 @@ export class DiscoveryService {
     const loc = await this.resolveLocation(latIn, lngIn);
     const [list, favorites] = await Promise.all([this.nearby(loc), this.favoritesOf(customerId)]);
     const promos = await this.activePromos(list.map((r) => r.id), loc.city?.id ?? null);
-    const cards = (await this.buildCards(list, loc, { favorites, promos })).filter((c) => c.deliveryAvailable || (c.pickupAvailable && (c.distanceKm ?? 99) <= 10));
-    const deliverable = cards.filter((c) => c.deliveryAvailable);
+    const cards = (await this.buildCards(list, loc, { favorites, promos })).filter((c) => c.deliveryAvailable || (c.pickupAvailable && (c.distanceKm ?? 99) <= 10) || (c.serviceMode === RestaurantServiceMode.CLOSED && c.inDeliveryRange));
+    // CLOSED stores that normally deliver here stay in the lists (shown as closed, sorted after open ones)
+    const deliverable = cards.filter((c) => c.deliveryAvailable || (c.serviceMode === RestaurantServiceMode.CLOSED && c.inDeliveryRange));
+    const pickupOnlyStores = cards.filter((c) => c.serviceMode === RestaurantServiceMode.PICKUP_ONLY && c.pickupAvailable);
     const byDistance = (a: RestaurantCard, b: RestaurantCard) => (a.distanceKm ?? 99) - (b.distanceKm ?? 99);
     const openFirst = (a: RestaurantCard, b: RestaurantCard) => Number(b.isOpen) - Number(a.isOpen);
     const score = (c: RestaurantCard) => c.rating * Math.log(c.ratingCount + 2) + (c.isFeatured ? 3 : 0);
@@ -264,13 +277,14 @@ export class DiscoveryService {
       banners,
       cuisines,
       nearby: nearby.slice(0, 20),
+      pickupOnly: [...pickupOnlyStores].sort(byDistance).slice(0, 20),
       popular: popular.slice(0, 12),
       new: fresh.slice(0, 12),
       deals: deals.slice(0, 12),
       fastest: fastest.slice(0, 12),
       favorites: customerId ? cards.filter((c) => c.isFavorite).slice(0, 12) : [],
       promotions: platformPromos,
-      counts: { restaurants: deliverable.length, open: deliverable.filter((c) => c.isOpen).length },
+      counts: { restaurants: deliverable.length, open: deliverable.filter((c) => c.isOpen).length, pickupOnly: pickupOnlyStores.length },
     };
   }
 
@@ -303,6 +317,8 @@ export class DiscoveryService {
       excludeAllergens?: string;
       cuisine?: string;
       pickupOnly?: string;
+      /** pickup | delivery: only stores where that fulfilment is available right now */
+      fulfilment?: string;
       openNow?: string;
       sort?: string;
       page?: string;
@@ -316,7 +332,8 @@ export class DiscoveryService {
     const type = ['restaurants', 'dishes', 'cuisines'].includes(q.type ?? '') ? q.type! : 'all';
     const page = Math.max(1, num(q.page) ?? 1);
     const limit = Math.min(50, Math.max(1, num(q.limit) ?? 20));
-    const pickupOnly = parseBool(q.pickupOnly) ?? false;
+    const fulfilmentFilter = ['pickup', 'delivery'].includes((q.fulfilment ?? '').toLowerCase()) ? (q.fulfilment as string).toLowerCase() : null;
+    const pickupOnly = (parseBool(q.pickupOnly) ?? false) || fulfilmentFilter === 'pickup';
     const openNow = parseBool(q.openNow) ?? false;
     const prices = csv(q.priceLevel).map(Number).filter((n) => n >= 1 && n <= 4);
     const minRating = num(q.minRating);
@@ -332,7 +349,13 @@ export class DiscoveryService {
     const byId = new Map(list.map((r) => [r.id, r]));
 
     // reachability: delivery within radius, or pickup within 25 km (pickupOnly shows everything pickup-capable)
-    cards = cards.filter((c) => (pickupOnly ? c.pickupAvailable : c.deliveryAvailable || (c.pickupAvailable && (c.distanceKm ?? 99) <= 25)));
+    cards = cards.filter((c) =>
+      fulfilmentFilter === 'delivery'
+        ? c.deliveryAvailable
+        : pickupOnly
+          ? c.pickupAvailable
+          : c.deliveryAvailable || (c.pickupAvailable && (c.distanceKm ?? 99) <= 25) || (c.serviceMode === RestaurantServiceMode.CLOSED && (c.inDeliveryRange || (c.distanceKm ?? 99) <= 25)),
+    );
     if (openNow) cards = cards.filter((c) => c.isOpen);
     if (prices.length) cards = cards.filter((c) => prices.includes(c.priceLevel));
     if (minRating !== undefined) cards = cards.filter((c) => c.rating >= minRating);
@@ -406,6 +429,8 @@ export class DiscoveryService {
       popular: (a, b) => b.c.ratingCount * b.c.rating - a.c.ratingCount * a.c.rating,
     };
     matched.sort(cmp[sort] ?? cmp.relevance);
+    // CLOSED stores always last (stable)
+    matched = [...matched.filter((m) => m.c.serviceMode !== RestaurantServiceMode.CLOSED), ...matched.filter((m) => m.c.serviceMode === RestaurantServiceMode.CLOSED)];
     const total = matched.length;
     const restaurants = matched.slice((page - 1) * limit, page * limit).map(({ c }) => ({
       ...c,
@@ -552,6 +577,8 @@ export class DiscoveryService {
         prepTimeMin: this.availability.prepTime(r),
         pickupPrepTimeMin: this.availability.prepTime(r, true),
         fulfilment: { delivery: r.deliveryEnabled, ownDelivery: r.ownDeliveryEnabled, pickup: r.pickupEnabled, scheduled: r.scheduledEnabled },
+        serviceModeUpdatedAt: r.serviceModeUpdatedAt,
+        serviceModeResumeAt: r.serviceModeResumeAt,
         pickupInstructions: r.pickupInstructions,
         parkingNotes: r.parkingNotes,
         schedule: { slotMinutes: r.slotMinutes, leadMinutes: r.scheduleLeadMin, maxDaysAhead: this.settings.get<number>('orders.maxScheduleDays', 3) },
@@ -608,7 +635,7 @@ export class DiscoveryService {
   async slots(slugOrId: string, dateStr: string) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr ?? '')) throw new BadRequestException('date must be YYYY-MM-DD');
     const r = await this.findRestaurant(slugOrId);
-    if (!r.scheduledEnabled) return { date: dateStr, enabled: false, slotMinutes: r.slotMinutes, timezone: await this.availability.timezoneFor(r), slots: [] };
+    if (!r.scheduledEnabled || r.serviceMode === RestaurantServiceMode.CLOSED) return { date: dateStr, enabled: false, slotMinutes: r.slotMinutes, timezone: await this.availability.timezoneFor(r), slots: [] };
     const maxDays = this.settings.get<number>('orders.maxScheduleDays', 3);
     const tz = await this.availability.timezoneFor(r);
     const today = zonedParts(new Date(), tz).date;

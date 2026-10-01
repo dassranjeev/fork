@@ -198,6 +198,12 @@ export class BusyModeDto {
   @IsOptional() @IsIn([15, 30, 60]) pauseMinutes?: number;
 }
 
+export class ServiceModeDto {
+  @IsIn(['CLOSED', 'PICKUP_ONLY', 'PICKUP_AND_DELIVERY']) mode: 'CLOSED' | 'PICKUP_ONLY' | 'PICKUP_AND_DELIVERY';
+  /** optional auto-switch-back to PICKUP_AND_DELIVERY at this time (only with CLOSED / PICKUP_ONLY) */
+  @IsOptional() @IsDateString() resumeAt?: string | null;
+}
+
 export class AcceptingDto {
   @IsBoolean() accepting: boolean;
 }

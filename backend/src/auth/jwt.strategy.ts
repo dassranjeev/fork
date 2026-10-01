@@ -36,7 +36,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: JwtPayload): Promise<AuthUser & { pending2fa?: boolean }> {
     const hit = this.cache.get(payload.sub);
-    if (hit && Date.now() - hit.at < CACHE_MS) return { ...hit.user, pending2fa: payload.pending2fa };
+    if (hit && Date.now() - hit.at < CACHE_MS) return { ...hit.user, pending2fa: payload.pending2fa, ...(payload.imp ? { impersonatedBy: payload.imp } : {}) };
 
     const user = await this.users.findOne({ where: { id: payload.sub } });
     if (!user) throw new UnauthorizedException();
@@ -86,6 +86,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
     }
     this.cache.set(user.id, { at: Date.now(), user: au });
-    return { ...au, pending2fa: payload.pending2fa };
+    return { ...au, pending2fa: payload.pending2fa, ...(payload.imp ? { impersonatedBy: payload.imp } : {}) };
   }
 }

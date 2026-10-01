@@ -161,7 +161,7 @@ export default function AppShell({ menu, home = "/", portal = "admin", topbarLef
   const [collapsed, setCollapsed] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [openKey, setOpenKey] = useState(null);
-  const { user, can, logout, restaurantRole } = useAuth();
+  const { user, can, logout, restaurantRole, impersonating, impersonationInfo, exitImpersonation } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [quick, setQuick] = useState("");
@@ -200,8 +200,33 @@ export default function AppShell({ menu, home = "/", portal = "admin", topbarLef
     navigate("/sign-in");
   };
 
+  useEffect(() => {
+    document.body.style.paddingTop = impersonating ? "44px" : "";
+    return () => {
+      document.body.style.paddingTop = "";
+    };
+  }, [impersonating]);
+
   return (
     <section className={mobile ? "overlay active" : "overlay"}>
+      {impersonating && <style>{".sidebar{top:44px !important;height:calc(100vh - 44px) !important}"}</style>}
+      {impersonating && (
+        <div
+          role="alert"
+          data-impersonation-banner
+          className="d-flex flex-wrap align-items-center justify-content-center gap-3 px-16 py-8 text-white fw-semibold"
+          style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 2000, background: "#b45309", minHeight: 44 }}
+        >
+          <Icon icon="solar:eye-bold" className="text-xl" />
+          <span>
+            Viewing {impersonationInfo?.restaurantName || "restaurant"} as admin
+            {impersonationInfo?.adminName ? ` (${impersonationInfo.adminName})` : ""} — actions are audited
+          </span>
+          <button type="button" className="btn btn-light btn-sm radius-8 px-12 py-4 fw-semibold" onClick={exitImpersonation}>
+            Exit to admin console
+          </button>
+        </div>
+      )}
       <aside className={collapsed ? "sidebar active" : mobile ? "sidebar sidebar-open" : "sidebar"}>
         <button onClick={() => setMobile(false)} type="button" className="sidebar-close-btn">
           <Icon icon="radix-icons:cross-2" />

@@ -8,6 +8,8 @@ export interface JwtPayload {
   exp?: number;
   /** true while the user still has to pass the 2FA step (limited token) */
   pending2fa?: boolean;
+  /** admin user id when this is an impersonation (support "view as owner") token */
+  imp?: string;
 }
 
 /** What controllers receive through @CurrentUser(). Built in JwtStrategy.validate(). */
@@ -38,4 +40,7 @@ export interface AuthUser {
 
   /** CUSTOMER users: same as id */
   customerId?: string;
+
+  /** Set when an admin is acting as this user via POST /admin/restaurants/:id/impersonate (admin's user id). */
+  impersonatedBy?: string;
 }

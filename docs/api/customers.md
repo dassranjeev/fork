@@ -64,11 +64,17 @@ Live tracking and chat: shared `GET /orders/:id/tracking`, `/orders/:id/messages
 ### Discovery (same under `/customer/*` personalised, and `/public/*` anonymous)
 | Method | Path | Query | Response |
 |---|---|---|---|
-| GET | `/customer|public/home` | lat,lng | `{location,banners,cuisines,nearby,popular,new,deals,fastest,favorites,promotions,counts}` |
-| GET | `/customer|public/search` | q,lat,lng,type(restaurants/dishes/cuisines),priceLevel(csv),minRating,maxFee,maxEta,dietary(csv),excludeAllergens(csv),cuisine(slugs csv),pickupOnly,openNow,sort(relevance/distance/rating/eta/fee/price_low/price_high/popular),page,limit | `{query,restaurants,dishes,cuisines,meta}` |
+| GET | `/customer|public/home` | lat,lng | `{location,banners,cuisines,nearby,pickupOnly,popular,new,deals,fastest,favorites,promotions,counts}`. `pickupOnly` = stores currently in PICKUP_ONLY mode (not in the delivery lists). CLOSED stores that normally deliver to the location stay in the lists but are shown closed and sorted after open ones |
+| GET | `/customer|public/search` | q,lat,lng,type(restaurants/dishes/cuisines),priceLevel(csv),minRating,maxFee,maxEta,dietary(csv),excludeAllergens(csv),cuisine(slugs csv),pickupOnly,`fulfilment`(pickup/delivery),openNow,sort(relevance/distance/rating/eta/fee/price_low/price_high/popular),page,limit | `{query,restaurants,dishes,cuisines,meta}` |
 | GET | `/customer|public/restaurants/:slugOrId` | lat,lng | `{restaurant{...card,hours,schedule,fulfilment},promos,menu{categories,popular},reviews}` |
 | GET | `/customer|public/restaurants/:slug/reviews` | page,limit | `{summary,data,meta}` |
 | GET | `/customer|public/restaurants/:slug/slots` | date=YYYY-MM-DD | `{date,enabled,slotMinutes,timezone,slots[{startsAt,label,capacity,booked,available}]}` |
 | POST | `/public/guest/session` | `{email,phone?,firstName?,lastName?}` | login tokens + `guest:true` (409 `ACCOUNT_EXISTS` / `GUEST_EMAIL_IN_USE`) |
 
 Events: emits `review.created`. Settings used: `customers.guestCheckoutEnabled`, `customers.walletAdjustApprovalThreshold`, `payments.giftCardsEnabled`, `compliance.dataRequestDays`, `security.refundFrequencyLimit30d`.
+
+### Service mode on restaurant cards / pages / cart / quote
+Every `RestaurantCard` (home, search, favorites, restaurant page) now has `serviceMode` (`CLOSED|PICKUP_ONLY|PICKUP_AND_DELIVERY`), `serviceModeLabel` ("Closed" / "Pickup only" / "Pickup & delivery"), `pickupAvailable`, `deliveryAvailable` (mode-aware; delivery also requires the customer to be inside the delivery radius), and `inDeliveryRange` (radius + delivery capability ignoring the mode). A CLOSED store has `isOpen:false`, `status.reason:"CLOSED"`, `canSchedule:false`, no slots.
+* Search filter `fulfilment=pickup` returns only stores where pickup is orderable now (excludes CLOSED); `fulfilment=delivery` returns only stores where delivery is orderable now at the given lat/lng (excludes PICKUP_ONLY and CLOSED, respects delivery radius). `pickupOnly=true` is kept as an alias of `fulfilment=pickup`. Without the filter CLOSED stores are always sorted last.
+* `GET /customer/cart` → `restaurant` also has `serviceMode, serviceModeLabel, deliveryAvailable, pickupAvailable`.
+* `POST /customer/checkout/quote` response includes `availableFulfilment: {serviceMode, serviceModeLabel, pickup, delivery, platformDelivery, ownDelivery}`. Errors (400): CLOSED -> "This store is closed right now and is not taking orders"; DELIVERY at a PICKUP_ONLY store -> "This store is pickup only right now. Delivery is unavailable, but you can still order for pickup." The same rules apply to `POST /customer/orders`.

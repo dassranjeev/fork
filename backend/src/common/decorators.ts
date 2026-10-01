@@ -12,6 +12,11 @@ export const ALLOW_2FA_PENDING = 'allow2faPending';
 /** Route may be called with the limited token issued between password check and 2FA. */
 export const Allow2faPending = () => SetMetadata(ALLOW_2FA_PENDING, true);
 
+export const NO_IMPERSONATION = 'noImpersonation';
+
+/** Route is refused for impersonation tokens (password / 2FA / account security). */
+export const NoImpersonation = () => SetMetadata(NO_IMPERSONATION, true);
+
 /** Skip authentication. */
 export const Public = () => SetMetadata(IS_PUBLIC, true);
 

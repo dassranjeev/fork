@@ -50,7 +50,9 @@ export class AuditService {
         actorId: input.actor?.id ?? null,
         actorEmail: input.actor?.email ?? null,
         actorType: input.actor?.type ?? 'SYSTEM',
-        actorRole: input.actor?.roleName ?? null,
+        actorRole: input.actor?.impersonatedBy
+          ? `${input.actor?.roleName ?? input.actor?.restaurantRole ?? 'user'} [impersonated by ${input.actor.impersonatedBy}]`
+          : (input.actor?.roleName ?? null),
         action: input.action,
         entity: input.entity ?? null,
         entityId: input.entityId ?? null,

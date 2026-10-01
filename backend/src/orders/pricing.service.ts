@@ -16,7 +16,8 @@ import {
   TaxClass,
   Zone,
 } from '../database/entities';
-import { ACTIVE_ORDER_STATUSES, FulfilmentMode, OrderStatus, OrderType } from '../common/enums';
+import { ACTIVE_ORDER_STATUSES, FulfilmentMode, OrderStatus, OrderType, RestaurantServiceMode } from '../common/enums';
+import { fulfilmentAvailability } from '../common/service-mode';
 import { IPricingService, IPromotionsService, PromotionEvaluation, Quote, QuoteInput, QuoteLine } from '../common/contracts';
 import { haversineKm, roadEstimate } from '../common/geo.util';
 import { AvailabilityService, daypartOf, GeoService, zonedParts } from '../core/core.module';
@@ -253,13 +254,27 @@ export class PricingService implements IPricingService {
       commissionAmount: money.commissionAmount,
       restaurantPayout: money.restaurantPayout,
       warnings,
+      availableFulfilment: this.availableFulfilment(restaurant),
     };
   }
 
+  /** What the customer can pick at checkout for this restaurant right now (mode + capability flags). */
+  availableFulfilment(r: Restaurant) {
+    const av = fulfilmentAvailability(r);
+    return { serviceMode: av.serviceMode, serviceModeLabel: av.serviceModeLabel, pickup: av.pickupAvailable, delivery: av.deliveryAvailable, platformDelivery: av.platformDeliveryAvailable, ownDelivery: av.ownDeliveryAvailable };
+  }
+
   private resolveFulfilment(r: Restaurant, input: QuoteInput): FulfilmentMode {
+    const av = fulfilmentAvailability(r);
+    if (av.serviceMode === RestaurantServiceMode.CLOSED) throw new BadRequestException('This store is closed right now and is not taking orders');
     if (input.type === OrderType.PICKUP) {
-      if (!r.pickupEnabled) throw new BadRequestException('This restaurant does not offer pickup');
+      if (!av.pickupAvailable) throw new BadRequestException('This restaurant does not offer pickup');
       return FulfilmentMode.PICKUP;
+    }
+    if (av.serviceMode === RestaurantServiceMode.PICKUP_ONLY) {
+      throw new BadRequestException(
+        av.pickupAvailable ? 'This store is pickup only right now. Delivery is unavailable, but you can still order for pickup.' : 'This store is pickup only right now and does not offer pickup',
+      );
     }
     const wantsOwn = input.fulfilment === FulfilmentMode.OWN_DRIVER;
     if (input.fulfilment === FulfilmentMode.PICKUP) throw new BadRequestException('Delivery orders cannot use PICKUP fulfilment');

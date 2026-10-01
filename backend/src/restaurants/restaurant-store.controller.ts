@@ -15,6 +15,7 @@ import {
   KdsSettingsDto,
   NotificationSettingsDto,
   PrinterSettingsDto,
+  ServiceModeDto,
   StationDto,
   TabletActivateDto,
   TabletHeartbeatDto,
@@ -124,6 +125,13 @@ export class RestaurantStoreController {
   @RestaurantRoles(...FRONT_OF_HOUSE)
   setAccepting(@CurrentUser() user: AuthUser, @Body() dto: AcceptingDto, @Query('restaurantId') restaurantId?: string) {
     return this.store.setAccepting(this.rid(user, restaurantId), dto.accepting, user);
+  }
+
+  /** Switch service mode: CLOSED | PICKUP_ONLY | PICKUP_AND_DELIVERY (KITCHEN may not). */
+  @Patch('service-mode')
+  @RestaurantRoles(...FRONT_OF_HOUSE)
+  setServiceMode(@CurrentUser() user: AuthUser, @Body() dto: ServiceModeDto, @Query('restaurantId') restaurantId?: string) {
+    return this.store.setServiceMode(this.rid(user, restaurantId), dto, user);
   }
 
   // ---- printers / notifications / kds settings ----

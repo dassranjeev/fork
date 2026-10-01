@@ -7,18 +7,44 @@ export const WS_URL = process.env.REACT_APP_WS_URL || "http://localhost:4000";
 const ACCESS = "forksy.access";
 const REFRESH = "forksy.refresh";
 
+/**
+ * Admin "open restaurant panel" (server-side impersonation). The short-lived impersonation token lives in
+ * sessionStorage (per tab, survives reload) so the admin's own tokens in localStorage stay untouched:
+ * exiting simply drops the impersonation and the admin session is exactly as it was.
+ */
+const IMP = "forksy.impersonation";
+export const impersonation = {
+  get info() {
+    try {
+      return JSON.parse(sessionStorage.getItem(IMP) || "null");
+    } catch {
+      return null;
+    }
+  },
+  get active() {
+    return !!this.info?.accessToken;
+  },
+  start(info) {
+    sessionStorage.setItem(IMP, JSON.stringify(info));
+  },
+  stop() {
+    sessionStorage.removeItem(IMP);
+  },
+};
+
 export const tokens = {
   get access() {
-    return localStorage.getItem(ACCESS);
+    return impersonation.info?.accessToken || localStorage.getItem(ACCESS);
   },
   get refresh() {
-    return localStorage.getItem(REFRESH);
+    return impersonation.active ? null : localStorage.getItem(REFRESH);
   },
   set({ accessToken, refreshToken }) {
     if (accessToken) localStorage.setItem(ACCESS, accessToken);
     if (refreshToken) localStorage.setItem(REFRESH, refreshToken);
   },
   clear() {
+    if (impersonation.active) return impersonation.stop();
     localStorage.removeItem(ACCESS);
     localStorage.removeItem(REFRESH);
   },
@@ -57,6 +83,13 @@ api.interceptors.response.use(
     const original = error.config || {};
     const status = error.response?.status;
     const isAuthCall = /\/auth\/(login|refresh|2fa\/verify|otp)/.test(original.url || "");
+    if (status === 401 && !isAuthCall && impersonation.active) {
+      // impersonation token expired / revoked: never refresh, just go back to the admin console
+      const back = impersonation.info?.returnTo || "/";
+      impersonation.stop();
+      window.location.assign(back);
+      return Promise.reject(error);
+    }
     if (status === 401 && !original._retry && !isAuthCall && tokens.refresh) {
       original._retry = true;
       try {

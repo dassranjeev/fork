@@ -65,6 +65,14 @@ Realtime events emitted (see `src/realtime/realtime.module.ts`): `restaurant.sta
 | GET / POST `/:id/integrations` | restaurants:view / edit | `IntegrationDto{provider,status?,config?}` | `RestaurantIntegration[]` / row |
 | PATCH / DELETE `/:id/integrations/:integrationId` | restaurants:edit | `UpdateIntegrationDto{status?,config?}` | row / `{ok}` |
 
+### Open restaurant panel (impersonation)
+
+| Method & path | Permission | Response |
+|---|---|---|
+| POST `/:id/impersonate` | `restaurants:edit` (SUPER_ADMIN always) | `{accessToken, expiresIn (7200s), restaurantId, restaurantName, user, impersonatedBy}` |
+
+Issues a short-lived (2 h) access token, **no refresh token**, for the restaurant's active OWNER member (fallback: any active member of the merchant / that location). `400` if the restaurant has no active member, `404` if unknown. The JWT carries `imp` = admin user id; `AuthUser.impersonatedBy` is set, `GET /auth/me` returns it, and audit rows written during the session record `actorRole = "<role> [impersonated by <adminId>]"`. Start is audited as `restaurant.impersonate` (entity `Restaurant`, actor = the admin, `after` = target user/role). Routes marked `@NoImpersonation()` answer `403`: `/auth/change-password`, `/auth/2fa/{setup,enable,disable}`, `/auth/logout-all`, `PATCH /auth/me`, and `POST /restaurant/staff/:id/reset-password`. The admin console keeps this token per browser tab (sessionStorage) and shows an "Exit to admin console" banner.
+
 ### Reviews moderation
 
 | Method & path | Permission | Body / query | Response |
@@ -76,7 +84,7 @@ Realtime events emitted (see `src/realtime/realtime.module.ts`): `restaurant.sta
 
 | Method & path | Role | Response |
 |---|---|---|
-| GET `/` | any | `{restaurant:{id,name,status,acceptingOrders,pausedUntil,busyExtraPrepMin,rating,ratingCount,reliabilityScore,kdsEnabled,tabletActivated}, open:{open,reason?,opensAt?,closesAt?}, today:{orders,sales,pendingAccept,inKitchen,ready,late}, documentChecklist}` |
+| GET `/` | any | `{restaurant:{id,name,status,acceptingOrders,serviceMode,serviceModeLabel,serviceModeUpdatedAt,serviceModeResumeAt,pickupAvailable,deliveryAvailable,pausedUntil,busyExtraPrepMin,rating,ratingCount,reliabilityScore,kdsEnabled,tabletActivated}, open:{open,reason?,opensAt?,closesAt?}, today:{orders,sales,pendingAccept,inKitchen,ready,late}, documentChecklist}` |
 
 ## Portal - `/api/v1/restaurant/store`
 
@@ -95,7 +103,8 @@ Realtime events emitted (see `src/realtime/realtime.module.ts`): `restaurant.sta
 | PATCH / DELETE `/stations/:stationId` | OWNER, LOCATION_MANAGER | `Partial<StationDto>` | row / `{ok}` |
 | POST `/busy` | OWNER, LOCATION_MANAGER, CASHIER | `BusyModeDto{extraPrepMin?, pauseMinutes?}` | `{busyExtraPrepMin, pausedUntil, acceptingOrders}` |
 | POST `/busy/clear` | OWNER, LOCATION_MANAGER, CASHIER | - | same shape, cleared |
-| PATCH `/accepting` | OWNER, LOCATION_MANAGER, CASHIER | `AcceptingDto{accepting}` | `{acceptingOrders}` (only while LIVE) |
+| PATCH `/accepting` | OWNER, LOCATION_MANAGER, CASHIER | `AcceptingDto{accepting}` | `{acceptingOrders, serviceMode,...}` (only while LIVE). Legacy switch, kept coherent: `accepting:false` == service mode `CLOSED`; `accepting:true` from CLOSED == `PICKUP_AND_DELIVERY` |
+| PATCH `/service-mode` | OWNER, LOCATION_MANAGER, CASHIER (not KITCHEN) | `ServiceModeDto{mode: CLOSED|PICKUP_ONLY|PICKUP_AND_DELIVERY, resumeAt?: ISO date}` (`?restaurantId=` for multi-location users) | `{id, serviceMode, serviceModeLabel, serviceModeUpdatedAt, serviceModeResumeAt, pickupAvailable, deliveryAvailable, openOrders}`. Audited (`restaurant.service_mode`, actor + before/after), emits `store.updated` (restaurant room + ops) and domain event `Events.RESTAURANT_SERVICE_MODE_CHANGED`. `resumeAt` (max 14 days, only with CLOSED / PICKUP_ONLY) auto-switches back to PICKUP_AND_DELIVERY (cron, every minute). |
 | PATCH `/printers` | OWNER, LOCATION_MANAGER | `PrinterSettingsDto` | `{receiptPrinterEnabled,kitchenPrinterEnabled,config}` |
 | PATCH `/notifications` | OWNER, LOCATION_MANAGER | `NotificationSettingsDto{settings}` | settings object |
 | PATCH `/kds` | OWNER, LOCATION_MANAGER | `KdsSettingsDto{largeFont?,soundOn?,recentPickedUpMinutes?,autoLoadPrep?,capacityTickets?}` | settings object |
@@ -191,3 +200,20 @@ All order actions go through `OrdersService.transition` / `removeItem` / `setEta
 * `seedRestaurants` in `src/restaurants/restaurants.seed.ts` is left as the pre-existing stub - implementing 10+ demo restaurants with rich menus, hours and one 2-location merchant was out of scope for this pass (not part of the three-step task given) and is a substantial standalone effort; flagging so it can be picked up separately before the seed pipeline (`src/database/seed.ts`) is exercised end-to-end.
 * Restaurant self-serve sales/ratings/promo reports (`/restaurant/reports/*`) are owned by `AnalyticsModule` per ARCHITECTURE.md and are intentionally not duplicated here; this module's `/restaurant/dashboard` only covers today's order snapshot + open status.
 * POS integrations are config-only (connect/disconnect + provider config JSON), matching the "Phase 3" scope noted on `RestaurantIntegration`.
+
+## Service mode (CLOSED / PICKUP_ONLY / PICKUP_AND_DELIVERY)
+
+Every store (restaurant or convenience store) has a `serviceMode` (`Restaurant.serviceMode`, default `PICKUP_AND_DELIVERY`, plus `serviceModeUpdatedAt`, optional `serviceModeResumeAt`). It is the single source of truth for "which fulfilment types can a customer use right now"; the admin-configured capability flags remain an upper bound. Helper: `fulfilmentAvailability()` in `src/common/service-mode.ts`.
+
+| Mode | Pickup orders | Delivery orders | Drivers |
+|---|---|---|---|
+| `CLOSED` | rejected (400 "This store is closed right now and is not taking orders"), also scheduled orders | rejected | none dispatched |
+| `PICKUP_ONLY` | allowed if `pickupEnabled` | rejected (400 "This store is pickup only right now. Delivery is unavailable, but you can still order for pickup.") | none dispatched (no new delivery orders) |
+| `PICKUP_AND_DELIVERY` | allowed if `pickupEnabled` | allowed if `deliveryEnabled` (platform drivers) or `ownDeliveryEnabled` (own drivers) | normal dispatch |
+
+* Effective delivery = mode is PICKUP_AND_DELIVERY AND (`deliveryEnabled` OR `ownDeliveryEnabled`); effective pickup = mode is PICKUP_ONLY or PICKUP_AND_DELIVERY AND `pickupEnabled`. Only `status = LIVE` stores are orderable at all.
+* `CLOSED` also sets `acceptingOrders=false`; the other modes set `acceptingOrders=true` and clear `pausedUntil`. `AvailabilityService.status()` reports `reason: 'CLOSED'`.
+* Enforcement is in `PricingService.quote` (which `OrdersService.placeOrder` always calls), so the checkout quote and placing an order are rejected identically. The mode is checked at the moment of quoting / placing, also for scheduled orders (no per-slot mode history).
+* Orders already placed keep their original fulfilment and continue normally when the mode changes (a delivery order placed earlier is still accepted, dispatched and delivered after the store goes PICKUP_ONLY or CLOSED). Dispatch only ever happens for `fulfilment = PLATFORM_DRIVER`, so pickup orders never create driver offers.
+* Admin: `PATCH /admin/restaurants/:id/service-mode` (restaurants:edit, audited) with the same body; `GET /admin/restaurants` rows and the detail view include `serviceMode`.
+* Realtime: `store.updated` carries `serviceMode, serviceModeLabel, pickupAvailable, deliveryAvailable, serviceModeResumeAt, changedBy`.

@@ -17,16 +17,17 @@ import {
   User,
   Zone,
 } from '../database/entities';
-import { DocStatus, RestaurantDocType, RestaurantRole, RestaurantStatus, UserStatus, UserType } from '../common/enums';
+import { DocStatus, RestaurantDocType, RestaurantRole, RestaurantServiceMode, RestaurantStatus, UserStatus, UserType } from '../common/enums';
 import { SeedOptions } from '../database/seed-types';
 import { slugify } from './restaurants.util';
+import { EXTRA_DEFS, EXTRA_MENUS } from './restaurants.seed-extra';
 
-type Item = [name: string, price: number, description: string, tags?: string[], allergens?: string[]];
-type Cat = { name: string; station: string; items: Item[] };
-type Group = { name: string; required: boolean; min: number; max: number; options: [string, number][]; appliesTo: string[] };
-type Menu = { categories: Cat[]; groups: Group[] };
+export type Item = [name: string, price: number, description: string, tags?: string[], allergens?: string[], taxClass?: string];
+export type Cat = { name: string; station: string; items: Item[] };
+export type Group = { name: string; required: boolean; min: number; max: number; options: [string, number][]; appliesTo: string[] };
+export type Menu = { categories: Cat[]; groups: Group[] };
 
-const SIZE: Group = { name: 'Size', required: true, min: 1, max: 1, options: [['Regular', 0], ['Large', 3]], appliesTo: [] };
+export const SIZE: Group = { name: 'Size', required: true, min: 1, max: 1, options: [['Regular', 0], ['Large', 3]], appliesTo: [] };
 
 const MENUS: Record<string, Menu> = {
   pizza: {
@@ -80,7 +81,11 @@ const MENUS: Record<string, Menu> = {
   },
 };
 
-type Def = { name: string; merchant: number; cuisines: string[]; menu: keyof typeof MENUS; zone: string; dLat: number; dLng: number; street: string; price: number; tier: string; prep: number };
+export type Def = {
+  name: string; merchant: number; cuisines: string[]; menu: string; zone: string; dLat: number; dLng: number; street: string; price: number; tier: string; prep: number;
+  /** extras only */
+  city?: string; postal?: string; hours?: 'std' | 'late' | 'conv' | 'allday'; mode?: RestaurantServiceMode; featured?: boolean; minOrder?: number;
+};
 
 /** merchant 1 owns two locations (City Centre + Port Credit); every other merchant has one. */
 const DEFS: Def[] = [
@@ -104,6 +109,16 @@ const POSTAL = ['L5B 1M2', 'L5G 1A1', 'L5M 2B7', 'L5N 7T4', 'L5L 3R9', 'L5R 3K1'
 /** Idempotent: natural keys are restaurant slug, merchant businessName, user email. Demo data only when opts.demo. */
 export async function seedRestaurants(ds: DataSource, opts: SeedOptions): Promise<void> {
   if (!opts.demo) return;
+  await seedDefs(ds, opts, DEFS, MENUS, false);
+}
+
+/** Additional Brampton + Mississauga restaurants/convenience stores (merchants 13+). Runs after the orders seed so historical orders stay unchanged. */
+export async function seedRestaurantsExtra(ds: DataSource, opts: SeedOptions): Promise<void> {
+  if (!opts.demo) return;
+  await seedDefs(ds, opts, [...DEFS, ...EXTRA_DEFS], { ...MENUS, ...EXTRA_MENUS }, true);
+}
+
+async function seedDefs(ds: DataSource, opts: SeedOptions, defs: Def[], menus: Record<string, Menu>, extraOnly: boolean): Promise<void> {
   const merchants = ds.getRepository(Merchant);
   const restaurants = ds.getRepository(Restaurant);
   const users = ds.getRepository(User);
@@ -126,7 +141,8 @@ export async function seedRestaurants(ds: DataSource, opts: SeedOptions): Promis
 
   const merchantRows = new Map<number, Merchant>();
   let created = 0;
-  for (const [i, d] of DEFS.entries()) {
+  for (const [i, d] of defs.entries()) {
+    if (extraOnly && i < DEFS.length) continue; // base restaurants were handled by seedRestaurants
     const brand = d.merchant === 1 ? 'Napoli Wood Fired Pizza Inc.' : `${d.name} Ltd.`;
     let merchant = merchantRows.get(d.merchant) ?? (await merchants.findOne({ where: { businessName: brand } }));
     if (!merchant) {
@@ -159,13 +175,13 @@ export async function seedRestaurants(ds: DataSource, opts: SeedOptions): Promis
           merchantId: merchant.id,
           name: d.name,
           slug,
-          description: `${d.name} - fresh, made to order in Mississauga.`,
+          description: `${d.name} - fresh, made to order in ${d.city ?? 'Mississauga'}.`,
           phone: `+1416555${String(3000 + i).padStart(4, '0')}`,
           email: `orders+${slug}@demo-restaurant.ca`,
           addressLine1: d.street,
-          city: 'Mississauga',
+          city: d.city ?? 'Mississauga',
           province: 'ON',
-          postalCode: POSTAL[i % POSTAL.length],
+          postalCode: d.postal ?? POSTAL[i % POSTAL.length],
           lat: zone ? +(zone.centerLat + d.dLat).toFixed(6) : 43.589 + d.dLat,
           lng: zone ? +(zone.centerLng + d.dLng).toFixed(6) : -79.6441 + d.dLng,
           zoneId: zone?.id ?? null,
@@ -179,24 +195,25 @@ export async function seedRestaurants(ds: DataSource, opts: SeedOptions): Promis
           prepTimeMin: d.prep,
           pickupPrepTimeMin: Math.max(8, d.prep - 5),
           deliveryRadiusKm: 6,
-          minimumOrder: 10,
+          minimumOrder: d.minOrder ?? 10,
           tabletActivated: true,
           tabletCode: String(100000 + i * 7919).slice(0, 6),
           rating: +(4.1 + ((i * 7) % 9) / 10).toFixed(2),
           ratingCount: 0,
-          isFeatured: i < 3,
-          isNew: i >= DEFS.length - 2,
+          isFeatured: d.featured ?? i < 3,
+          isNew: extraOnly ? i >= DEFS.length + 4 : i >= DEFS.length - 2,
+          ...(d.mode ? { serviceMode: d.mode } : {}),
         }),
       );
       created++;
 
-      await seedHours(ds, r.id);
+      await seedHours(ds, r.id, d.hours ?? 'std');
       await seedDocuments(ds, r.id);
-      await seedMenu(ds, r.id, MENUS[d.menu]);
+      await seedMenu(ds, r.id, menus[d.menu]);
     }
 
     // first location of each merchant gets the staff roles; merchant 1's second location gets its own manager
-    const firstOfMerchant = DEFS.findIndex((x) => x.merchant === d.merchant) === i;
+    const firstOfMerchant = defs.findIndex((x) => x.merchant === d.merchant) === i;
     const suffix = firstOfMerchant ? '' : 'b';
     const manager = await ensureUser(`manager${m}${suffix}@demo-restaurant.ca`, 'Marco', `Manager${m}${suffix}`, `+1416555${String(4000 + m * 2 + (firstOfMerchant ? 0 : 1)).padStart(4, '0')}`);
     await ensureMember(manager.id, merchant.id, RestaurantRole.LOCATION_MANAGER, r.id);
@@ -207,13 +224,15 @@ export async function seedRestaurants(ds: DataSource, opts: SeedOptions): Promis
       await ensureMember(kitchen.id, merchant.id, RestaurantRole.KITCHEN, r.id);
     }
   }
-  console.log(`  + ${created} demo restaurants (${DEFS.length} total defined)`);
+  console.log(`  + ${created} demo restaurants (${defs.length} total defined)`);
 }
 
-async function seedHours(ds: DataSource, restaurantId: string) {
+async function seedHours(ds: DataSource, restaurantId: string, kind: 'std' | 'late' | 'conv' | 'allday' = 'std') {
   const rows: Partial<RestaurantHours>[] = [];
   for (let day = 0; day < 7; day++) {
-    rows.push({ restaurantId, dayOfWeek: day, openTime: day === 0 ? '11:00' : '10:30', closeTime: day === 5 || day === 6 ? '23:00' : '22:00', closed: false });
+    const [openTime, closeTime] =
+      kind === 'allday' ? ['00:00', '00:00'] : kind === 'conv' ? ['06:00', day === 5 || day === 6 ? '02:00' : '00:00'] : kind === 'late' ? ['11:00', day === 5 || day === 6 ? '01:00' : '23:00'] : [day === 0 ? '11:00' : '10:30', day === 5 || day === 6 ? '23:00' : '22:00'];
+    rows.push({ restaurantId, dayOfWeek: day, openTime, closeTime, closed: false });
   }
   await ds.getRepository(RestaurantHours).insert(rows);
 }
@@ -245,7 +264,7 @@ async function seedMenu(ds: DataSource, restaurantId: string, menu: Menu) {
   const linkRepo = ds.getRepository(MenuItemModifierGroup);
   for (const [ci, c] of menu.categories.entries()) {
     const cat = await catRepo.save(catRepo.create({ restaurantId, name: c.name, sortOrder: ci }));
-    for (const [ii, [name, price, description, tags, allergens]] of c.items.entries()) {
+    for (const [ii, [name, price, description, tags, allergens, taxClass]] of c.items.entries()) {
       const item = await itemRepo.save(
         itemRepo.create({
           restaurantId,
@@ -254,7 +273,7 @@ async function seedMenu(ds: DataSource, restaurantId: string, menu: Menu) {
           description: description || null,
           price,
           pickupPrice: c.station === 'Drinks' ? null : +(price * 0.95).toFixed(2),
-          taxClassCode: 'HST_ON',
+          taxClassCode: taxClass ?? 'HST_ON',
           dietaryTags: tags ?? [],
           allergens: allergens ?? [],
           sortOrder: ii,

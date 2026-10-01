@@ -118,3 +118,106 @@ export async function seedDrivers(ds: DataSource, opts: SeedOptions): Promise<vo
     console.log(`  + driver ${email} (${p.status}${p.online ? ', online' : ''})`);
   }
 }
+
+type ExtraPlan = Plan & { zone: string; dLat: number; dLng: number };
+const B = DriverStatus.ACTIVE;
+/** driver15..28: Brampton + Mississauga couriers (6 online Brampton, 5 online Mississauga, all off-trip; plus offline/approved/in-onboarding). */
+const EXTRA_PLANS: ExtraPlan[] = [
+  { first: 'Harpreet', last: 'Gill', status: B, online: true, vehicle: VehicleType.CAR, docs: 'all', bg: 'CLEAR', zone: 'Downtown Brampton', dLat: 0.004, dLng: 0.003 },
+  { first: 'Gurpreet', last: 'Sandhu', status: B, online: true, vehicle: VehicleType.CAR, docs: 'all', bg: 'CLEAR', zone: 'Bramalea', dLat: -0.003, dLng: 0.004 },
+  { first: 'Jasmine', last: 'Dhillon', status: B, online: true, vehicle: VehicleType.CAR, docs: 'all', bg: 'CLEAR', zone: 'Springdale', dLat: 0.002, dLng: -0.004 },
+  { first: 'Tariq', last: 'Mahmood', status: B, online: true, vehicle: VehicleType.CAR, docs: 'all', bg: 'CLEAR', zone: 'Heart Lake', dLat: -0.002, dLng: 0.002 },
+  { first: 'Amrit', last: 'Sidhu', status: B, online: true, vehicle: VehicleType.E_BIKE, docs: 'all', bg: 'CLEAR', zone: 'Downtown Brampton', dLat: -0.002, dLng: -0.003 },
+  { first: 'Kevin', last: 'Brar', status: B, online: true, vehicle: VehicleType.SCOOTER, docs: 'all', bg: 'CLEAR', zone: 'Bramalea', dLat: 0.003, dLng: -0.002 },
+  { first: 'Sara', last: 'Ahmed', status: B, online: true, vehicle: VehicleType.CAR, docs: 'all', bg: 'CLEAR', zone: 'Erin Mills', dLat: 0.003, dLng: 0.003 },
+  { first: 'Diego', last: 'Alvarez', status: B, online: true, vehicle: VehicleType.CAR, docs: 'all', bg: 'CLEAR', zone: 'City Centre', dLat: -0.002, dLng: 0.004 },
+  { first: 'Hannah', last: 'Cooper', status: B, online: true, vehicle: VehicleType.CAR, docs: 'all', bg: 'CLEAR', zone: 'Streetsville', dLat: 0.002, dLng: 0.002 },
+  { first: 'Mohammed', last: 'Yusuf', status: B, online: true, vehicle: VehicleType.CAR, docs: 'all', bg: 'CLEAR', zone: 'Meadowvale', dLat: -0.003, dLng: -0.002 },
+  { first: 'Nina', last: 'Kowalski', status: B, online: true, vehicle: VehicleType.BIKE, docs: 'all', bg: 'CLEAR', zone: 'Port Credit', dLat: 0.002, dLng: -0.003 },
+  { first: 'Rajveer', last: 'Chahal', status: B, vehicle: VehicleType.CAR, docs: 'all', bg: 'CLEAR', zone: 'Bramalea', dLat: 0.001, dLng: 0.001 },
+  { first: 'Simran', last: 'Kaur', status: DriverStatus.APPROVED, vehicle: VehicleType.CAR, docs: 'all', bg: 'CLEAR', zone: 'Downtown Brampton', dLat: 0, dLng: 0 },
+  { first: 'Andre', last: 'Silva', status: DriverStatus.BACKGROUND_CHECK, vehicle: VehicleType.CAR, docs: 'all', bg: 'IN_PROGRESS', zone: 'Port Credit', dLat: 0, dLng: 0 },
+];
+
+/** Adds driver15..28 across Mississauga + Brampton. Idempotent by email; runs after the orders seed so historical orders are unchanged. */
+export async function seedDriversExtra(ds: DataSource, opts: SeedOptions): Promise<void> {
+  if (!opts.demo) return;
+  const users = ds.getRepository(User);
+  const profiles = ds.getRepository(DriverProfile);
+  const docsRepo = ds.getRepository(DriverDocument);
+  const zoneRows = await ds.getRepository(Zone).find({ where: { active: true } });
+  const zoneByName = new Map(zoneRows.map((z) => [z.name, z]));
+  const hash = await bcrypt.hash(opts.demoPassword, 10);
+  const inFuture = (days: number) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
+  let created = 0;
+
+  for (const [i, p] of EXTRA_PLANS.entries()) {
+    const n = PLANS.length + 1 + i; // 15..28
+    const email = `driver${n}@demo.forksy.ca`;
+    if (await users.findOne({ where: { email } })) continue;
+    const zone = zoneByName.get(p.zone);
+    if (!zone) {
+      console.log(`  ! driver ${email}: zone ${p.zone} missing - skipped`);
+      continue;
+    }
+    const sameCity = zoneRows.filter((z) => z.cityId === zone.cityId);
+    const zoneIds = [zone.id, ...sameCity.filter((z) => z.id !== zone.id).slice(0, 2).map((z) => z.id)];
+    const live = p.status === DriverStatus.ACTIVE;
+    const assigned = [DriverStatus.ACTIVE, DriverStatus.APPROVED].includes(p.status);
+    const user = await users.save(
+      users.create({ type: UserType.DRIVER, status: UserStatus.ACTIVE, email, phone: `+1416555${String(100 + n).padStart(4, '0')}`, emailVerified: true, phoneVerified: true, firstName: p.first, lastName: p.last, passwordHash: hash }),
+    );
+    const prof = await profiles.save(
+      profiles.create({
+        userId: user.id,
+        cityId: zone.cityId,
+        status: p.status,
+        statusReason: null,
+        vehicleType: p.vehicle,
+        vehicleMake: p.vehicle === VehicleType.CAR ? ['Honda', 'Toyota', 'Hyundai', 'Kia'][n % 4] : null,
+        vehicleModel: p.vehicle === VehicleType.CAR ? ['Civic', 'Corolla', 'Elantra', 'Forte'][n % 4] : null,
+        vehicleColor: ['Black', 'White', 'Silver', 'Blue'][n % 4],
+        licensePlate: p.vehicle === VehicleType.CAR ? `CMBR ${100 + n}` : null,
+        zoneIds: assigned ? zoneIds : [],
+        activeZoneId: p.online ? zone.id : null,
+        isOnline: !!p.online,
+        onTrip: false,
+        wentOnlineAt: p.online ? new Date() : null,
+        lat: live ? +(zone.centerLat + p.dLat).toFixed(6) : null,
+        lng: live ? +(zone.centerLng + p.dLng).toFixed(6) : null,
+        lastLocationAt: live ? new Date() : null,
+        backgroundCheckProvider: 'certn-mock',
+        backgroundCheckStatus: p.bg,
+        backgroundCheckRef: `mock_seed_${n}`,
+        trainingCompleted: assigned,
+        trainingScore: assigned ? 90 : null,
+        insulatedBagConfirmed: assigned,
+        welcomeBoostSent: live,
+        approvedAt: assigned ? new Date(Date.now() - (20 + n) * 86400000) : null,
+        bank: assigned ? { institution: '004', transit: '12345', accountLast4: String(1000 + n), holder: `${p.first} ${p.last}` } : null,
+        taxInfo: assigned ? { sinLast3: String(100 + n), legalName: `${p.first} ${p.last}`, address: `${n} Main St, Brampton, ON`, collectedAt: new Date().toISOString() } : null,
+        ontarioPlatformWorkerNoticeAcked: true,
+        rating: live ? 4.5 + (n % 5) / 10 : 5,
+        ratingCount: live ? 10 + n * 3 : 0,
+        totalTrips: live ? 30 + n * 9 : 0,
+        meta: assigned ? { insurance: { coversDelivery: true, expiresAt: inFuture(200), confirmedAt: new Date().toISOString() } } : {},
+      }),
+    );
+    for (const type of DOC_TYPES) {
+      const needsExpiry = [DriverDocType.LICENCE, DriverDocType.INSURANCE, DriverDocType.VEHICLE_REGISTRATION].includes(type);
+      await docsRepo.save(
+        docsRepo.create({
+          driverId: prof.id,
+          type,
+          fileUrl: `/uploads/demo/driver${n}-${type.toLowerCase()}.jpg`,
+          fileName: `${type.toLowerCase()}.jpg`,
+          status: DocStatus.APPROVED,
+          expiresAt: needsExpiry ? inFuture(180 + n * 10) : null,
+          reviewedAt: new Date(),
+        }),
+      );
+    }
+    created++;
+  }
+  if (created) console.log(`  + ${created} extra demo drivers (Brampton + Mississauga)`);
+}

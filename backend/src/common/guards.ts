@@ -2,7 +2,7 @@ import { CanActivate, ExecutionContext, ForbiddenException, Injectable, Unauthor
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { Observable } from 'rxjs';
-import { ALLOW_2FA_PENDING, IS_PUBLIC, PERMISSION, RESTAURANT_ROLES, USER_TYPES } from './decorators';
+import { ALLOW_2FA_PENDING, IS_PUBLIC, NO_IMPERSONATION, PERMISSION, RESTAURANT_ROLES, USER_TYPES } from './decorators';
 import { AuthUser } from './auth.types';
 import { Action, Module, RestaurantRole, UserType } from './enums';
 
@@ -24,6 +24,9 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     if (user.pending2fa) {
       const allowed = this.reflector.getAllAndOverride<boolean>(ALLOW_2FA_PENDING, [ctx.getHandler(), ctx.getClass()]);
       if (!allowed) throw new UnauthorizedException('Two-factor authentication required');
+    }
+    if (user.impersonatedBy && this.reflector.getAllAndOverride<boolean>(NO_IMPERSONATION, [ctx.getHandler(), ctx.getClass()])) {
+      throw new ForbiddenException('Not available while viewing a restaurant as admin');
     }
     return user;
   }

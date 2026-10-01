@@ -4,6 +4,7 @@ import { Badge, Button, Card, StatCard, StatusBadge } from "../../ui";
 import { fmtTime, money, titleCase } from "../../lib/format";
 import { Async, PortalPage, useAction, useApi, usePortalFetch, useRealtimeReload } from "./shared";
 import { usePortal } from "./context";
+import ServiceModeControl from "./ServiceMode";
 
 function StoreControls({ data, reload }) {
   const api = useApi();
@@ -22,6 +23,12 @@ function StoreControls({ data, reload }) {
   };
   return (
     <Card title="Store status" subtitle="Control whether customers can order right now">
+      {canControl && live && (
+        <div className="mb-20" data-testid="service-mode-card">
+          <div className="text-sm fw-semibold mb-8">Service mode</div>
+          <ServiceModeControl mode={r.serviceMode} resumeAt={r.serviceModeResumeAt} openOrders={(data.today?.pendingAccept || 0) + (data.today?.inKitchen || 0) + (data.today?.ready || 0)} onChanged={reload} />
+        </div>
+      )}
       <div className="d-flex flex-wrap align-items-center gap-3 mb-20">
         <StatusBadge status={r.status} />
         <Badge tone={data.open?.open ? "success" : "warning"}>{data.open?.open ? "Open now" : "Closed"}</Badge>

@@ -1,5 +1,5 @@
 import { Body, Delete, ForbiddenException, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
-import { CurrentUser, RestaurantController, RestaurantRoles } from '../common/decorators';
+import { CurrentUser, NoImpersonation, RestaurantController, RestaurantRoles } from '../common/decorators';
 import { RestaurantRole } from '../common/enums';
 import { AuthUser } from '../common/auth.types';
 import { RestaurantStoreService } from './restaurant-store.service';
@@ -42,6 +42,7 @@ export class RestaurantStaffController {
     return this.store.removeMember(user.merchantId!, id, user, this.scope(user), req);
   }
 
+  @NoImpersonation()
   @Post(':id/reset-password')
   resetPassword(@CurrentUser() user: AuthUser, @Param('id') id: string, @Req() req?: any) {
     return this.store.resetMemberPassword(user.merchantId!, id, user, this.scope(user), req);

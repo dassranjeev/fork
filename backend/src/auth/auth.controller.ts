@@ -18,7 +18,7 @@ import {
   TwoFactorEnableDto,
   TwoFactorVerifyDto,
 } from './dto';
-import { Allow2faPending, CurrentUser, Public } from '../common/decorators';
+import { Allow2faPending, CurrentUser, NoImpersonation, Public } from '../common/decorators';
 import { AuthUser } from '../common/auth.types';
 
 class UpdateProfileDto {
@@ -72,6 +72,7 @@ export class AuthController {
 
   @ApiBearerAuth()
   @Allow2faPending()
+  @NoImpersonation()
   @Post('2fa/setup')
   setup2fa(@CurrentUser() u: AuthUser) {
     return this.auth.setup2fa(u.id);
@@ -79,12 +80,14 @@ export class AuthController {
 
   @ApiBearerAuth()
   @Allow2faPending()
+  @NoImpersonation()
   @Post('2fa/enable')
   enable2fa(@CurrentUser() u: AuthUser & { pending2fa?: boolean }, @Body() dto: TwoFactorEnableDto, @Req() req: any) {
     return this.auth.enable2fa(u.id, dto.code, ctx(req), !!u.pending2fa);
   }
 
   @ApiBearerAuth()
+  @NoImpersonation()
   @Post('2fa/disable')
   disable2fa(@CurrentUser() u: AuthUser, @Body() dto: PasswordDto) {
     return this.auth.disable2fa(u.id, dto.password);
@@ -104,6 +107,7 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
+  @NoImpersonation()
   @Post('logout-all')
   logoutAll(@CurrentUser() u: AuthUser) {
     return this.auth.logoutAll(u.id);
@@ -124,6 +128,7 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
+  @NoImpersonation()
   @Post('change-password')
   change(@CurrentUser() u: AuthUser, @Body() dto: ChangePasswordDto) {
     return this.auth.changePassword(u.id, dto);
@@ -185,6 +190,7 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
+  @NoImpersonation()
   @Patch('me')
   updateMe(@CurrentUser() u: AuthUser, @Body() dto: UpdateProfileDto) {
     return this.auth.updateProfile(u.id, dto);

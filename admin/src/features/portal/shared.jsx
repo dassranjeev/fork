@@ -6,6 +6,7 @@ import { useFetch } from "../../lib/hooks";
 import { useSocketEvent } from "../../lib/socket";
 import { EmptyState, ErrorState, Loading, PageHeader } from "../../ui";
 import { usePortal } from "./context";
+import { ServiceModeBadge } from "./ServiceMode";
 
 /** GET a /restaurant/* path for the selected location (path null = disabled). */
 export function usePortalFetch(path, extra, opts) {
@@ -94,6 +95,7 @@ export function PortalPage({ title, subtitle, actions, children }) {
         subtitle={subtitle || (locations.length < 2 ? location?.name : undefined)}
         actions={
           <>
+            {location?.status === "LIVE" && <ServiceModeBadge mode={location?.serviceMode} />}
             <LocationSwitcher />
             {actions}
           </>
