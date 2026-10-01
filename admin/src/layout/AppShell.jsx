@@ -44,7 +44,7 @@ function Dropdown({ trigger, children, width = 320, align = "end" }) {
     <div className="position-relative" ref={ref}>
       <div onClick={() => setOpen((o) => !o)}>{trigger}</div>
       {open && (
-        <div className={`dropdown-menu show p-0 radius-12 shadow`} style={{ position: "absolute", [align]: 0, top: 48, width, zIndex: 1040 }} onClick={() => setOpen(false)}>
+        <div className={`dropdown-menu show p-0 radius-12 shadow header-dropdown`} style={{ position: "absolute", [align === "start" ? "left" : "right"]: 0, top: 48, width, maxWidth: "calc(100vw - 24px)", zIndex: 1040 }} onClick={() => setOpen(false)}>
           {children}
         </div>
       )}

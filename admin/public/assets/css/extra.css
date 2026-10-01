@@ -231,3 +231,15 @@ table.dataTable td.dt-type-date {
 .min-w-0 { min-width: 0; }
 .kds-col { min-height: 60vh; background: var(--neutral-100); border-radius: 12px; }
 [data-theme="dark"] .kds-col { background: rgba(255,255,255,.04); }
+
+/* header dropdowns (notifications, profile): full-width sheet on phones so they never clip */
+@media (max-width: 575.98px) {
+  .header-dropdown {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    top: 72px !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+}
