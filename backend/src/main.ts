@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -14,7 +14,7 @@ async function bootstrap() {
   app.set('trust proxy', 1);
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.enableCors({ origin: config.get<string[]>('corsOrigins'), credentials: true });
-  app.setGlobalPrefix('api/v1', { exclude: ['uploads/(.*)'] });
+  app.setGlobalPrefix('api/v1', { exclude: [{ path: 'uploads/(.*)', method: RequestMethod.GET }] });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, transformOptions: { enableImplicitConversion: true }, forbidNonWhitelisted: false }));
   // Stripe webhooks need the raw body: handled in PaymentsController via req.rawBody
   app.useBodyParser('json', { limit: '5mb' });

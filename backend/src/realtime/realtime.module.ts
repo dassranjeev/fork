@@ -16,6 +16,7 @@ import { DriverProfile, Order, RestaurantMember, User } from '../database/entiti
 import { UserType } from '../common/enums';
 import { JwtPayload } from '../common/auth.types';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 /**
  * Room naming (use these from services via RealtimeService):
@@ -25,6 +26,7 @@ import { ConfigService } from '@nestjs/config';
  *   driver:{driverId}      - offers & assignments for a driver profile
  *   zone:{zoneId}          - zone-level ops events
  *   admin:ops              - all staff dashboards / live map
+ *   support:agents         - staff with support:view: live chat console (chat.new, chat.updated, chat.message, chat.typing, chat.read, agent.presence)
  *
  * Event names (server -> client):
  *   order.created, order.updated, order.status, order.eta, order.late, order.unassigned
@@ -78,6 +80,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     @InjectRepository(DriverProfile) private drivers: Repository<DriverProfile>,
     @InjectRepository(RestaurantMember) private members: Repository<RestaurantMember>,
     @InjectRepository(Order) private orders: Repository<Order>,
+    private events: EventEmitter2,
   ) {}
 
   afterInit(server: Server) {
@@ -99,6 +102,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
       client.join(`user:${user.id}`);
       if (user.type === UserType.STAFF || user.type === UserType.SUPER_ADMIN) {
         client.join('admin:ops');
+        await this.joinSupportAgents(client, user.id, user.type);
       } else if (user.type === UserType.DRIVER) {
         const dp = await this.drivers.findOne({ where: { userId: user.id } });
         if (dp) {
@@ -133,6 +137,41 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   }
 
   handleDisconnect(_client: Socket) {}
+
+  /** Live chat: staff with support:view join the agents room (chat.new / chat.updated / chat.message / chat.typing ...). */
+  private async joinSupportAgents(client: Socket, userId: string, type: UserType) {
+    try {
+      let canView = type === UserType.SUPER_ADMIN;
+      let canEdit = canView;
+      if (!canView) {
+        const u = await this.users.findOne({ where: { id: userId }, relations: { role: true } });
+        const perms = u?.role?.permissions ?? {};
+        canView = !!perms['support']?.includes('view');
+        canEdit = !!perms['support']?.includes('edit');
+      }
+      if (canView) client.join('support:agents');
+      client.data.supportAgent = canEdit;
+    } catch (e: any) {
+      this.logger.debug(`support room join failed: ${e.message}`);
+    }
+  }
+
+  /** Optional client -> server: agent presence over the socket ({ status: 'ONLINE' | 'AWAY' | 'OFFLINE' }); without status it is a heartbeat. */
+  @SubscribeMessage('agent.presence')
+  agentPresence(@ConnectedSocket() client: Socket, @MessageBody() body: { status?: string }) {
+    if (!client.data.supportAgent || !client.data.user?.id) return { ok: false };
+    if (body?.status) this.events.emit('chat.socket.presence', { userId: client.data.user.id, status: body.status });
+    else this.events.emit('chat.socket.heartbeat', { userId: client.data.user.id });
+    return { ok: true };
+  }
+
+  /** Optional client -> server typing indicator for the requester or the assigned agent ({ sessionId, typing }); ownership is checked by the chat service. */
+  @SubscribeMessage('chat.typing')
+  chatTyping(@ConnectedSocket() client: Socket, @MessageBody() body: { sessionId?: string; typing?: boolean }) {
+    if (!client.data.user?.id || !body?.sessionId) return { ok: false };
+    this.events.emit('chat.socket.typing', { userId: client.data.user.id, sessionId: body.sessionId, typing: body.typing !== false });
+    return { ok: true };
+  }
 
   /** Customer / anyone involved in an order subscribes to live updates. */
   @SubscribeMessage('order.subscribe')

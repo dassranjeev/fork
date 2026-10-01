@@ -149,6 +149,11 @@ export class TicketMessage extends BaseEntity {
   /** internal notes are hidden from the requester */
   @Column({ default: false })
   internal: boolean;
+
+  // ---- added by live chat ----
+  /** when the other side of a live chat read this message */
+  @Column({ type: 'timestamptz', nullable: true })
+  readAt: Date | null;
 }
 
 /** SOP-08: deactivation and account review case (drivers & restaurants). */
@@ -275,4 +280,101 @@ export class CannedReply extends BaseEntity {
 
   @Column({ type: 'uuid', nullable: true })
   createdById: string | null;
+}
+
+/** Live support chat session (one per chat; the conversation itself lives on the linked Ticket / TicketMessage rows). */
+@Entity('chat_sessions')
+@Index('uq_chat_sessions_one_open_per_user', ['requesterUserId'], { unique: true, where: `"status" IN ('WAITING','ACTIVE')` })
+export class ChatSession extends BaseEntity {
+  @Index()
+  @Column({ type: 'uuid' })
+  ticketId: string;
+
+  @Index()
+  @Column({ type: 'uuid' })
+  requesterUserId: string;
+
+  @Column({ type: 'varchar' })
+  requesterType: 'CUSTOMER' | 'DRIVER';
+
+  /** WAITING (queued) | ACTIVE (agent attached) | ENDED | MISSED (queue timeout, kept as ticket) */
+  @Index()
+  @Column({ type: 'varchar', default: 'WAITING' })
+  status: 'WAITING' | 'ACTIVE' | 'ENDED' | 'MISSED';
+
+  @Column({ type: 'varchar', default: 'OTHER' })
+  topic: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  orderId: string | null;
+
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  agentId: string | null;
+
+  /** first name only - the only agent identity requesters ever see */
+  @Column({ type: 'varchar', nullable: true })
+  agentFirstName: string | null;
+
+  @Column({ type: 'timestamptz' })
+  queuedAt: Date;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  acceptedAt: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  endedAt: Date | null;
+
+  /** REQUESTER | AGENT | SYSTEM */
+  @Column({ type: 'varchar', nullable: true })
+  endedBy: string | null;
+
+  /** REQUESTER_ENDED | AGENT_ENDED | IDLE | QUEUE_TIMEOUT */
+  @Column({ type: 'varchar', nullable: true })
+  endReason: string | null;
+
+  /** seconds from queuedAt to acceptedAt */
+  @Column({ type: 'int', nullable: true })
+  waitSec: number | null;
+
+  /** seconds from acceptedAt to the first agent message */
+  @Column({ type: 'int', nullable: true })
+  firstResponseSec: number | null;
+
+  @Column({ type: 'timestamptz' })
+  lastActivityAt: Date;
+
+  @Column({ type: 'int', default: 0 })
+  transferCount: number;
+
+  @Column({ type: 'int', nullable: true })
+  rating: number | null;
+
+  @Column({ type: 'text', nullable: true })
+  feedback: string | null;
+
+  @Column({ type: 'jsonb', default: {} })
+  meta: Record<string, any>;
+}
+
+/** Support agent availability for live chat. */
+@Entity('agent_presence')
+export class AgentPresence extends BaseEntity {
+  @Index({ unique: true })
+  @Column({ type: 'uuid' })
+  userId: string;
+
+  /** ONLINE | AWAY | OFFLINE */
+  @Column({ type: 'varchar', default: 'OFFLINE' })
+  status: 'ONLINE' | 'AWAY' | 'OFFLINE';
+
+  /** overrides setting support.chat.maxConcurrentPerAgent */
+  @Column({ type: 'int', nullable: true })
+  maxConcurrentChats: number | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  lastHeartbeatAt: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  statusChangedAt: Date | null;
 }

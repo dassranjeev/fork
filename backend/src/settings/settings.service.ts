@@ -136,6 +136,17 @@ export const SETTING_DEFINITIONS: any[] = [
   { key: 'support.reviewMinRatings', group: 'support', label: 'SOP-08 detector: min ratings before low-rating trigger', value: 10, inputType: 'number' },
   { key: 'support.reviewCancellationThreshold', group: 'support', label: 'SOP-08 detector: cancellations before trigger', value: 5, inputType: 'number' },
   { key: 'support.reviewDetectorEnabled', group: 'support', label: 'SOP-08 auto-detector enabled', value: true, inputType: 'boolean' },
+  // ---- support: live chat ----
+  { key: 'support.chat.enabled', group: 'support', label: 'Live chat enabled', value: true, inputType: 'boolean', isPublic: true },
+  { key: 'support.chat.hours', group: 'support', label: 'Live chat hours ({timezone, days:[0-6 Sun..Sat], start:"HH:mm", end:"HH:mm" or "24:00"})', value: { timezone: 'America/Toronto', days: [0, 1, 2, 3, 4, 5, 6], start: '00:00', end: '24:00' }, inputType: 'json', isPublic: true },
+  { key: 'support.chat.maxConcurrentPerAgent', group: 'support', label: 'Live chat: max concurrent chats per agent', value: 4, inputType: 'number' },
+  { key: 'support.chat.autoCloseIdleMinutes', group: 'support', label: 'Live chat: auto-close after idle (min)', value: 15, inputType: 'number' },
+  { key: 'support.chat.queueTimeoutMinutes', group: 'support', label: 'Live chat: queue timeout before converting to a ticket (min)', value: 10, inputType: 'number' },
+  { key: 'support.chat.autoAssign', group: 'support', label: 'Live chat: auto-assign waiting chats to the least-loaded online agent', value: true, inputType: 'boolean' },
+  { key: 'support.chat.estimatedHandleMinutes', group: 'support', label: 'Live chat: assumed minutes per chat (wait estimate)', value: 5, inputType: 'number' },
+  { key: 'support.chat.noAgentGraceSec', group: 'support', label: 'Live chat: convert waiting chats to tickets after no agent is available for (sec)', value: 30, inputType: 'number' },
+  { key: 'support.chat.waitingDisconnectSec', group: 'support', label: 'Live chat: convert a waiting chat to a ticket when the requester is gone for (sec)', value: 90, inputType: 'number' },
+  { key: 'support.chat.presenceTimeoutSec', group: 'support', label: 'Live chat: agent goes offline after no heartbeat (sec)', value: 120, inputType: 'number' },
   // ---- driver ----
   { key: 'driver.trainingPassMark', group: 'driver', label: 'Training pass mark (%)', value: 80, inputType: 'number' },
   { key: 'driver.welcomeBoostAmount', group: 'driver', label: 'First-week boost ($/trip)', value: 2, inputType: 'number' },

@@ -75,3 +75,7 @@ Order-level chat with restaurant/driver stays on the existing `/orders/:id/messa
 | POST | /review-cases/:id/appeal | notes? | case (only after decision) |
 
 Background jobs: every minute flags SLA breaches (`slaBreached`, `slaBreachType` FIRST_RESPONSE|RESOLUTION); hourly SOP-08 detector proposes cases (status PROPOSED).
+
+## Live chat
+
+Real-time customer / driver chat with support agents (a chat is a ticket with `source = "CHAT"` plus a `ChatSession`; offline or unanswered chats automatically stay as normal tickets). REST routes `/customer|driver/support/chat/*`, agent console API `/admin/support/chat/*`, Socket.IO events `chat.*` and the `support:agents` room, state machine, settings (`support.chat.*`) and demo client (`/chat-demo.html`) are documented in [live-chat.md](./live-chat.md).

@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FORKSY live chat - protocol demo</title>
+<style>
+  :root { --bg:#0f1420; --card:#171d2c; --line:#2a3350; --text:#e6e9f2; --muted:#8c96b2; --accent:#f95a16; --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --info:#38bdf8; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  header { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; justify-content:space-between; }
+  header h1 { font-size:16px; margin:0; }
+  .tag { background:#3b2a12; color:#fbbf24; border:1px solid #6b4a12; padding:2px 8px; border-radius:6px; font-size:12px; }
+  main { display:grid; grid-template-columns:minmax(300px,420px) 1fr minmax(260px,360px); gap:12px; padding:12px; max-width:1500px; margin:0 auto; }
+  @media (max-width: 1000px) { main { grid-template-columns:1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .card h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 8px; }
+  label { display:block; font-size:12px; color:var(--muted); margin:8px 0 3px; }
+  input, select, textarea { width:100%; background:#0d1220; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px; font:inherit; }
+  textarea { resize:vertical; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:8px 14px; font:inherit; cursor:pointer; }
+  button.alt { background:#27304d; } button.bad { background:#7f1d1d; } button:disabled { opacity:.45; cursor:not-allowed; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .grow { flex:1; min-width:120px; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid var(--line); }
+  .WAITING { color:var(--warn); border-color:var(--warn); } .ACTIVE { color:var(--ok); border-color:var(--ok); } .ENDED { color:var(--muted); } .MISSED { color:var(--bad); border-color:var(--bad); }
+  #thread { height:380px; overflow:auto; background:#0d1220; border:1px solid var(--line); border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:8px; }
+  .msg { max-width:80%; padding:6px 10px; border-radius:10px; background:#232c47; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .msg.me { align-self:flex-end; background:#5a2a12; }
+  .msg.system { align-self:center; background:transparent; border:1px dashed var(--line); color:var(--muted); font-size:12px; text-align:center; }
+  .msg small { display:block; color:var(--muted); font-size:11px; margin-top:2px; }
+  .msg img { max-width:180px; max-height:140px; border-radius:6px; display:block; margin-top:4px; }
+  #log { height:520px; overflow:auto; font:11px/1.35 ui-monospace,Consolas,monospace; background:#0d1220; border:1px solid var(--line); border-radius:8px; padding:8px; white-space:pre-wrap; word-break:break-all; }
+  #log .in { color:#7dd3fc; } #log .out { color:#fcd34d; } #log .err { color:#fca5a5; }
+  .banner { padding:10px; border-radius:8px; margin:8px 0; border:1px solid; }
+  .banner.off { background:#3b1a1a; border-color:#7f1d1d; } .banner.q { background:#3b2e12; border-color:#6b4a12; } .banner.ok { background:#123b24; border-color:#14532d; }
+  .stars button { background:transparent; font-size:22px; padding:0 3px; color:#52607f; } .stars button.on { color:#fbbf24; }
+  .muted { color:var(--muted); } .hide { display:none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>FORKSY live chat - customer / driver protocol demo</h1>
+  <span class="tag">Test harness for the REST + Socket.IO protocol (see docs/api/live-chat.md). Not a product UI.</span>
+</header>
+<main>
+  <section>
+    <div class="card" id="loginCard">
+      <h2>1. Log in</h2>
+      <div class="row"><div class="grow"><label>App</label><select id="app"><option value="customer">customer</option><option value="driver">driver</option></select></div></div>
+      <label>Email</label><input id="email" value="customer1@demo.forksy.ca" autocomplete="off">
+      <label>Password</label><input id="password" type="password" value="Demo@12345">
+      <label>API base URL</label><input id="api" value="http://localhost:4000/api/v1">
+      <div class="row" style="margin-top:10px"><button id="btnLogin">Log in</button><span id="who" class="muted"></span></div>
+      <div class="muted" style="margin-top:6px;font-size:12px">Login is throttled to 10/min on the server.</div>
+    </div>
+
+    <div class="card hide" id="startCard" style="margin-top:12px">
+      <h2>2. Start a chat</h2>
+      <div id="avail" class="muted"></div>
+      <label>Topic</label><select id="topic"></select>
+      <label>Order (optional)</label>
+      <div class="row"><select id="orderSel" class="grow"><option value="">No order</option></select><button class="alt" id="btnOrders" type="button">Load my orders</button></div>
+      <label>Order id (or paste)</label><input id="orderId" placeholder="uuid">
+      <label>First message</label><textarea id="firstMsg" rows="3">Hi, I need help with my order.</textarea>
+      <div class="row" style="margin-top:8px"><label class="row" style="margin:0"><span class="btn alt" style="padding:6px 10px;border-radius:8px;background:#27304d">Attach image</span><input id="startFile" type="file" accept="image/*" class="hide"></label><span id="startFileName" class="muted"></span></div>
+      <div class="row" style="margin-top:10px"><button id="btnStart">Start chat</button></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="card hide" id="chatCard">
+      <h2>3. Conversation <span id="stPill" class="pill"></span></h2>
+      <div id="banner"></div>
+      <div id="thread"></div>
+      <div id="typing" class="muted" style="height:18px;font-size:12px"></div>
+      <div class="row">
+        <textarea id="msg" rows="2" class="grow" placeholder="Type a message - Enter sends" maxlength="2000"></textarea>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button id="btnSend">Send</button>
+          <label class="btn alt" style="margin:0;padding:6px 10px;border-radius:8px;background:#27304d;text-align:center;cursor:pointer">Image<input id="file" type="file" accept="image/*" class="hide"></label>
+        </div>
+      </div>
+      <div id="pending" class="muted" style="font-size:12px"></div>
+      <div class="row" style="margin-top:10px"><button class="bad" id="btnEnd">End chat</button><button class="alt hide" id="btnNew">Start another</button></div>
+      <div id="rateBox" class="hide" style="margin-top:12px">
+        <h2>Rate this chat</h2>
+        <div class="stars" id="stars"><button data-v="1">&#9733;</button><button data-v="2">&#9733;</button><button data-v="3">&#9733;</button><button data-v="4">&#9733;</button><button data-v="5">&#9733;</button></div>
+        <input id="feedback" placeholder="Optional feedback">
+        <div style="margin-top:6px"><button id="btnRate">Submit rating</button> <span id="rateDone" class="muted"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="card">
+      <h2>Protocol log (REST + socket events)</h2>
+      <div id="log"></div>
+      <div class="row" style="margin-top:6px"><button class="alt" id="btnClear">Clear</button><span id="sock" class="pill">socket: off</span></div>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.8.1/dist/socket.io.min.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { token: null, app: 'customer', userId: null, socket: null, session: null, messages: [], seen: {}, rating: 0, startFile: null };
+
+  // ---------------------------------------------------------------- helpers
+  function log(kind, text, data) {
+    var el = $('log'); var d = document.createElement('div'); d.className = kind;
+    d.textContent = new Date().toLocaleTimeString() + ' ' + text + (data !== undefined ? ' ' + JSON.stringify(data) : '');
+    el.appendChild(d); el.scrollTop = el.scrollHeight;
+  }
+  function base() { return $('api').value.replace(/\/$/, ''); }
+  function root() { return base().replace(/\/api\/v1$/, ''); }
+  function prefix() { return '/' + state.app + '/support/chat'; }
+  async function api(method, path, body) {
+    var res = await fetch(base() + path, { method: method, headers: Object.assign({ 'content-type': 'application/json' }, state.token ? { authorization: 'Bearer ' + state.token } : {}), body: body ? JSON.stringify(body) : undefined });
+    var j = null; try { j = await res.json(); } catch (e) {}
+    log(res.ok ? 'out' : 'err', method + ' ' + path + ' -> ' + res.status, path.indexOf('/auth/') >= 0 ? undefined : (j && Object.keys(j).slice(0, 8)));
+    if (!res.ok) throw new Error((j && j.message) || ('HTTP ' + res.status));
+    return j;
+  }
+  async function upload(file) {
+    var fd = new FormData(); fd.append('file', file);
+    var urls = [base() + '/uploads', root() + '/uploads'];
+    for (var i = 0; i < urls.length; i++) {
+      var r = await fetch(urls[i], { method: 'POST', headers: { authorization: 'Bearer ' + state.token }, body: fd });
+      if (r.status !== 404) { var j = await r.json(); if (!r.ok) throw new Error(j.message || 'upload failed'); log('out', 'POST uploads -> ' + r.status); return j.url; }
+    }
+    throw new Error('upload endpoint not found');
+  }
+  var show = function (id, on) { $(id).classList.toggle('hide', !on); };
+
+  // ---------------------------------------------------------------- login
+  $('app').onchange = function () { $('email').value = this.value === 'driver' ? 'driver1@demo.forksy.ca' : 'customer1@demo.forksy.ca'; };
+  $('btnLogin').onclick = async function () {
+    try {
+      state.app = $('app').value;
+      var r = await api('POST', '/auth/login', { identifier: $('email').value, password: $('password').value, app: state.app });
+      state.token = r.accessToken; state.userId = r.user && r.user.id;
+      $('who').textContent = 'Logged in as ' + ((r.user && (r.user.firstName || r.user.email)) || $('email').value);
+      show('startCard', true); connect(); await loadAvailability(); await resumeActive();
+    } catch (e) { alert(e.message); }
+  };
+
+  // ---------------------------------------------------------------- socket
+  function connect() {
+    if (state.socket) state.socket.close();
+    var s = io(root(), { auth: { token: state.token }, transports: ['websocket', 'polling'] });
+    state.socket = s;
+    s.on('connect', function () { $('sock').textContent = 'socket: connected'; log('in', 'socket connect'); if (state.session) resumeActive(true); });
+    s.on('disconnect', function () { $('sock').textContent = 'socket: disconnected'; });
+    s.onAny(function (ev, p) { log('in', 'EVENT ' + ev, p); });
+    // payloads are documented in docs/api/live-chat.md
+    s.on('chat.queued', function (p) { setSession(p.session); });
+    s.on('chat.queue_position', function (p) { if (state.session && state.session.id === p.sessionId) { state.session.queue = p; render(); } });
+    s.on('chat.accepted', function (p) { if (!mine(p)) return; state.session.status = 'ACTIVE'; state.session.agent = p.agent; state.session.queue = null; render(); api('POST', prefix() + '/' + p.sessionId + '/read', {}).catch(function () {}); });
+    s.on('chat.message', function (p) { if (!mine(p)) return; addMessage(p.message); if (p.message.senderType !== state.app.toUpperCase()) api('POST', prefix() + '/' + p.sessionId + '/read', {}).catch(function () {}); });
+    s.on('chat.typing', function (p) { if (!mine(p)) return; $('typing').textContent = p.typing ? ((state.session.agent && state.session.agent.firstName) || 'Agent') + ' is typing...' : ''; clearTimeout(state.tt); state.tt = setTimeout(function () { $('typing').textContent = ''; }, 4000); });
+    s.on('chat.read', function (p) { if (!mine(p)) return; state.messages.forEach(function (m) { if (m.senderType === state.app.toUpperCase() && !m.readAt) m.readAt = p.at; }); render(); });
+    s.on('chat.transferred', function (p) { if (!mine(p)) return; if (p.agent) state.session.agent = p.agent; if (p.status) state.session.status = p.status; if (p.queue) state.session.queue = p.queue; render(); });
+    s.on('chat.ended', function (p) { if (!mine(p)) return; state.session.status = p.status; state.session.canRate = p.canRate; state.session.endedBy = p.endedBy; state.session.endReason = p.reason; state.session.convertedToTicket = p.convertedToTicket; state.session.ticketNumber = p.ticketNumber || state.session.ticketNumber; render(); });
+    s.on('chat.converted', function (p) { if (!mine(p)) return; state.session.status = 'MISSED'; state.session.ticketNumber = p.ticketNumber; render(); });
+  }
+  function mine(p) { return state.session && p.sessionId === state.session.id; }
+
+  // ---------------------------------------------------------------- availability / orders
+  async function loadAvailability() {
+    var a = await api('GET', prefix() + '/availability');
+    $('avail').innerHTML = a.available ? '<span class="pill ACTIVE">agents available: ' + a.agentsOnline + '</span> est. wait ~' + Math.round(a.estimatedWaitSec / 60) + ' min' : '<span class="pill MISSED">offline (' + a.reason + ')</span> your message will become a support ticket';
+    $('topic').innerHTML = a.topics.map(function (t) { return '<option value="' + t.code + '">' + t.label + '</option>'; }).join('');
+  }
+  $('btnOrders').onclick = async function () {
+    try {
+      var r = await api('GET', state.app === 'customer' ? '/customer/orders?limit=10' : '/driver/trips?limit=10');
+      var rows = r.data || r.trips || r.items || (Array.isArray(r) ? r : []);
+      $('orderSel').innerHTML = '<option value="">No order</option>' + rows.map(function (o) { var id = o.orderId || (o.order && o.order.id) || o.id; var code = o.code || o.orderCode || (o.order && o.order.code) || id.slice(0, 8); return '<option value="' + id + '">' + code + ' - ' + (o.status || (o.order && o.order.status) || '') + '</option>'; }).join('');
+    } catch (e) { alert(e.message); }
+  };
+  $('orderSel').onchange = function () { $('orderId').value = this.value; };
+  $('startFile').onchange = function () { state.startFile = this.files[0] || null; $('startFileName').textContent = state.startFile ? state.startFile.name : ''; };
+
+  // ---------------------------------------------------------------- start / resume
+  $('btnStart').onclick = async function () {
+    try {
+      var body = { topic: $('topic').value, message: $('firstMsg').value };
+      if ($('orderId').value.trim()) body.orderId = $('orderId').value.trim();
+      if (state.startFile) body.attachments = [await upload(state.startFile)];
+      var r = await api('POST', prefix() + '/start', body);
+      state.messages = []; state.seen = {};
+      if (r.mode === 'ticket') {
+        setSession(r.session);
+        state.offline = { ticketNumber: r.ticketNumber, reason: r.reason, message: r.message, appended: r.appended };
+        var m = await api('GET', prefix() + '/' + r.session.id + '/messages'); state.messages = []; m.messages.forEach(addMessage);
+      } else {
+        state.offline = null; setSession(r.session); r.messages.forEach(addMessage);
+      }
+      show('startCard', false); show('chatCard', true); render();
+    } catch (e) { alert(e.message); }
+  };
+  async function resumeActive(refetchOnly) {
+    var r = await api('GET', prefix() + '/active');
+    if (r.session) {
+      if (!refetchOnly) { state.messages = []; state.seen = {}; }
+      setSession(r.session);
+      var m = await api('GET', prefix() + '/' + r.session.id + '/messages'); m.messages.forEach(addMessage);
+      show('startCard', false); show('chatCard', true); render();
+    }
+  }
+  function setSession(s) { state.session = s; show('chatCard', true); show('startCard', false); render(); }
+  function addMessage(m) {
+    var key = m.id || (m.senderType + m.body + m.createdAt);
+    if (state.seen[key]) return; state.seen[key] = 1; state.messages.push(m); render();
+  }
+
+  // ---------------------------------------------------------------- render
+  function render() {
+    var s = state.session; if (!s) return;
+    $('stPill').textContent = s.status; $('stPill').className = 'pill ' + s.status;
+    var b = '';
+    if (s.status === 'MISSED' && (state.offline || s.convertedToTicket)) {
+      var num = (state.offline && state.offline.ticketNumber) || s.ticketNumber;
+      b = '<div class="banner off"><b>Our team is offline right now.</b><br>We created support ticket <b>' + num + '</b> from your message' + (state.offline && state.offline.appended ? ' (added to your open ticket)' : '') + '. We will reply by notification and email. You can keep writing here: new messages are added to the same ticket.</div>';
+    } else if (s.status === 'WAITING') {
+      b = '<div class="banner q">In the queue' + (s.queue ? ': position <b>' + s.queue.position + '</b>, about ' + Math.max(1, Math.round(s.queue.estimatedWaitSec / 60)) + ' min' : '') + '. Hang on, an agent will join shortly.</div>';
+    } else if (s.status === 'ACTIVE') {
+      b = '<div class="banner ok">Chatting with <b>' + ((s.agent && s.agent.firstName) || 'an agent') + '</b> from FORKSY Support</div>';
+    } else if (s.status === 'ENDED') {
+      b = '<div class="banner">Chat ended' + (s.endedBy ? ' by ' + s.endedBy.toLowerCase() : '') + '. The transcript stays on ticket ' + (s.ticketNumber || '') + '.</div>';
+    }
+    $('banner').innerHTML = b;
+    var t = $('thread'); t.innerHTML = '';
+    var me = state.app.toUpperCase();
+    state.messages.forEach(function (m) {
+      var d = document.createElement('div'); var sys = m.senderType === 'SYSTEM';
+      d.className = 'msg ' + (sys ? 'system' : m.senderType === me ? 'me' : '');
+      var txt = document.createElement('div'); txt.textContent = m.body; d.appendChild(txt);
+      (m.attachments || []).forEach(function (u) { var i = document.createElement('img'); i.src = u; d.appendChild(i); });
+      if (!sys) { var sm = document.createElement('small'); sm.textContent = (m.senderType === 'AGENT' ? (m.senderName || 'Agent') : 'You') + ' - ' + new Date(m.createdAt).toLocaleTimeString() + (m.senderType === me ? (m.readAt ? ' - read' : ' - sent') : ''); d.appendChild(sm); }
+      t.appendChild(d);
+    });
+    t.scrollTop = t.scrollHeight;
+    var open = s.status === 'WAITING' || s.status === 'ACTIVE';
+    var canWrite = open || s.status === 'MISSED';
+    $('btnSend').disabled = !canWrite; $('msg').disabled = !canWrite; $('file').disabled = !canWrite;
+    show('btnEnd', open); show('btnNew', !open);
+    show('rateBox', s.status === 'ENDED' && !!s.canRate && !s.rating);
+  }
+
+  // ---------------------------------------------------------------- send / typing / read / end / rate
+  var pendingFile = null;
+  $('file').onchange = function () { pendingFile = this.files[0] || null; $('pending').textContent = pendingFile ? 'Attached: ' + pendingFile.name : ''; };
+  async function send() {
+    var s = state.session; var body = $('msg').value.trim(); if (!s || (!body && !pendingFile)) return;
+    try {
+      var p = { body: body };
+      if (pendingFile) p.attachments = [await upload(pendingFile)];
+      var m = await api('POST', prefix() + '/' + s.id + '/messages', p);
+      $('msg').value = ''; pendingFile = null; $('file').value = ''; $('pending').textContent = '';
+      addMessage(m);
+    } catch (e) { alert(e.message); }
+  }
+  $('btnSend').onclick = send;
+  $('msg').onkeydown = function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
+  var lastTyping = 0;
+  $('msg').oninput = function () {
+    var s = state.session; if (!s || Date.now() - lastTyping < 2500) return; lastTyping = Date.now();
+    // either REST ... or the socket event: state.socket.emit('chat.typing', { sessionId: s.id, typing: true })
+    if (state.socket && state.socket.connected) state.socket.emit('chat.typing', { sessionId: s.id, typing: true });
+    else api('POST', prefix() + '/' + s.id + '/typing', { typing: true }).catch(function () {});
+  };
+  $('btnEnd').onclick = async function () { try { var v = await api('POST', prefix() + '/' + state.session.id + '/end', {}); Object.assign(state.session, v); render(); } catch (e) { alert(e.message); } };
+  $('btnNew').onclick = async function () { state.session = null; state.messages = []; state.seen = {}; state.offline = null; show('chatCard', false); show('startCard', true); await loadAvailability(); };
+  Array.prototype.forEach.call(document.querySelectorAll('#stars button'), function (b) { b.onclick = function () { state.rating = Number(b.dataset.v); Array.prototype.forEach.call(document.querySelectorAll('#stars button'), function (x) { x.classList.toggle('on', Number(x.dataset.v) <= state.rating); }); }; });
+  $('btnRate').onclick = async function () {
+    if (!state.rating) return alert('Pick 1-5 stars');
+    try { var v = await api('POST', prefix() + '/' + state.session.id + '/rate', { rating: state.rating, feedback: $('feedback').value }); Object.assign(state.session, v); $('rateDone').textContent = 'Thanks! Rated ' + v.rating + '/5'; render(); show('rateBox', true); } catch (e) { alert(e.message); }
+  };
+  $('btnClear').onclick = function () { $('log').innerHTML = ''; };
+})();
+</script>
+</body>
+</html>

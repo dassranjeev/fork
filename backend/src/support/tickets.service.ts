@@ -44,7 +44,7 @@ export interface CreateTicketInput {
   tier?: TicketTier;
   attachments?: string[];
   tags?: string[];
-  source?: 'MANUAL' | 'SELF_SERVE' | 'AUTO';
+  source?: 'MANUAL' | 'SELF_SERVE' | 'AUTO' | 'CHAT';
   meta?: Record<string, any>;
   assignedToId?: string | null;
   /** account is flagged (fraud / refund frequency) -> Tier 2 */

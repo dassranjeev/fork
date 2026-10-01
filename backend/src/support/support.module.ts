@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import {
+  AgentPresence,
   CannedReply,
+  ChatSession,
   CustomerProfile,
   DeviceToken,
   DriverLocationLog,
@@ -28,6 +30,11 @@ import { AdminSupportController } from './admin-support.controller';
 import { CustomerSupportController } from './customer-support.controller';
 import { RestaurantSupportController } from './restaurant-support.controller';
 import { DriverSupportController } from './driver-support.controller';
+import { ChatService } from './chat.service';
+import { ChatAgentService } from './chat-agent.service';
+import { ChatPresenceService } from './chat-presence.service';
+import { ChatSchedulerService } from './chat-scheduler.service';
+import { AdminChatController, CustomerChatController, DriverChatController } from './chat.controllers';
 
 /**
  * Support desk (SOP-06 tickets/refunds/self-serve rules, SOP-08 review cases). Not @Global - other modules that
@@ -38,6 +45,8 @@ import { DriverSupportController } from './driver-support.controller';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
+      AgentPresence,
+      ChatSession,
       Ticket,
       TicketMessage,
       ReviewCase,
@@ -56,8 +65,8 @@ import { DriverSupportController } from './driver-support.controller';
       RestaurantMember,
     ]),
   ],
-  providers: [TicketsService, OrderContextService, RefundGateway, SelfServeService, ReviewCasesService, SupportSchedulerService],
-  controllers: [AdminSupportController, CustomerSupportController, RestaurantSupportController, DriverSupportController],
-  exports: [TicketsService, OrderContextService, RefundGateway, ReviewCasesService],
+  providers: [TicketsService, OrderContextService, RefundGateway, SelfServeService, ReviewCasesService, SupportSchedulerService, ChatService, ChatAgentService, ChatPresenceService, ChatSchedulerService],
+  controllers: [AdminSupportController, CustomerSupportController, RestaurantSupportController, DriverSupportController, CustomerChatController, DriverChatController, AdminChatController],
+  exports: [ChatService, TicketsService, OrderContextService, RefundGateway, ReviewCasesService],
 })
 export class SupportModule {}
