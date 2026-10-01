@@ -12,15 +12,18 @@ export interface ScoreWeights {
   load: number;
   performance: number;
   fairness: number;
+  /** rolling 14-day offer acceptance score (see AcceptanceService) */
+  acceptance: number;
 }
 
 export const DEFAULT_WEIGHTS: ScoreWeights = {
-  distance: 0.35,
-  readyMatch: 0.25,
-  vehicleFit: 0.1,
-  load: 0.1,
-  performance: 0.1,
-  fairness: 0.1,
+  distance: 0.3,
+  readyMatch: 0.2,
+  vehicleFit: 0.08,
+  load: 0.08,
+  performance: 0.06,
+  fairness: 0.08,
+  acceptance: 0.2,
 };
 
 export const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
@@ -74,7 +77,9 @@ export interface ScoreInput {
   batchingEnabled: boolean;
   batchMaxOrders: number;
   batchCompatible: boolean;
-  acceptanceRate: number; // 0..100
+  acceptanceRate: number; // 0..100 (rolling-window, smoothed score)
+  /** acceptance below this (%) halves the acceptance factor - soft penalty, never a hard block */
+  acceptanceLowThreshold?: number;
   onTimeRate: number; // 0..100
   rating: number; // 0..5
   minutesSinceLastOffer: number | null;
@@ -137,10 +142,13 @@ export function scoreCandidate(i: ScoreInput, w: ScoreWeights): ScoreResult {
 
   const distance = clamp01(1 - i.pickupRoadKm / Math.max(0.5, i.radiusKm * 1.3));
   const readyMatch = readyMatchFactor(i.slackMin, i.readyWindowMin);
-  const performance = clamp01((i.acceptanceRate / 100) * 0.4 + (i.onTimeRate / 100) * 0.3 + (i.rating / 5) * 0.3);
+  // acceptance has its own weighted factor, so "performance" is on-time + rating only (no double counting)
+  const performance = clamp01((i.onTimeRate / 100) * 0.5 + (i.rating / 5) * 0.5);
+  const lowThr = i.acceptanceLowThreshold ?? 50;
+  const acceptance = clamp01(i.acceptanceRate / 100) * (i.acceptanceRate < lowThr ? 0.5 : 1);
   const fairness = i.minutesSinceLastOffer == null ? 1 : clamp01(i.minutesSinceLastOffer / 30);
 
-  const factors = { distance, readyMatch, vehicleFit: vf.factor, load, performance, fairness };
+  const factors = { distance, readyMatch, vehicleFit: vf.factor, load, performance, fairness, acceptance };
   const sumW = Object.values(w).reduce((a, b) => a + b, 0) || 1;
   const breakdown: Record<string, number> = {};
   let total = 0;
@@ -149,6 +157,7 @@ export function scoreCandidate(i: ScoreInput, w: ScoreWeights): ScoreResult {
     breakdown[k] = round(pts);
     total += pts;
   }
+  breakdown.acceptanceRate = round(i.acceptanceRate, 1);
   breakdown.etaMin = round(i.pickupEtaMin, 1);
   breakdown.slackMin = round(i.slackMin, 1);
   return {

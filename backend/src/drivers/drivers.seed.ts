@@ -1,7 +1,7 @@
 import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { City, DriverDocument, DriverProfile, TrainingModule, User, Zone } from '../database/entities';
-import { DocStatus, DriverDocType, DriverStatus, UserStatus, UserType, VehicleType } from '../common/enums';
+import { City, DriverDocument, DriverOffer, DriverProfile, TrainingModule, User, Zone } from '../database/entities';
+import { DocStatus, DriverDocType, DriverStatus, OfferStatus, UserStatus, UserType, VehicleType } from '../common/enums';
 import { SeedOptions } from '../database/seed-types';
 
 type Plan = { first: string; last: string; status: DriverStatus; online?: boolean; vehicle: VehicleType; docs: 'all' | 'some' | 'none'; bg: DriverProfile['backgroundCheckStatus']; reason?: string };
@@ -220,4 +220,94 @@ export async function seedDriversExtra(ds: DataSource, opts: SeedOptions): Promi
     created++;
   }
   if (created) console.log(`  + ${created} extra demo drivers (Brampton + Mississauga)`);
+}
+
+/**
+ * Rolling-14-day acceptance history for the ACTIVE demo drivers. Inserts realistic ACCEPTED/DECLINED/EXPIRED `driver_offers`
+ * rows (referencing existing demo orders) and stores the resulting stats on the profile using the exact AcceptanceService formula
+ * (defaults: 14 days, expired counts, min 5 offers, prior 90). Idempotent: drivers flagged `meta.acceptanceSeeded` are skipped.
+ * Also adds 1-2 offers older than the window per driver, which must NOT count (proves the rolling window).
+ */
+export async function seedDriverOfferHistory(ds: DataSource, opts: SeedOptions): Promise<void> {
+  if (!opts.demo) return;
+  const profiles = ds.getRepository(DriverProfile);
+  const drivers = await profiles.find({ where: { status: DriverStatus.ACTIVE }, order: { createdAt: 'ASC' } });
+  const orderRows: { id: string }[] = await ds.query(`SELECT id FROM orders ORDER BY "createdAt" DESC LIMIT 200`);
+  if (!drivers.length || !orderRows.length) return;
+  // target acceptance mix, cycled over the active drivers: a few 95%+, some ~70-85%, some low
+  const TARGETS = [97, 94, 72, 88, 55, 100, 78, 42, 91, 68, 96, 83, 60, 99];
+  const reasons = ['Too far', 'Not enough pay', 'Busy', 'Order too large'];
+  const rnd = (seed: number) => {
+    let x = seed;
+    return () => ((x = (x * 1664525 + 1013904223) % 4294967296) / 4294967296);
+  };
+  const cfg = { countExpired: true, minOffers: 5, prior: 90 };
+  let done = 0;
+  for (const [i, d] of drivers.entries()) {
+    if (d.meta?.acceptanceSeeded) continue;
+    const r = rnd(1000 + i * 37);
+    const target = TARGETS[i % TARGETS.length];
+    const total = 8 + Math.floor(r() * 17); // 8..24 offers
+    const accepted = Math.round((target / 100) * total);
+    const rows: Partial<DriverOffer>[] = [];
+    for (let k = 0; k < total; k++) {
+      const ageMs = (0.3 + r() * 12.7) * 86400000; // inside the last 13 days
+      const sentAt = new Date(Date.now() - ageMs);
+      const isAccepted = k < accepted;
+      const expired = !isAccepted && r() < 0.3;
+      const respondSec = expired ? 30 : 4 + Math.floor(r() * 22);
+      rows.push({
+        orderId: orderRows[Math.floor(r() * orderRows.length)].id,
+        driverId: d.id,
+        status: isAccepted ? OfferStatus.ACCEPTED : expired ? OfferStatus.EXPIRED : OfferStatus.DECLINED,
+        sequence: 1 + Math.floor(r() * 3),
+        round: 0,
+        sentAt,
+        expiresAt: new Date(sentAt.getTime() + 30_000),
+        respondedAt: new Date(sentAt.getTime() + respondSec * 1000),
+        pickupDistanceKm: +(0.6 + r() * 3).toFixed(2),
+        dropoffDistanceKm: +(1 + r() * 5).toFixed(2),
+        estimatedPay: +(4.5 + r() * 6).toFixed(2),
+        boostAmount: 0,
+        declineReason: isAccepted || expired ? null : reasons[Math.floor(r() * reasons.length)],
+      });
+    }
+    // outside the window: must be ignored by the rolling score
+    for (let k = 0; k < 2; k++) {
+      const sentAt = new Date(Date.now() - (16 + k * 6 + r() * 3) * 86400000);
+      rows.push({
+        orderId: orderRows[Math.floor(r() * orderRows.length)].id,
+        driverId: d.id,
+        status: OfferStatus.DECLINED,
+        sequence: 1,
+        round: 0,
+        sentAt,
+        expiresAt: new Date(sentAt.getTime() + 30_000),
+        respondedAt: new Date(sentAt.getTime() + 9000),
+        estimatedPay: 6,
+        boostAmount: 0,
+        declineReason: 'Busy',
+      });
+    }
+    await ds.getRepository(DriverOffer).insert(rows as any);
+    const inWin = rows.slice(0, total);
+    const nAcc = inWin.filter((o) => o.status === OfferStatus.ACCEPTED).length;
+    const nDec = inWin.filter((o) => o.status === OfferStatus.DECLINED).length;
+    const nExp = inWin.filter((o) => o.status === OfferStatus.EXPIRED).length;
+    const counted = nAcc + nDec + (cfg.countExpired ? nExp : 0);
+    const raw = counted ? (nAcc / counted) * 100 : cfg.prior;
+    const w = counted >= cfg.minOffers ? 1 : counted / cfg.minOffers;
+    const rate = counted ? Math.round((w * raw + (1 - w) * cfg.prior) * 100) / 100 : cfg.prior;
+    await profiles.update(d.id, {
+      acceptanceRate: rate,
+      offersAccepted14d: nAcc,
+      offersDeclined14d: nDec,
+      offersExpired14d: nExp,
+      offersTotal14d: nAcc + nDec + nExp,
+      acceptanceUpdatedAt: new Date(),
+      meta: { ...(d.meta ?? {}), acceptanceSeeded: true } as any,
+    });
+    done++;
+  }
+  if (done) console.log(`  + acceptance history (rolling 14d) for ${done} active drivers`);
 }

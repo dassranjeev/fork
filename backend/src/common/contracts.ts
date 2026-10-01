@@ -143,7 +143,7 @@ export interface IOrdersService {
   updateTip(orderId: string, customerId: string, tip: number): Promise<Order>;
   /** manual (dispatcher) or automatic assignment; driverId is DriverProfile.id */
   assignDriver(orderId: string, driverId: string, actor: ActorRef, opts?: { boost?: number }): Promise<Order>;
-  unassignDriver(orderId: string, actor: ActorRef, reason: string): Promise<Order>;
+  unassignDriver(orderId: string, actor: ActorRef, reason: string, opts?: { redispatch?: boolean }): Promise<Order>;
   /** Snapshot for the live map and tracking screens. `viewer` masks fields; omitted = full internal view. */
   trackingView(orderId: string, viewer?: 'CUSTOMER' | 'DRIVER' | 'RESTAURANT' | 'STAFF'): Promise<any>;
   /** Driver arrival markers (Arrived at restaurant / Arrived at customer). Does not change the order status. */
@@ -262,6 +262,8 @@ export const Events = {
   ORDER_CANCELLED: 'order.cancelled', // CANCELLED or REJECTED
   ORDER_LATE: 'order.late',
   OFFER_RESPONDED: 'offer.responded',
+  /** payload: { orderId, driverId } - a driver was removed from an order and it needs a new one */
+  DRIVER_UNASSIGNED: 'order.driver_unassigned_redispatch',
   REVIEW_CREATED: 'review.created',
   REFUND_ISSUED: 'refund.issued',
   DRIVER_STATUS_CHANGED: 'driver.status_changed',

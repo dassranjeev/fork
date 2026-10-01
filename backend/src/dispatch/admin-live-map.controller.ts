@@ -130,6 +130,15 @@ export class AdminLiveMapController {
     return order;
   }
 
+  /** Take the driver off the order and put it back into automatic dispatch (the removed driver is not re-offered). READY orders keep status READY. */
+  @Post('orders/:id/unassign')
+  @Permission(Module.OPERATIONS, Action.EDIT)
+  async unassign(@Param('id') id: string, @CurrentUser() user: AuthUser, @Body('reason') reason?: string) {
+    const order = await this.ordersSvc.unassignDriver(id, actorFor(user), reason ?? 'Unassigned by dispatcher', { redispatch: true });
+    await this.audit.log({ actor: user, action: 'dispatch.unassign', entity: 'Order', entityId: id, after: { reason } });
+    return order;
+  }
+
   @Post('orders/:id/start-dispatch')
   @Permission(Module.OPERATIONS, Action.EDIT)
   async restart(@Param('id') id: string, @CurrentUser() user: AuthUser) {

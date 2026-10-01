@@ -47,3 +47,6 @@ export function downloadText(filename, text, type = "text/csv") {
 }
 
 export const Muted = ({ children }) => <span className="text-secondary-light">{children}</span>;
+
+/** Acceptance colour coding: >=90 good, 70-89 watch, <70 low. */
+export const acceptanceTone = (rate) => (Number(rate) >= 90 ? "success" : Number(rate) >= 70 ? "warning" : "danger");

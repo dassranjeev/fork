@@ -12,6 +12,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeService } from '../realtime/realtime.module';
 import { OrdersService } from '../orders/orders.service';
 import { DispatchRankingService } from './dispatch-ranking.service';
+import { AcceptanceService } from './acceptance.service';
 import { DispatchMeta, RankedCandidate } from './dispatch.types';
 
 const ACTIVE_DISPATCH_STATUSES = [OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY];
@@ -37,6 +38,7 @@ export class DispatchService implements IDispatchService {
     @InjectRepository(DriverProfile) private drivers: Repository<DriverProfile>,
     @InjectRepository(DriverLocationLog) private locationLogs: Repository<DriverLocationLog>,
     private ranking: DispatchRankingService,
+    private acceptance: AcceptanceService,
     private settings: SettingsService,
     private notifications: NotificationsService,
     private rt: RealtimeService,
@@ -107,7 +109,7 @@ export class DispatchService implements IDispatchService {
     if (!ACTIVE_DISPATCH_STATUSES.includes(order.status)) return;
 
     const existing = this.metaOf(order);
-    if (existing && (existing.state === 'MANUAL_HOLD' || existing.state === 'ASSIGNED')) return;
+    if (existing && existing.state === 'MANUAL_HOLD') return;
 
     const autoAssign = this.settings.get<boolean>('dispatch.autoAssign', true);
     const now = new Date();
@@ -116,6 +118,9 @@ export class DispatchService implements IDispatchService {
       state: autoAssign ? 'ACTIVE' : 'MANUAL',
       cycle: (existing?.cycle ?? 0) + 1,
       manualBoost: existing?.manualBoost ?? 0,
+      // a driver who declined this order is never re-offered it, even after a restart / re-dispatch
+      declinedIds: [...(existing?.declinedIds ?? [])],
+      offeredIds: [...(existing?.declinedIds ?? [])],
       startAt: now.toISOString(),
       startedAt: now.toISOString(),
       lastEvent: 'STARTED',
@@ -129,6 +134,14 @@ export class DispatchService implements IDispatchService {
     // `readyMatchWindowMin` before the food is ready. We peek the nearest current candidate's ETA as a
     // best-effort estimate of "time to find + drive a driver here"; if none are online yet, fall back to a
     // configured assumption rather than blocking dispatch indefinitely.
+    // Kitchen already confirmed READY (dispatch.startOn = READY): no artificial wait, the first offer goes out right now.
+    if (order.status === OrderStatus.READY) {
+      d.lastEvent = 'STARTED_READY';
+      await this.saveMeta(order, d);
+      await this.advance(order.id);
+      return;
+    }
+
     const readyAt = this.ranking.expectedReadyAt(order, order.restaurant ?? null, now);
     const readyWindow = Number(this.settings.get('dispatch.readyMatchWindowMin', 2));
     const peek = await this.ranking.rank(order, { radiusKm: d.radiusKm, limit: 1 }).catch(() => [] as RankedCandidate[]);
@@ -175,6 +188,7 @@ export class DispatchService implements IDispatchService {
       offer.status = OfferStatus.EXPIRED;
       offer.respondedAt = new Date();
       await this.offers.save(offer);
+      await this.acceptance.recomputeSafe(driverId);
       this.events.emit(Events.OFFER_RESPONDED, { orderId: offer.orderId, driverId, offerId: offer.id, status: 'EXPIRED' });
       this.advance(offer.orderId).catch((e) => this.logger.warn(`advance failed: ${e.message}`));
       throw new BadRequestException('This offer has expired');
@@ -188,12 +202,9 @@ export class DispatchService implements IDispatchService {
     offer.respondedAt = new Date();
     await this.offers.save(offer);
 
+    await this.drivers.increment({ id: driverId }, 'offersAccepted', 1).catch(() => undefined);
+    await this.acceptance.recomputeSafe(driverId);
     const driver = await this.drivers.findOne({ where: { id: driverId }, relations: ['user'] });
-    if (driver) {
-      const accepted = Number(driver.offersAccepted ?? 0) + 1;
-      const received = Math.max(1, Number(driver.offersReceived ?? 0));
-      await this.drivers.update(driverId, { offersAccepted: accepted, acceptanceRate: round2(Math.min(100, (accepted / received) * 100)) }).catch(() => undefined);
-    }
 
     const d = this.metaOf(order) ?? this.blankMeta();
     d.state = 'ASSIGNED';
@@ -223,12 +234,7 @@ export class DispatchService implements IDispatchService {
     offer.declineReason = reason ?? null;
     await this.offers.save(offer);
 
-    const driver = await this.drivers.findOne({ where: { id: driverId } });
-    if (driver) {
-      const received = Math.max(1, Number(driver.offersReceived ?? 0));
-      const accepted = Number(driver.offersAccepted ?? 0);
-      await this.drivers.update(driverId, { acceptanceRate: round2(Math.min(100, (accepted / received) * 100)) }).catch(() => undefined);
-    }
+    await this.acceptance.recomputeSafe(driverId);
 
     const order = await this.orders.findOne({ where: { id: offer.orderId } });
     if (order) {
@@ -312,6 +318,7 @@ export class DispatchService implements IDispatchService {
           offer.status = OfferStatus.EXPIRED;
           offer.respondedAt = new Date();
           await this.offers.save(offer);
+          await this.acceptance.recomputeSafe(offer.driverId);
           this.events.emit(Events.OFFER_RESPONDED, { orderId: order.id, driverId: offer.driverId, offerId: offer.id, status: 'EXPIRED' });
           this.rt.emitToDriver(offer.driverId, 'driver.offer.cancelled', { offerId: offer.id, orderId: order.id, reason: 'expired' });
         }
@@ -484,11 +491,33 @@ export class DispatchService implements IDispatchService {
   @OnEvent(Events.ORDER_STATUS_CHANGED)
   async onOrderStatusChanged(payload: OrderStatusEvent) {
     try {
-      if (payload.to === OrderStatus.ACCEPTED && payload.order.fulfilment === FulfilmentMode.PLATFORM_DRIVER) {
-        await this.startDispatch(payload.order.id);
-      }
+      if (payload.order.fulfilment !== FulfilmentMode.PLATFORM_DRIVER) return;
+      // dispatch.startOn: READY (default) = search starts only once the kitchen confirms the food is ready; ACCEPTED = legacy
+      const startOn = String(this.settings.get('dispatch.startOn', 'READY')).toUpperCase() === 'ACCEPTED' ? OrderStatus.ACCEPTED : OrderStatus.READY;
+      if (payload.to === startOn) await this.startDispatch(payload.order.id);
     } catch (e: any) {
       this.logger.warn(`onOrderStatusChanged failed: ${e.message}`);
+    }
+  }
+
+  /** A driver was removed from an order (OrdersService.unassignDriver with redispatch) -> search again (previous decliners excluded). */
+  @OnEvent(Events.DRIVER_UNASSIGNED)
+  async onDriverUnassigned(payload: { orderId: string; driverId: string }) {
+    try {
+      const order = await this.orders.findOne({ where: { id: payload.orderId } });
+      if (!order || order.driverId || order.fulfilment !== FulfilmentMode.PLATFORM_DRIVER) return;
+      const d = this.metaOf(order);
+      if (d) {
+        d.state = 'STOPPED';
+        d.assignedDriverId = null;
+        d.declinedIds = [...new Set([...(d.declinedIds ?? []), payload.driverId])];
+        await this.saveMeta(order, d);
+      }
+      // READY (or later): search right away; earlier statuses wait for the configured trigger
+      const startOn = String(this.settings.get('dispatch.startOn', 'READY')).toUpperCase();
+      if (order.status === OrderStatus.READY || startOn === 'ACCEPTED') await this.startDispatch(order.id);
+    } catch (e: any) {
+      this.logger.warn(`onDriverUnassigned failed: ${e.message}`);
     }
   }
 

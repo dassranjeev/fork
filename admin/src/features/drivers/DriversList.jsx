@@ -2,13 +2,13 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
-import { Avatar, Button, Card, DataTable, FilterSelect, FormModal, FormRow, ListToolbar, PageHeader, Select, StatusBadge, TextInput } from "../../ui";
+import { Avatar, Badge, Button, Card, DataTable, FilterSelect, FormModal, FormRow, ListToolbar, PageHeader, Select, StatusBadge, TextInput } from "../../ui";
 import { act, http } from "../../lib/api";
 import { useFetch, useForm, usePagedList, useSubmit } from "../../lib/hooks";
 import { useAuth } from "../../lib/auth";
 import { num, titleCase } from "../../lib/format";
 import { fmtDay as fmtDate } from "./shared";
-import { DRIVER_STATUSES, VEHICLES, downloadText, useCities } from "./shared";
+import { DRIVER_STATUSES, VEHICLES, acceptanceTone, downloadText, useCities } from "./shared";
 
 function AddDriverModal({ open, onClose, onDone }) {
   const f = useForm({ firstName: "", lastName: "", email: "", phone: "", cityId: "", vehicleType: "CAR" });
@@ -74,7 +74,19 @@ export default function DriversList() {
       render: (d) => (d.onTrip ? <StatusBadge status="On trip" tone="purple" /> : d.isOnline ? <StatusBadge status="Online" tone="success" /> : <StatusBadge status="Offline" tone="neutral" />),
     },
     { key: "rating", title: "Rating", render: (d) => (d.ratingCount ? `${Number(d.rating).toFixed(2)} (${d.ratingCount})` : "—") },
-    { key: "acceptanceRate", title: "Accept", render: (d) => `${num(d.acceptanceRate)}%` },
+    {
+      key: "acceptanceRate",
+      title: "Acceptance (14d)",
+      render: (d) => {
+        const a = d.acceptance;
+        return (
+          <div className="d-flex align-items-center gap-8">
+            <Badge tone={acceptanceTone(d.acceptanceRate)}>{num(d.acceptanceRate)}%</Badge>
+            <span className="text-secondary-light text-xs">{a ? `${a.accepted} acc / ${a.declined} dec${a.expired ? ` / ${a.expired} exp` : ""}` : ""}</span>
+          </div>
+        );
+      },
+    },
     { key: "totalTrips", title: "Trips", render: (d) => num(d.totalTrips) },
     { key: "backgroundCheckStatus", title: "Background", render: (d) => <StatusBadge status={d.backgroundCheckStatus} /> },
     { key: "nextDocExpiry", title: "Next doc expiry", render: (d) => fmtDate(d.nextDocExpiry) },

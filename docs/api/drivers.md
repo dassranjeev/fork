@@ -97,3 +97,13 @@ Mutations are audit-logged. `DRIVER_STATUS_CHANGED` event emitted on status chan
 | GET | `/sos` | - | my SOS history |
 
 Realtime: `driver.status`, `driver.offer`, `driver.offer.cancelled`, `driver.supply_alert` (driver room/zone room); ops room receives `driver.location`, `driver.status`, `sos.alert`.
+
+## Acceptance score (rolling 14 days)
+
+`GET /driver/profile` and the ratings/performance endpoint now include `acceptance: { rate, accepted, declined, expired, total, windowDays: 14, since, lastUpdatedAt }` (`acceptanceRate` is kept and equals `acceptance.rate`). Formula, settings and ranking influence: see [dispatch.md](dispatch.md#acceptance-score-rolling-window). Updates immediately when the driver accepts, declines or lets an offer expire, and hourly so offers older than the window drop out.
+
+Driver trip flow works from `READY`: `GET /driver/trip/offer` -> `POST /driver/trip/offer/:id/accept|decline` -> `arrived-restaurant` -> `picked-up` (pickup code) -> `arrived-customer` -> `delivered`.
+
+Admin: `GET /admin/drivers` rows and `GET /admin/drivers/:id` (also under `performance`) carry `acceptance`. `GET /admin/drivers/:id/offers?days=14` (`DRIVERS:VIEW`) returns `{ acceptance, offers: [{ id, orderId, orderCode, outcome (ACCEPTED|DECLINED|EXPIRED|CANCELLED), sentAt, respondedAt, responseSec, declineReason, pickupKm, estimatedPay, score, countedInScore }] }`. Admin console: list column "Acceptance (14d)" (green >= 90, amber 70-89, red < 70) and an acceptance card + offer table on the Performance tab.
+
+New `driver_profiles` columns (additive): `offersAccepted14d`, `offersDeclined14d`, `offersExpired14d`, `offersTotal14d`, `acceptanceUpdatedAt`.

@@ -10,7 +10,7 @@ import { useFetch, useForm, useSubmit } from "../../lib/hooks";
 import { useAuth } from "../../lib/auth";
 import { fmtDateTime, money, num, timeAgo, titleCase } from "../../lib/format";
 import { fmtDay as fmtDate } from "./shared";
-import { EXPIRY_REQUIRED, VEHICLES, fileHref, useZones } from "./shared";
+import { EXPIRY_REQUIRED, VEHICLES, acceptanceTone, fileHref, useZones } from "./shared";
 
 // ------------------------------------------------------------------ small modals
 function DocReviewModal({ driverId, doc, onClose, onDone }) {
@@ -287,11 +287,51 @@ function Documents({ d, reload, can }) {
   );
 }
 
+function AcceptanceCard({ d }) {
+  const a = d.performance?.acceptance || d.acceptance || {};
+  const { data, loading } = useFetch(`/admin/drivers/${d.id}/offers`, { days: a.windowDays || 14 });
+  const rows = data?.offers || [];
+  const tone = acceptanceTone(a.rate);
+  const tile = (label, value, cls = "") => (
+    <div className="col-6 col-md-3">
+      <div className="border radius-8 p-12"><div className="text-secondary-light text-xs">{label}</div><div className={`fw-semibold fs-5 ${cls}`}>{value}</div></div>
+    </div>
+  );
+  return (
+    <Card
+      title={`Acceptance score · rolling ${a.windowDays || 14} days`}
+      subtitle={`accepted ÷ (accepted + declined + expired); blends toward 90% under 5 offers. Updated ${a.lastUpdatedAt ? timeAgo(a.lastUpdatedAt) : "—"}`}
+      className="mb-24"
+    >
+      <div className="row g-3 mb-16">
+        <div className="col-6 col-md-3">
+          <div className="border radius-8 p-12"><div className="text-secondary-light text-xs">Acceptance rate</div><div className="fs-4"><Badge tone={tone}>{num(a.rate)}%</Badge></div></div>
+        </div>
+        {tile("Accepted", num(a.accepted), "text-success-main")}
+        {tile("Declined", num(a.declined))}
+        {tile("Expired (ignored)", num(a.expired), a.expired ? "text-warning-main" : "")}
+      </div>
+      <DataTable
+        rows={rows}
+        loading={loading}
+        emptyTitle="No offers in this window"
+        columns={[
+          { key: "sentAt", title: "Offer time", render: (o) => fmtDateTime(o.sentAt) },
+          { key: "orderCode", title: "Order", render: (o) => o.orderCode || "—" },
+          { key: "outcome", title: "Outcome", render: (o) => <StatusBadge status={o.outcome} tone={o.outcome === "ACCEPTED" ? "success" : o.outcome === "EXPIRED" ? "warning" : o.outcome === "DECLINED" ? "danger" : "neutral"} /> },
+          { key: "responseSec", title: "Response", render: (o) => (o.responseSec != null ? `${o.responseSec}s` : o.outcome === "EXPIRED" ? "no response" : "—") },
+          { key: "declineReason", title: "Decline reason", render: (o) => o.declineReason || "—" },
+        ]}
+      />
+    </Card>
+  );
+}
+
 function Performance({ d }) {
   const p = d.performance || {};
   const tiles = [
     ["Rating", p.ratingCount ? `${Number(p.rating).toFixed(2)} (${p.ratingCount})` : "—"],
-    ["Acceptance", `${num(p.acceptanceRate)}%`],
+    ["Acceptance (14d)", `${num(p.acceptanceRate)}%`],
     ["Completion", `${num(p.completionRate)}%`],
     ["On time", `${num(p.onTimeRate)}%`],
     ["Total trips", num(p.totalTrips)],
@@ -306,6 +346,7 @@ function Performance({ d }) {
           </div>
         ))}
       </div>
+      <AcceptanceCard d={d} />
       <Card title="Recent offers" noPadding bodyClassName="p-0">
         <DataTable
           rows={d.offers || []}

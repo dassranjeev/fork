@@ -2,14 +2,27 @@
 
 `DispatchService` (`src/dispatch/dispatch.service.ts`, exported globally) implements `IDispatchService` (`src/common/contracts.ts`). It is not called directly over HTTP by customers/restaurants; it is consumed by:
 
-- **OrdersModule** indirectly: `DispatchService` listens for `Events.ORDER_STATUS_CHANGED` (order -> `ACCEPTED` with `fulfilment = PLATFORM_DRIVER`) and starts the offer loop, and for `Events.ORDER_CANCELLED` to stop it.
+- **OrdersModule** indirectly: `DispatchService` listens for `Events.ORDER_STATUS_CHANGED` and starts the offer loop when a `PLATFORM_DRIVER` order reaches the status chosen by `dispatch.startOn` (default `READY`: the kitchen confirmed the food is ready; `ACCEPTED`: legacy), and for `Events.ORDER_CANCELLED` to stop it.
 - **Admin live map controller** below (dispatcher tools).
 - **Driver offer controller** below (temporary home for the driver-facing offer primitives until DriversModule wires its own `/driver/*` portal - it can keep calling the same `DispatchService` methods).
+
+## Business flow (default, `dispatch.startOn = READY`)
+
+1. Customer places the order: it is `PLACED` instantly (no scheduling delay unless `scheduledFor` is sent).
+2. Restaurant accepts and prepares (`ACCEPTED` -> `PREPARING`). **No driver search happens yet.**
+3. Kitchen marks the food ready (`POST /restaurant/orders/:id/ready` or `POST /restaurant/kds/:id/ready`) -> status `READY` -> dispatch starts **automatically and immediately** (no ready-time wait): first offer goes to the best nearby eligible driver within a second. Nobody has to click anything; the admin live-map tools are only an override.
+4. One driver at a time, `City.offerTimeoutSec` (30 s) window. Driver accepts (`POST /driver/trip/offer/:id/accept`) -> `Order.driverId`, `driverAssignedAt`, `driverPay`, driver `onTrip`, timeline event `DRIVER_ASSIGNED`, realtime `order.assigned`, customer + restaurant + driver notified. **Status stays `READY`.** Decline / expiry -> next driver immediately; anyone who declined or let the offer expire is never offered this order again. After `offersBeforeWiden` offers the radius widens (+boost); after `maxRadiusWidenings` it escalates to ops (flag + `order.no_driver`) and keeps retrying every `dispatch.escalatedRetrySec`.
+5. Driver: `arrived-restaurant` -> `picked-up` (pickup code, READY -> PICKED_UP) -> `arrived-customer` -> `delivered` (payment captured, ledger settled).
+
+`OrdersService.assignDriver`: from `ACCEPTED`/`PREPARING` it moves to `DRIVER_ASSIGNED` (legacy); from `READY` (or later, e.g. admin reassign) it records the driver **without changing the status** (timeline event `DRIVER_ASSIGNED`, realtime `order.driver_assigned`). `unassignDriver` keeps `READY`, frees the driver, and with `{ redispatch: true }` (admin `POST /admin/live-map/orders/:id/unassign`) restarts dispatch excluding the removed driver. Cancelling/rejecting an order also frees its driver (`onTrip=false`).
+
+### Who is eligible (all automatic; reasons visible in `GET /admin/live-map/orders/:id/candidates`)
+`OFFLINE`, `STALE_LOCATION` (GPS older than `dispatch.locationFreshSec`, 120 s), `NOT_APPROVED_FOR_ZONE`, `OUT_OF_RADIUS` (current radius, start `dispatch.maxInitialRadiusKm` = 4 km), `HAS_PENDING_OFFER`, `ON_TRIP` / `BATCH_*`, `VEHICLE_TOO_FAR`, `ORDER_TOO_LARGE_FOR_VEHICLE`.
 
 ## Offer loop behaviour (spec 5.4)
 
 - One driver offered at a time; window = `City.offerTimeoutSec` (default 30s).
-- Ready-time matching: `startDispatch` computes the order's expected ready time (`Order.estimatedReadyAt`) and, using the nearest currently-visible candidate's ETA (or setting `dispatch.assumedPickupEtaMin` if none are online yet), delays the loop (`WAITING` state) so the driver is not sent more than `dispatch.readyMatchWindowMin` minutes before food is ready.
+- Ready-time matching (only with `dispatch.startOn = ACCEPTED`; skipped entirely when the order is already `READY`): `startDispatch` computes the order's expected ready time (`Order.estimatedReadyAt`) and, using the nearest currently-visible candidate's ETA (or setting `dispatch.assumedPickupEtaMin` if none are online yet), delays the loop (`WAITING` state) so the driver is not sent more than `dispatch.readyMatchWindowMin` minutes before food is ready.
 - After `City.offersBeforeWiden` offers (default 3) with no acceptance, the search radius widens by `City.radiusWidenStepKm` and a pay boost of `City.widenBoostAmount` is added (`DriverOffer.boostAmount`, folded into `Order.driverBoost` via `OrdersService.assignDriver`).
 - After `City.maxRadiusWidenings` widenings (default 2), the order is escalated: `Order.unassignedFlag = true` (drives the live-map RED flag), an ops notification (`order.no_driver`) + `dispatch.escalated` realtime event fire once, and the search **keeps retrying** slowly (`dispatch.escalatedRetrySec`, default 45s) rather than stopping.
 - State machine persisted at `Order.meta.dispatch` (`DispatchMeta`): `WAITING -> ACTIVE -> (ESCALATED) -> ASSIGNED`, or `MANUAL` when `dispatch.autoAssign` is off, or `STOPPED`/`MANUAL_HOLD` when a dispatcher takes over.
@@ -52,3 +65,41 @@ Base path `/api/v1/driver/offer`. Driver app only (`DriverController`). Placehol
 ## Entities
 
 No new entities were needed - `DriverOffer` (`src/database/entities/driver.entities.ts`) already existed with every column the offer loop needs (`sequence`, `round`, `sentAt`, `expiresAt`, `respondedAt`, `pickupDistanceKm`, `dropoffDistanceKm`, `estimatedPay`, `boostAmount`, `score`, `scoreBreakdown`, `declineReason`).
+
+## Acceptance score (rolling window)
+
+Per driver, over offers whose response/expiry time (`COALESCE(respondedAt, expiresAt)`) is within the last `dispatch.acceptance.windowDays` (14) days. `CANCELLED`/`PENDING` offers are ignored.
+
+```
+counted = accepted + declined + (countExpiredAsDecline ? expired : 0)
+raw     = 100 * accepted / counted
+rate    = raw                                   if counted >= minOffers (5)
+rate    = w*raw + (1-w)*priorRate (90)          if 0 < counted < minOffers, w = counted/minOffers
+rate    = priorRate (90)                        if counted = 0
+```
+
+Stored on `DriverProfile`: `acceptanceRate` (this smoothed score, single source of truth also used by analytics), `offersAccepted14d`, `offersDeclined14d`, `offersExpired14d`, `offersTotal14d`, `acceptanceUpdatedAt`. Recomputed live on every accept / decline / expiry (`AcceptanceService.recompute(driverId)`) and for all drivers hourly (`@Cron EVERY_HOUR`) so old offers drop out; raw history stays in `driver_offers`. `POST /admin/drivers/acceptance/recompute` runs the same job on demand.
+
+Settings: `dispatch.startOn` (READY), `dispatch.acceptance.windowDays` (14), `.countExpiredAsDecline` (true), `.minOffers` (5), `.priorRate` (90), `.lowThreshold` (50), `dispatch.locationFreshSec` (120).
+
+## Ranking weights (`dispatch.weights`, normalised by their sum)
+
+| factor | default weight |
+|---|---|
+| distance | 0.30 |
+| readyMatch | 0.20 |
+| vehicleFit | 0.08 |
+| load | 0.08 |
+| performance (on-time 50% + rating 50%) | 0.06 |
+| fairness | 0.08 |
+| **acceptance** | **0.20** |
+
+Acceptance factor = `rate/100`, halved when `rate < dispatch.acceptance.lowThreshold` (soft penalty, never a hard block). The candidates endpoint `breakdown` shows weighted points per factor plus `acceptanceRate`; `factors.acceptance` is the raw 0..1 value. Example (equal drivers): 98% -> 19.6 pts, 70% -> 14.0 pts, 45% -> 4.5 pts.
+
+## Additional admin endpoints
+
+| Method & path | Notes |
+|---|---|
+| `POST /admin/live-map/orders/:id/unassign` `{ reason? }` | Remove driver, keep status (READY stays READY), restart automatic dispatch (removed driver excluded). `OPERATIONS:EDIT`. |
+| `GET /admin/drivers/:id/offers?days=14` | Offer history in the window (see drivers.md). |
+| `POST /admin/drivers/acceptance/recompute` | Run the rolling recompute now. |

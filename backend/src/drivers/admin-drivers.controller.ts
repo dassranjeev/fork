@@ -52,6 +52,13 @@ export class AdminDriversController {
     return this.drivers.list(q);
   }
 
+  /** Run the rolling-window acceptance recompute now (same logic as the hourly job). */
+  @Post('acceptance/recompute')
+  @Permission(Module.DRIVERS, Action.EDIT)
+  async recomputeAcceptance() {
+    return { drivers: await this.drivers.recomputeAcceptance() };
+  }
+
   @Get('summary')
   @Permission(Module.DRIVERS, Action.VIEW)
   summary(@Query('cityId') cityId?: string) {
@@ -205,6 +212,12 @@ export class AdminDriversController {
   @Permission(Module.DRIVERS, Action.VIEW)
   detail(@Param('id') id: string) {
     return this.drivers.detail(id);
+  }
+
+  @Get(':id/offers')
+  @Permission(Module.DRIVERS, Action.VIEW)
+  offers(@Param('id') id: string, @Query('days') days?: string) {
+    return this.drivers.offerHistory(id, days ? Number(days) : undefined);
   }
 
   @Post()

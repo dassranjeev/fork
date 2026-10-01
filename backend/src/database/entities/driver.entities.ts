@@ -138,6 +138,22 @@ export class DriverProfile extends BaseEntity {
   @Column({ default: 0 })
   offersAccepted: number;
 
+  // ---- rolling acceptance window (maintained by AcceptanceService; `acceptanceRate` above is the smoothed score) ----
+  @Column({ default: 0 })
+  offersAccepted14d: number;
+
+  @Column({ default: 0 })
+  offersDeclined14d: number;
+
+  @Column({ default: 0 })
+  offersExpired14d: number;
+
+  @Column({ default: 0 })
+  offersTotal14d: number;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  acceptanceUpdatedAt: Date | null;
+
   @Column({ default: 0 })
   cancellations: number;
 

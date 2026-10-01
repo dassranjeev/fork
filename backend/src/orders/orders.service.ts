@@ -271,6 +271,14 @@ export class OrdersService implements IOrdersService {
 
     order.status = to;
     await this.orders.save(order);
+    // an assigned driver must not stay stuck "on trip" when the order is cancelled / rejected (unless they still hold another active order)
+    if ((to === OrderStatus.CANCELLED || to === OrderStatus.REJECTED) && order.driverId) {
+      const others = await this.orders
+        .createQueryBuilder('o')
+        .where('o.driverId = :d AND o.id != :id AND o.status IN (:...st)', { d: order.driverId, id: order.id, st: [OrderStatus.DRIVER_ASSIGNED, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.PICKED_UP, OrderStatus.ON_THE_WAY] })
+        .getCount();
+      if (!others) await this.drivers.update(order.driverId, { onTrip: false });
+    }
 
     await this.addEvent(order.id, 'STATUS_CHANGE', actor, opts.note ?? opts.reason, { from, to });
     this.realtime.emitToOrder(order.id, 'order.status', { orderId: order.id, status: to });
@@ -445,22 +453,47 @@ export class OrdersService implements IOrdersService {
 
   // ---------------------------------------------------------------------- driver assignment
 
+  /**
+   * Assign a driver. Before the food is ready (ACCEPTED/PREPARING) this moves the order to DRIVER_ASSIGNED (legacy flow).
+   * When the order is already READY (dispatch.startOn = READY) or later (admin manual (re)assign) the status is NOT moved
+   * backwards: the driver is recorded on the order, the timeline gets a DRIVER_ASSIGNED event and everyone is notified.
+   */
   async assignDriver(orderId: string, driverId: string, actor: ActorRef, opts: { boost?: number } = {}): Promise<Order> {
     const order = await this.getById(orderId);
     if (order.fulfilment === FulfilmentMode.PICKUP) throw new BadRequestException('Pickup orders do not need a driver');
+    if (END_STATUSES.has(order.status)) throw new BadRequestException(`Order ${order.code} has already ended (${order.status})`);
+    const prevStatus = order.status;
     order.driverId = driverId;
     if (opts.boost) order.driverBoost = round2(opts.boost);
     const driverPay = await this.pricing.driverPay({ cityId: order.cityId, zoneId: order.zoneId, pickupKm: Number(order.distanceKm ?? 0) / 2, dropKm: Number(order.distanceKm ?? 0) / 2, tip: Number(order.tip) });
     order.driverPay = driverPay.total;
+    order.driverAssignedAt = new Date();
     await this.orders.save(order);
     await this.drivers.update(driverId, { onTrip: true });
-    const updated = await this.transition(orderId, OrderStatus.DRIVER_ASSIGNED, actor);
+
+    let updated: Order;
+    if (prevStatus === OrderStatus.ACCEPTED || prevStatus === OrderStatus.PREPARING) {
+      updated = await this.transition(orderId, OrderStatus.DRIVER_ASSIGNED, actor);
+    } else {
+      // READY / DRIVER_ASSIGNED / PICKED_UP / ON_THE_WAY: keep the status, just record the driver on the timeline
+      await this.addEvent(order.id, 'DRIVER_ASSIGNED', actor, undefined, { status: prevStatus, driverId });
+      this.realtime.emitToOrder(order.id, 'order.driver_assigned', { orderId: order.id, driverId, status: prevStatus });
+      this.realtime.emitToRestaurant(order.restaurantId, 'order.driver_assigned', { orderId: order.id, driverId, status: prevStatus });
+      updated = await this.getById(order.id);
+    }
     this.realtime.emitToDriver(driverId, 'order.assigned', { orderId: order.id, code: order.code });
-    await this.notifications.notify({ userId: driverId, audience: 'DRIVER', event: 'offer.accepted', vars: { code: order.code } }).catch(() => undefined);
+    this.realtime.emitToOps('order.driver_assigned', { orderId: order.id, code: order.code, driverId });
+
+    const dp = await this.drivers.findOne({ where: { id: driverId }, relations: ['user'] }).catch(() => null);
+    const driverName = `${dp?.user?.firstName ?? 'Your driver'} ${dp?.user?.lastName?.[0] ?? ''}`.trim();
+    if (dp?.userId) await this.notifications.notify({ userId: dp.userId, audience: 'DRIVER', event: 'offer.accepted', vars: { code: order.code } }).catch(() => undefined);
+    await this.notifications.notify({ userId: order.customerId, audience: 'CUSTOMER', event: 'driver.assigned', vars: { code: order.code, driverName, vehicle: dp?.vehicleType ?? 'vehicle' } }).catch(() => undefined);
+    await this.notifications.notifyRestaurant(order.restaurantId, 'driver.assigned', { code: order.code, driverName, etaMinutes: 5 }).catch(() => undefined);
     return updated;
   }
 
-  async unassignDriver(orderId: string, actor: ActorRef, reason: string): Promise<Order> {
+  /** Remove the driver. DRIVER_ASSIGNED falls back to ACCEPTED; READY and later keep their status. `redispatch` restarts the driver search. */
+  async unassignDriver(orderId: string, actor: ActorRef, reason: string, opts: { redispatch?: boolean } = {}): Promise<Order> {
     const order = await this.getById(orderId);
     if (!order.driverId) return order;
     const afterPickup = [OrderStatus.PICKED_UP, OrderStatus.ON_THE_WAY].includes(order.status);
@@ -472,9 +505,10 @@ export class OrdersService implements IOrdersService {
     order.driverId = null;
     if (order.status === OrderStatus.DRIVER_ASSIGNED) order.status = OrderStatus.ACCEPTED;
     await this.orders.save(order);
-    await this.addEvent(order.id, 'REASSIGN', actor, reason);
+    await this.addEvent(order.id, 'REASSIGN', actor, reason, { status: order.status, driverId: oldDriverId });
     this.realtime.emitToOrder(order.id, 'order.driver_unassigned', { orderId: order.id });
     this.realtime.emitToDriver(oldDriverId, 'order.unassigned', { orderId: order.id });
+    if (opts.redispatch) this.emitter.emit(Events.DRIVER_UNASSIGNED, { orderId: order.id, driverId: oldDriverId });
     return this.getById(order.id);
   }
 

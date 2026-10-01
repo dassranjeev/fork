@@ -17,6 +17,7 @@ import { ActorType, OrderStatus, OrderType, PartyType } from '../common/enums';
 import { OrdersService } from '../orders/orders.service';
 import { LedgerService } from '../orders/ledger.service';
 import { DriverCoreService } from './driver-core.service';
+import { AcceptanceService } from '../dispatch/acceptance.service';
 import { MaskedCallAdapter } from './adapters/masked-call.adapter';
 import { lazyService, maskAccount, round2, tzStart } from './drivers.util';
 import {
@@ -48,6 +49,7 @@ export class DriverAppService {
     private moduleRef: ModuleRef,
     private ordersService: OrdersService,
     private ledger: LedgerService,
+    private acceptance: AcceptanceService,
     private maskedCallAdapter: MaskedCallAdapter,
     @InjectRepository(Order) private orders: Repository<Order>,
     @InjectRepository(DriverShift) private shifts: Repository<DriverShift>,
@@ -97,6 +99,7 @@ export class DriverAppService {
       rating: p.rating,
       ratingCount: p.ratingCount,
       acceptanceRate: p.acceptanceRate,
+      acceptance: this.acceptance.summary(p),
       completionRate: p.completionRate,
       onTimeRate: p.onTimeRate,
       totalTrips: p.totalTrips,
@@ -442,6 +445,7 @@ export class DriverAppService {
       rating: p.rating,
       ratingCount: p.ratingCount,
       acceptanceRate: p.acceptanceRate,
+      acceptance: this.acceptance.summary(p),
       completionRate: p.completionRate,
       onTimeRate: p.onTimeRate,
       totalTrips: p.totalTrips,

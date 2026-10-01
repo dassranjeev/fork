@@ -22,6 +22,7 @@ import { ActorType, DocStatus, DriverDocType, DriverStatus, PartyType, UserStatu
 import { paginateQb, like } from '../common/pagination';
 import { AuthUser } from '../common/auth.types';
 import { DriverCoreService, PRE_ACTIVE } from './driver-core.service';
+import { AcceptanceService } from '../dispatch/acceptance.service';
 import { CertnAdapter, BackgroundCheckResult } from './adapters/certn.adapter';
 import { maskAccount, round2, todayStr } from './drivers.util';
 import {
@@ -45,6 +46,7 @@ export class DriversAdminService {
   constructor(
     private core: DriverCoreService,
     private certn: CertnAdapter,
+    private acceptance: AcceptanceService,
     @InjectRepository(DriverOffer) private offers: Repository<DriverOffer>,
     @InjectRepository(Order) private orders: Repository<Order>,
     @InjectRepository(LedgerEntry) private ledger: Repository<LedgerEntry>,
@@ -115,6 +117,7 @@ export class DriversAdminService {
       rating: d.rating,
       ratingCount: d.ratingCount,
       acceptanceRate: d.acceptanceRate,
+      acceptance: this.acceptance.summary(d),
       completionRate: d.completionRate,
       onTimeRate: d.onTimeRate,
       totalTrips: d.totalTrips,
@@ -217,6 +220,7 @@ export class DriversAdminService {
         rating: d.rating,
         ratingCount: d.ratingCount,
         acceptanceRate: d.acceptanceRate,
+        acceptance: this.acceptance.summary(d),
         completionRate: d.completionRate,
         onTimeRate: d.onTimeRate,
         totalTrips: d.totalTrips,
@@ -253,6 +257,16 @@ export class DriversAdminService {
       cases,
       sosAlerts: sos,
     };
+  }
+
+  recomputeAcceptance() {
+    return this.acceptance.recompute();
+  }
+
+  /** Offer history inside the rolling acceptance window (GET /admin/drivers/:id/offers?days=14). */
+  async offerHistory(id: string, days?: number) {
+    const d = await this.core.getProfile(id);
+    return { acceptance: this.acceptance.summary(d), offers: await this.acceptance.history(id, days) };
   }
 
   async balance(driverId: string): Promise<number> {

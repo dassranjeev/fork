@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { City, DriverLocationLog, DriverOffer, DriverProfile, Order, OrderItem, Restaurant } from '../database/entities';
 import { DispatchRankingService } from './dispatch-ranking.service';
 import { DriverLocationService } from './driver-location.service';
+import { AcceptanceService } from './acceptance.service';
 import { DispatchService } from './dispatch.service';
 import { AdminLiveMapController } from './admin-live-map.controller';
 import { DriverOfferController } from './driver-offer.controller';
@@ -14,8 +15,8 @@ import { DriverOfferController } from './driver-offer.controller';
 @Global()
 @Module({
   imports: [TypeOrmModule.forFeature([Order, OrderItem, DriverOffer, DriverProfile, DriverLocationLog, City, Restaurant])],
-  providers: [DispatchRankingService, DriverLocationService, DispatchService],
+  providers: [DispatchRankingService, DriverLocationService, AcceptanceService, DispatchService],
   controllers: [AdminLiveMapController, DriverOfferController],
-  exports: [DispatchService, DispatchRankingService, DriverLocationService],
+  exports: [DispatchService, DispatchRankingService, DriverLocationService, AcceptanceService],
 })
 export class DispatchModule {}

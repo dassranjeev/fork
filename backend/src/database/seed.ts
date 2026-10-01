@@ -10,7 +10,7 @@ import { SeedOptions } from './seed-types';
 import { seedPlatform } from '../platform/platform.seed';
 import { seedMarketing } from '../marketing/marketing.seed';
 import { seedRestaurants, seedRestaurantsExtra } from '../restaurants/restaurants.seed';
-import { seedDrivers, seedDriversExtra } from '../drivers/drivers.seed';
+import { seedDrivers, seedDriversExtra, seedDriverOfferHistory } from '../drivers/drivers.seed';
 import { seedCustomers, seedCustomersExtra } from '../customers/customers.seed';
 import { seedOrders } from '../orders/orders.seed';
 import { seedSupport } from '../support/support.seed';
@@ -79,6 +79,7 @@ async function main() {
       await seedDriversExtra(ds, opts);
       await seedCustomersExtra(ds, opts);
     }],
+    ['driver offer history (rolling 14-day acceptance)', () => seedDriverOfferHistory(ds, opts)],
     ['support (tickets, cases)', () => seedSupport(ds, opts)],
     ['finance (payout batches, invoices)', () => seedFinance(ds, opts)],
   ];
