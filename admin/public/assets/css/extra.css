@@ -151,9 +151,9 @@ table.dataTable td.dt-type-date {
   max-height: 0px;
 }
 
-/* .sidebar-menu .dropdown.open .sidebar-submenu {
+.sidebar-menu .dropdown.open > .sidebar-submenu {
   max-height: 1000px;
-} */
+}
 
 .sidebar-menu li > a > i {
   margin-inline-end: 0;
