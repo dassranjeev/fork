@@ -1,24 +1,133 @@
 # FORKSY
 
-Three-sided food delivery marketplace (customers, restaurants, drivers).
+A three-sided food delivery marketplace for Ontario, Canada (customers, restaurants and convenience stores, delivery drivers), in the style of SkipTheDishes, Uber Eats and DoorDash. This repository contains the **platform API**, the **Admin Console**, and the **Restaurant Portal**. The customer and driver mobile apps are not built yet; the API is ready for them.
 
-- `backend/` - NestJS 11 + TypeORM + PostgreSQL API (all modules wired; Swagger at `/docs`)
-- `admin/` - Admin Console (React, WowDash template)
-- `docs/` - `ARCHITECTURE.md` build contract and `api/*.md` route references
-- `tools/pg/` - embedded Postgres launcher for local dev (no Docker needed)
+> Status: working end to end on a local machine with seeded demo data (Mississauga and Brampton). Payments, SMS, email and push use built-in mock adapters until you add provider keys. See [Known limitations](#known-limitations).
 
-## Run locally
+## What is in the box
 
-```bash
-# 1. database (port 5432, user/pass postgres/postgres, db forksy)
-cd tools/pg && npm install && node start.mjs
+| Area | What it does |
+|---|---|
+| **Customers (API)** | Discovery and search, restaurant pages, cart, checkout quote, order placement, tracking, tips, reviews, wallet, gift cards, referrals, privacy requests, live chat support |
+| **Restaurants and stores (Restaurant Portal)** | Live order board, kitchen display (KDS), menu and modifiers, 86 / restock, hours and closures, **service mode switch**, staff, reviews, finance, reports, promotions |
+| **Drivers (API)** | Application and onboarding, documents, go online/offline, GPS, **offers with accept/decline**, trip steps, earnings, instant cash-out, SOS, shifts, live chat support |
+| **Admin Console** | Dashboard, live map, orders, restaurants, drivers, customers, cities and zones, pricing and commission, finance and payouts, support tickets and **live chat console**, marketing, system (staff, roles, audit log, settings) |
 
-# 2. backend (copy backend/.env.example to backend/.env first)
-cd backend && npm install && npm run seed && npm run start:dev   # http://localhost:4000/api/v1
+Cities seeded: Mississauga and Brampton (active). Toronto and Vaughan exist but are inactive.
 
-# 3. admin console
-cd admin && npm install && npm start                             # http://localhost:3000
+## Tech stack
+
+- **Backend:** NestJS 11, TypeORM, PostgreSQL, Socket.IO (real-time), JWT auth with refresh tokens and optional 2FA, Swagger/OpenAPI
+- **Admin Console and Restaurant Portal:** React (Create React App), React Router 6, Bootstrap 5 with the WowDash template, ApexCharts, Leaflet
+- **Dev database:** embedded PostgreSQL launcher (no Docker needed), or any PostgreSQL you already have
+
+## Repository layout
+
+```
+backend/     NestJS API (src/<module>/ per domain: orders, dispatch, restaurants, drivers,
+             customers, finance, support, marketing, platform, analytics, ...)
+admin/       Admin Console (/) and Restaurant Portal (/portal); screens live in src/features/*
+docs/        ARCHITECTURE.md (build contract) and api/*.md (route references per module)
+tools/pg/    Embedded Postgres launcher for local development
 ```
 
-Demo password for seeded accounts: `Demo@12345` (e.g. `customer1@demo.forksy.ca`, `driver1@demo.forksy.ca`, `owner1@demo-restaurant.ca`).
-Admin login is set by `SEED_SUPERADMIN_EMAIL` / `SEED_SUPERADMIN_PASSWORD` in `backend/.env`.
+## Quick start
+
+Requirements: Node.js 20 or newer (developed on Node 24), npm.
+
+```bash
+# 1. Database (port 5432, user/password postgres/postgres, database "forksy")
+cd tools/pg && npm install && node start.mjs        # leave running
+
+# 2. Backend API
+cd backend
+cp .env.example .env                                  # then edit JWT_SECRET etc. if needed
+npm install
+npm run seed                                          # demo data, safe to re-run
+npm run start:dev                                     # http://localhost:4000/api/v1
+
+# 3. Admin Console + Restaurant Portal
+cd admin
+cp .env.example .env
+npm install
+npm start                                             # http://localhost:3000
+```
+
+Using your own PostgreSQL instead: skip step 1, create a database, and set `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` in `backend/.env`.
+
+Useful URLs once running:
+
+| URL | What |
+|---|---|
+| http://localhost:3000 | Admin Console (sign in as admin) |
+| http://localhost:3000/portal | Restaurant Portal (sign in as a restaurant user, or open it from the admin) |
+| http://localhost:3000/chat-demo.html | Test page for the customer/driver side of live chat |
+| http://localhost:4000/docs | Swagger API docs (also linked in the admin sidebar under SYSTEM) |
+
+## Configuration
+
+`backend/.env` (see `backend/.env.example`):
+
+- `PORT`, `PUBLIC_URL`, `CORS_ORIGINS`
+- `DB_*` connection settings; `DB_SYNC=true` creates tables from entities automatically (development only; use migrations in production)
+- `JWT_SECRET` (**change it**), `JWT_ACCESS_TTL`, `JWT_REFRESH_TTL_DAYS`, `ENFORCE_2FA`
+- `EXPOSE_OTP=true` returns one-time codes in API responses for development; **turn off in production**
+- `SEED_SUPERADMIN_EMAIL` / `SEED_SUPERADMIN_PASSWORD`, `SEED_DEMO`
+- Provider keys (all optional, mock adapters are used when blank): `STRIPE_*`, `GOOGLE_MAPS_API_KEY`, `TWILIO_*`, `SENDGRID_API_KEY`, `FCM_SERVER_KEY`, `CERTN_API_KEY`
+
+`admin/.env`: `REACT_APP_API_URL`, `REACT_APP_WS_URL`, and `DISABLE_ESLINT_PLUGIN=true` (avoids a false error overlay when the project path casing differs).
+
+Most business rules (fees, dispatch timers and weights, chat hours, acceptance window, etc.) are editable at runtime in the Admin Console under **System > Platform Settings**.
+
+## Demo accounts (after `npm run seed`)
+
+| Role | Login | Password |
+|---|---|---|
+| Super admin | `admin@forksy.ca` | `Admin@12345` (from `SEED_SUPERADMIN_PASSWORD`) |
+| Customers | `customer1@demo.forksy.ca` ... `customer50@demo.forksy.ca` | `Demo@12345` |
+| Drivers | `driver1@demo.forksy.ca` ... `driver28@demo.forksy.ca` | `Demo@12345` |
+| Restaurant owners | `owner1@demo-restaurant.ca` ... `owner26@demo-restaurant.ca` | `Demo@12345` |
+| Other store roles | `manager1@...`, `cashier1@...`, `kitchen1@...` (same domain and numbering) | `Demo@12345` |
+
+Customers 31 to 50 and restaurants 13 to 26 include Brampton data. These are development defaults; never use them in production.
+
+## How the key flows work
+
+**Order lifecycle.** `PLACED` (instant) > `ACCEPTED` > `PREPARING` > `READY` > `PICKED_UP` > `ON_THE_WAY` > `DELIVERED` (pickup orders end in `COLLECTED`). Cancelled and rejected orders release or refund the payment. Payment is authorised at placement and captured on delivery; the ledger settles restaurant, driver and platform shares at that point.
+
+**Store service mode.** Every restaurant or convenience store can switch between `CLOSED`, `PICKUP_ONLY` and `PICKUP_AND_DELIVERY` from the portal dashboard or Store Settings. Closed stores refuse all orders; pickup-only stores refuse delivery orders and never create driver offers; orders already placed carry on unchanged. Customer discovery returns the mode and which options are available, and search supports a pickup/delivery filter.
+
+**Automatic driver dispatch.** When the kitchen marks an order `READY`, the system automatically offers it to the best nearby eligible driver, one at a time (30 second window). The driver can accept or decline. Accepting assigns the order to that driver; declining or letting the offer expire moves to the next nearby driver, widening the search radius and boost, and alerting ops if nobody takes it. Offline, busy, out-of-zone, stale-GPS and unsuitable-vehicle drivers are skipped automatically. Setting `dispatch.startOn` can switch the trigger to `ACCEPTED`.
+
+**Driver acceptance score.** Each driver has an acceptance rate over a rolling 14 days: accepted offers divided by accepted plus declined plus expired, lightly smoothed for drivers with fewer than 5 offers. It updates on every response and hourly, is shown on the driver profile and in the admin (with offer history), and is a 20 percent weight in the ranking, so higher acceptance means earlier offers.
+
+**Live chat support.** Customers and drivers can chat with support agents in real time (queue, auto-assign, typing and read receipts, images, transfer, rating). If no agent is online, outside support hours, or the queue times out, the same message automatically becomes a ticket in the Support queue so nothing is lost. Agents work from **Support > Live chat** in the Admin Console. Protocol reference: `docs/api/live-chat.md`.
+
+**Admin walkthrough of restaurant panels.** From **Restaurants > Open a restaurant panel** (or the restaurant list and detail pages), an admin with edit permission can open any restaurant's portal as its owner for up to 2 hours without a password. A banner shows while viewing, every start is audit-logged, and the session cannot change the owner's password or 2FA.
+
+## API documentation
+
+- Interactive: http://localhost:4000/docs (Swagger UI)
+- Written references per module in [`docs/api/`](docs/api): analytics, customers, dispatch, drivers, finance, live-chat, marketing, platform, restaurants, support
+- Design contract and module ownership: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+
+Route prefixes: `/auth` (all apps), `/admin`, `/restaurant`, `/driver`, `/customer`, `/public`, plus `/orders/:id/tracking` and `/orders/:id/messages` shared by all parties. Real-time events use Socket.IO on the same port as the API.
+
+## Development notes
+
+- Type-check the backend: `cd backend && npm run typecheck`
+- Production builds: `npm run build` in `backend/` and `admin/`
+- The seed is idempotent: re-running adds only what is missing. Demo data (people, restaurants, orders) is created only when `SEED_DEMO=true`.
+- The login endpoint is rate limited to 10 requests per minute per IP; scripted tests should log in once and reuse the token.
+- Dispatch needs a recent driver location (default within 120 seconds). Seeded drivers have no live GPS, so send `POST /driver/location` as a driver (the driver app will do this every few seconds) to receive offers.
+- Trips longer than about 3 km are not offered to bike drivers.
+- If sidebar styling looks stale after an update, hard refresh the browser (Ctrl+F5).
+
+## Known limitations
+
+- **No customer or driver mobile apps yet.** The API, real-time events and the `chat-demo.html` test page are ready for them. Browser-based customer ordering is not included.
+- **Payments are mocked** (Stripe-shaped adapter). SMS, email and push use mock or log-only adapters until provider keys are added; real delivery has not been verified.
+- Not yet built in the portal and admin: menu CSV import, document upload screens, tablet activation, editing a promotion after creation.
+- Several admin actions were exercised by hand only on the main paths (for example refund approvals, bank verification and payout release were rendered but not run end to end).
+- Scheduled-order handling and automatic switch-back timers for service mode exist but were not exercised.
+
