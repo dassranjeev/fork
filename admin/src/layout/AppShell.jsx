@@ -116,6 +116,17 @@ function MenuItem({ item, openKey, setOpenKey, pathname }) {
   const isChildActive = hasChildren && item.children.some((c) => pathname === c.to || (c.to !== "/" && pathname.startsWith(c.to + "/")));
   const key = item.label;
   const open = openKey === key || (openKey === null && isChildActive);
+  if (!hasChildren && item.href) {
+    return (
+      <li>
+        <a href={item.href} target="_blank" rel="noopener noreferrer">
+          <Icon icon={item.icon || "solar:circle-outline"} className="menu-icon" />
+          <span>{item.label}</span>
+          <Icon icon="solar:arrow-right-up-outline" className="ms-auto" />
+        </a>
+      </li>
+    );
+  }
   if (!hasChildren) {
     return (
       <li>

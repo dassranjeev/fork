@@ -1,4 +1,5 @@
 import React from "react";
+import { WS_URL } from "../../lib/api";
 
 const StaffList = React.lazy(() => import("./StaffList"));
 const Roles = React.lazy(() => import("./Roles"));
@@ -23,4 +24,5 @@ export const menu = [
   { section: "SYSTEM", order: 10, label: "Platform Settings", icon: "solar:settings-outline", to: "/settings", perm: ["settings", "view"] },
   { section: "SYSTEM", order: 11, label: "Notification Matrix", icon: "solar:bell-bing-outline", to: "/notification-matrix", perm: ["notifications", "view"] },
   { section: "SYSTEM", order: 12, label: "My Notifications", icon: "solar:inbox-outline", to: "/inbox" },
+  { section: "SYSTEM", order: 20, label: "API Docs", icon: "solar:code-square-outline", href: `${WS_URL}/docs` },
 ];
