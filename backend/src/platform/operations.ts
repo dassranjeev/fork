@@ -1,6 +1,6 @@
 import { BadRequestException, Body, ConflictException, Get, Injectable, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, IsNull, Repository } from 'typeorm';
 import { City, DriverProfile, Incident, OpsChecklist, Zone } from '../database/entities';
 import { AdminController, Permission } from '../common/decorators';
 import { AuthUser } from '../common/auth.types';
@@ -69,7 +69,7 @@ export class ChecklistsService {
 
   /** Idempotent get-or-create of one checklist from the template. */
   private async ensure(date: string, kind: Kind, cityId: string | null) {
-    let cl = await this.repo.findOne({ where: { date, kind, cityId: cityId ?? (null as any) } });
+    let cl = await this.repo.findOne({ where: { date, kind, cityId: cityId ?? IsNull() } });
     if (!cl) {
       cl = await this.repo.save(this.repo.create({ date, kind, cityId, items: this.templates()[kind].map((t) => ({ key: t.key, label: t.label, done: false })), notes: null }));
     }

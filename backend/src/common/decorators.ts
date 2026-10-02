@@ -2,6 +2,7 @@ import { applyDecorators, Controller, createParamDecorator, ExecutionContext, Se
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Action, Module, RestaurantRole, UserType } from './enums';
 import { AuthUser } from './auth.types';
+import { clientIp } from './security';
 
 export const IS_PUBLIC = 'isPublic';
 export const USER_TYPES = 'userTypes';
@@ -36,7 +37,7 @@ export const CurrentUser = createParamDecorator((data: keyof AuthUser | undefine
 
 export const ClientIp = createParamDecorator((_d, ctx: ExecutionContext) => {
   const req = ctx.switchToHttp().getRequest();
-  return (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip;
+  return clientIp(req);
 });
 
 /** /api/v1/admin/<path> - staff + super admin only (use @Permission on handlers). */

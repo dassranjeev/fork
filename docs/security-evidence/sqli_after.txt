@@ -1,0 +1,43 @@
+===== SQL INJECTION FUZZ (GET routes, query strings): AFTER-2 =====
+requests: 2520
+time-based hits (>3.5 s => injected pg_sleep executed): 0
+responses leaking DB/stack details: 18
+  /customer/search ['; SELECT pg_sleep(4);--] -> 200 {"query":"'; SELECT pg_sleep(4);--","location":{"lat":43.589,"lng":-79.6441,"located":false},"restaurants":[],"dishes":[],"cuisines":[],"meta":{"page":1,"limit"
+  /customer/search [1; SELECT pg_sleep(4)--] -> 200 {"query":"1; SELECT pg_sleep(4)--","location":{"lat":43.589,"lng":-79.6441,"located":false},"restaurants":[],"dishes":[],"cuisines":[],"meta":{"page":1,"limit":
+  /customer/search ["; SELECT pg_sleep(4);--] -> 200 {"query":"\"; SELECT pg_sleep(4);--","location":{"lat":43.589,"lng":-79.6441,"located":false},"restaurants":[],"dishes":[],"cuisines":[],"meta":{"page":1,"limit
+  /customer/search [1) OR pg_sleep(4) IS NULL] -> 200 {"query":"1) OR pg_sleep(4) IS NULL--","location":{"lat":43.589,"lng":-79.6441,"located":false},"restaurants":[],"dishes":[],"cuisines":[],"meta":{"page":1,"lim
+  /customer/search [createdAt; SELECT pg_slee] -> 200 {"query":"createdAt; SELECT pg_sleep(4)","location":{"lat":43.589,"lng":-79.6441,"located":false},"restaurants":[],"dishes":[],"cuisines":[],"meta":{"page":1,"l
+  /customer/search [(SELECT pg_sleep(4))] -> 200 {"query":"(SELECT pg_sleep(4))","location":{"lat":43.589,"lng":-79.6441,"located":false},"restaurants":[],"dishes":[],"cuisines":[],"meta":{"page":1,"limit":20,
+  /public/search ['; SELECT pg_sleep(4);--] -> 200 {"query":"'; SELECT pg_sleep(4);--","location":{"lat":43.589,"lng":-79.6441,"located":false},"restaurants":[],"dishes":[],"cuisines":[],"meta":{"page":1,"limit"
+  /public/search [1; SELECT pg_sleep(4)--] -> 200 {"query":"1; SELECT pg_sleep(4)--","location":{"lat":43.589,"lng":-79.6441,"located":false},"restaurants":[],"dishes":[],"cuisines":[],"meta":{"page":1,"limit":
+  /public/search ["; SELECT pg_sleep(4);--] -> 200 {"query":"\"; SELECT pg_sleep(4);--","location":{"lat":43.589,"lng":-79.6441,"located":false},"restaurants":[],"dishes":[],"cuisines":[],"meta":{"page":1,"limit
+  /public/search [1) OR pg_sleep(4) IS NULL] -> 200 {"query":"1) OR pg_sleep(4) IS NULL--","location":{"lat":43.589,"lng":-79.6441,"located":false},"restaurants":[],"dishes":[],"cuisines":[],"meta":{"page":1,"lim
+  /public/search [createdAt; SELECT pg_slee] -> 200 {"query":"createdAt; SELECT pg_sleep(4)","location":{"lat":43.589,"lng":-79.6441,"located":false},"restaurants":[],"dishes":[],"cuisines":[],"meta":{"page":1,"l
+  /public/search [(SELECT pg_sleep(4))] -> 200 {"query":"(SELECT pg_sleep(4))","location":{"lat":43.589,"lng":-79.6441,"located":false},"restaurants":[],"dishes":[],"cuisines":[],"meta":{"page":1,"limit":20,
+  /admin/support/order-context/00000000-0000-4000-8000-000000000001/suggest ['; SELECT pg_sleep(4);--] -> 200 {"category":"'; SELECT pg_sleep(4);--","rule":"MANUAL_REVIEW","action":"NONE","lines":[],"totalAmount":0,"refundableRemaining":0,"evidenceNeeded":[],"warnings":
+  /admin/support/order-context/00000000-0000-4000-8000-000000000001/suggest [1; SELECT pg_sleep(4)--] -> 200 {"category":"1; SELECT pg_sleep(4)--","rule":"MANUAL_REVIEW","action":"NONE","lines":[],"totalAmount":0,"refundableRemaining":0,"evidenceNeeded":[],"warnings":[
+  /admin/support/order-context/00000000-0000-4000-8000-000000000001/suggest ["; SELECT pg_sleep(4);--] -> 200 {"category":"\"; SELECT pg_sleep(4);--","rule":"MANUAL_REVIEW","action":"NONE","lines":[],"totalAmount":0,"refundableRemaining":0,"evidenceNeeded":[],"warnings"
+  /admin/support/order-context/00000000-0000-4000-8000-000000000001/suggest [1) OR pg_sleep(4) IS NULL] -> 200 {"category":"1) OR pg_sleep(4) IS NULL--","rule":"MANUAL_REVIEW","action":"NONE","lines":[],"totalAmount":0,"refundableRemaining":0,"evidenceNeeded":[],"warning
+  /admin/support/order-context/00000000-0000-4000-8000-000000000001/suggest [createdAt; SELECT pg_slee] -> 200 {"category":"createdAt; SELECT pg_sleep(4)","rule":"MANUAL_REVIEW","action":"NONE","lines":[],"totalAmount":0,"refundableRemaining":0,"evidenceNeeded":[],"warni
+  /admin/support/order-context/00000000-0000-4000-8000-000000000001/suggest [(SELECT pg_sleep(4))] -> 200 {"category":"(SELECT pg_sleep(4))","rule":"MANUAL_REVIEW","action":"NONE","lines":[],"totalAmount":0,"refundableRemaining":0,"evidenceNeeded":[],"warnings":[],"
+HTTP 5xx: 20
+  /restaurant/finance/ledger [' OR '1'='1] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/restaurant/finance/ledger","time
+  /restaurant/finance/ledger ['; SELECT pg_sleep(4);--] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/restaurant/finance/ledger","time
+  /restaurant/finance/ledger [1; SELECT pg_sleep(4)--] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/restaurant/finance/ledger","time
+  /restaurant/finance/ledger ["; SELECT pg_sleep(4);--] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/restaurant/finance/ledger","time
+  /restaurant/finance/ledger [1) OR pg_sleep(4) IS NULL] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/restaurant/finance/ledger","time
+  /restaurant/finance/ledger [createdAt; SELECT pg_slee] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/restaurant/finance/ledger","time
+  /restaurant/finance/ledger [(SELECT pg_sleep(4))] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/restaurant/finance/ledger","time
+  /restaurant/finance/ledger [%] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/restaurant/finance/ledger","time
+  /restaurant/finance/ledger [_] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/restaurant/finance/ledger","time
+  /restaurant/finance/ledger [\] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/restaurant/finance/ledger","time
+  /admin/promotions/00000000-0000-4000-8000-000000000001/stats [' OR '1'='1] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/admin/promotions/00000000-0000-4
+  /admin/promotions/00000000-0000-4000-8000-000000000001/stats ['; SELECT pg_sleep(4);--] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/admin/promotions/00000000-0000-4
+  /admin/promotions/00000000-0000-4000-8000-000000000001/stats [1; SELECT pg_sleep(4)--] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/admin/promotions/00000000-0000-4
+  /admin/promotions/00000000-0000-4000-8000-000000000001/stats ["; SELECT pg_sleep(4);--] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/admin/promotions/00000000-0000-4
+  /admin/promotions/00000000-0000-4000-8000-000000000001/stats [1) OR pg_sleep(4) IS NULL] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/admin/promotions/00000000-0000-4
+  /admin/promotions/00000000-0000-4000-8000-000000000001/stats [createdAt; SELECT pg_slee] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/admin/promotions/00000000-0000-4
+  /admin/promotions/00000000-0000-4000-8000-000000000001/stats [(SELECT pg_sleep(4))] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/admin/promotions/00000000-0000-4
+  /admin/promotions/00000000-0000-4000-8000-000000000001/stats [%] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/admin/promotions/00000000-0000-4
+  /admin/promotions/00000000-0000-4000-8000-000000000001/stats [_] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/admin/promotions/00000000-0000-4
+  /admin/promotions/00000000-0000-4000-8000-000000000001/stats [\] -> 500 {"statusCode":500,"message":"Internal server error","path":"/api/v1/admin/promotions/00000000-0000-4

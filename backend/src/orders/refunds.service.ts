@@ -26,38 +26,45 @@ export class RefundsService implements IRefundsService {
   ) {}
 
   async issue(input: Parameters<IRefundsService['issue']>[0]): Promise<Refund> {
-    const order = await this.orders.findOne({ where: { id: input.orderId } });
-    if (!order) throw new NotFoundException('Order not found');
-    const amount = round2(input.amount);
-    if (amount <= 0) throw new BadRequestException('Refund amount must be positive');
-    const alreadyRefunded = await this.refunds
-      .createQueryBuilder('r')
-      .select('COALESCE(SUM(r.amount), 0)', 'sum')
-      .where('r.orderId = :orderId AND r.status = :status', { orderId: order.id, status: RefundStatus.PROCESSED })
-      .getRawOne<{ sum: string }>();
-    const already = round2(Number(alreadyRefunded?.sum ?? 0));
-    if (already + amount > round2(Number(order.total)) + 0.01) {
-      throw new BadRequestException(`Refund would exceed the order total (already refunded $${already.toFixed(2)} of $${Number(order.total).toFixed(2)})`);
-    }
-
+    // strict numeric validation: NaN / Infinity / numeric strings must never reach the cap arithmetic (NaN > x is false => silent bypass)
+    const rawAmount = typeof input.amount === 'number' ? input.amount : NaN;
+    const amount = round2(rawAmount);
+    if (!Number.isFinite(amount) || amount <= 0) throw new BadRequestException('Refund amount must be a positive number');
+    if (amount > 10_000) throw new BadRequestException('Refund amount is too large');
     const type = input.type ?? RefundType.REFUND;
     const overLimit = !input.auto && input.actor.staff && input.actor.refundLimit != null && amount > input.actor.refundLimit;
 
-    const refund = this.refunds.create({
-      orderId: order.id,
-      ticketId: input.ticketId ?? null,
-      amount,
-      type,
-      chargedTo: input.chargedTo,
-      reasonCode: input.reasonCode,
-      notes: input.notes ?? null,
-      status: overLimit ? RefundStatus.PENDING_APPROVAL : RefundStatus.PROCESSED,
-      createdById: input.actor.id ?? null,
-      createdByType: input.actor.staff ? 'STAFF' : input.auto ? 'SYSTEM' : 'CUSTOMER',
-      auto: !!input.auto,
-      processedAt: overLimit ? null : new Date(),
+    // The cap check and the insert happen under a row lock on the order, so concurrent refunds are serialised and cannot
+    // exceed the order total. Pending-approval refunds count against the cap too.
+    const { order, refund } = await this.refunds.manager.transaction(async (em) => {
+      const order = await em.getRepository(Order).createQueryBuilder('o').setLock('pessimistic_write').where('o.id = :id', { id: input.orderId }).getOne();
+      if (!order) throw new NotFoundException('Order not found');
+      const rows: { sum: string }[] = await em.query(
+        `SELECT COALESCE(SUM(amount), 0) AS sum FROM refunds WHERE "orderId" = $1 AND status IN ('PROCESSED','PENDING_APPROVAL') AND amount <> 'NaN'`,
+        [order.id],
+      );
+      const already = round2(Number(rows[0]?.sum ?? 0));
+      if (already + amount > round2(Number(order.total)) + 0.01) {
+        throw new BadRequestException(`Refund would exceed the order total (already refunded or pending $${already.toFixed(2)} of $${Number(order.total).toFixed(2)})`);
+      }
+      const refund = await em.save(
+        em.create(Refund, {
+          orderId: order.id,
+          ticketId: input.ticketId ?? null,
+          amount,
+          type,
+          chargedTo: input.chargedTo,
+          reasonCode: input.reasonCode,
+          notes: input.notes ?? null,
+          status: overLimit ? RefundStatus.PENDING_APPROVAL : RefundStatus.PROCESSED,
+          createdById: input.actor.id ?? null,
+          createdByType: input.actor.staff ? 'STAFF' : input.auto ? 'SYSTEM' : 'CUSTOMER',
+          auto: !!input.auto,
+          processedAt: overLimit ? null : new Date(),
+        }),
+      );
+      return { order, refund };
     });
-    await this.refunds.save(refund);
 
     if (overLimit) {
       await this.notifications.notifyOps('order.stuck', { code: order.code, reason: `Refund of $${amount.toFixed(2)} needs supervisor approval` });
@@ -75,13 +82,20 @@ export class RefundsService implements IRefundsService {
     if (actor.refundLimit != null && refund.amount > actor.refundLimit) {
       throw new ForbiddenException(`Your refund limit is $${actor.refundLimit.toFixed(2)}; escalate this $${Number(refund.amount).toFixed(2)} refund further`);
     }
+    if (refund.createdById && actor.id && refund.createdById === actor.id) throw new ForbiddenException('A different person must approve this refund (four-eyes rule)');
     const order = await this.orders.findOne({ where: { id: refund.orderId } });
     if (!order) throw new NotFoundException('Order not found');
-    refund.approvedById = actor.id ?? null;
+    // atomic claim: when several approvals race, exactly one wins and settles the money once
+    const claim = await this.refunds
+      .createQueryBuilder()
+      .update(Refund)
+      .set({ status: RefundStatus.PROCESSED, approvedById: actor.id ?? null, processedAt: new Date(), ...(notes ? { notes: [refund.notes, notes].filter(Boolean).join('\n') } : {}) })
+      .where('id = :id AND status = :st', { id: refundId, st: RefundStatus.PENDING_APPROVAL })
+      .execute();
+    if (!claim.affected) throw new BadRequestException('This refund is not pending approval');
     refund.status = RefundStatus.PROCESSED;
+    refund.approvedById = actor.id ?? null;
     refund.processedAt = new Date();
-    if (notes) refund.notes = [refund.notes, notes].filter(Boolean).join('\n');
-    await this.refunds.save(refund);
     await this.settle(refund, order);
     return refund;
   }
@@ -90,10 +104,12 @@ export class RefundsService implements IRefundsService {
     const refund = await this.refunds.findOne({ where: { id: refundId } });
     if (!refund) throw new NotFoundException('Refund not found');
     if (refund.status !== RefundStatus.PENDING_APPROVAL) throw new BadRequestException('This refund is not pending approval');
+    const notes = reason ? [refund.notes, `Rejected: ${reason}`].filter(Boolean).join('\n') : refund.notes;
+    const claim = await this.refunds.createQueryBuilder().update(Refund).set({ status: RefundStatus.REJECTED, approvedById: actor.id ?? null, notes }).where('id = :id AND status = :st', { id: refundId, st: RefundStatus.PENDING_APPROVAL }).execute();
+    if (!claim.affected) throw new BadRequestException('This refund is not pending approval');
     refund.status = RefundStatus.REJECTED;
     refund.approvedById = actor.id ?? null;
-    if (reason) refund.notes = [refund.notes, `Rejected: ${reason}`].filter(Boolean).join('\n');
-    await this.refunds.save(refund);
+    refund.notes = notes;
     return refund;
   }
 

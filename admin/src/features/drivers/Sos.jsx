@@ -20,7 +20,7 @@ export default function Sos() {
     { key: "createdAt", title: "Raised", render: (a) => (<div><div className="fw-medium">{timeAgo(a.createdAt)}</div><div className="text-secondary-light text-xs">{fmtDateTime(a.createdAt)}</div></div>) },
     { key: "driver", title: "Driver", render: (a) => <Link to={`/drivers/${a.driverId}`} className="text-primary-600 fw-medium">{a.driverName || a.driver?.name || "View driver"}</Link> },
     { key: "message", title: "Message", render: (a) => a.message || "—" },
-    { key: "location", title: "Location", render: (a) => (a.lat != null && a.lng != null ? <a className="text-primary-600" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/?mlat=${a.lat}&mlon=${a.lng}#map=16/${a.lat}/${a.lng}`}>{Number(a.lat).toFixed(4)}, {Number(a.lng).toFixed(4)}</a> : "—") },
+    { key: "location", title: "Location", render: (a) => (a.lat != null && a.lng != null ? <a className="text-primary-600" target="_blank" rel="noopener noreferrer" href={`https://www.openstreetmap.org/?mlat=${Number(a.lat)}&mlon=${Number(a.lng)}#map=16/${Number(a.lat)}/${Number(a.lng)}`}>{Number(a.lat).toFixed(4)}, {Number(a.lng).toFixed(4)}</a> : "—") },
     { key: "status", title: "Status", render: (a) => <StatusBadge status={a.status} tone={a.status === "OPEN" ? "danger" : a.status === "ACKNOWLEDGED" ? "warning" : "success"} /> },
     { key: "handledAt", title: "Handled", render: (a) => fmtDateTime(a.handledAt) },
     {

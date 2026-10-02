@@ -281,7 +281,9 @@ export class NotificationsService implements OnModuleInit {
     const token = this.settings.get<string>('notifications.twilioAuthToken') || this.config.get<string>('twilio.authToken');
     const from = this.settings.get<string>('notifications.twilioFrom') || this.config.get<string>('twilio.from');
     if (!sid || !token || !from) {
-      this.logger.log(`[sms:mock] -> ${to}: ${body}`);
+      // never log the body: it usually contains a one-time code
+      if (process.env.NODE_ENV === 'production') this.logger.error('SMS provider not configured - message to a user was NOT sent');
+      else this.logger.log(`[sms:mock] -> ${to}: ${body}`);
       return;
     }
     const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
@@ -296,7 +298,8 @@ export class NotificationsService implements OnModuleInit {
     const key = this.settings.get<string>('notifications.sendgridApiKey') || this.config.get<string>('sendgrid.apiKey');
     const from = this.settings.get<string>('notifications.emailFrom') || this.config.get<string>('sendgrid.from');
     if (!key) {
-      this.logger.log(`[email:mock] -> ${to}: ${subject}`);
+      if (process.env.NODE_ENV === 'production') this.logger.error('Email provider not configured - message to a user was NOT sent');
+      else this.logger.log(`[email:mock] -> ${to}: ${subject}`);
       return;
     }
     const res = await fetch('https://api.sendgrid.com/v3/mail/send', {

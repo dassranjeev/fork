@@ -1,0 +1,91 @@
+FORKSY security smoke test against http://localhost:4000/api/v1
+
+--- transport & headers
+PASS  X-Powered-By is not disclosed
+PASS  X-Content-Type-Options: nosniff
+PASS  Content-Security-Policy present
+PASS  X-Frame-Options / frame-ancestors set
+PASS  API responses are not cacheable (Cache-Control: no-store)
+PASS  CORS: untrusted origin gets no Access-Control-Allow-Origin
+PASS  CORS preflight from untrusted origin is not approved
+PASS  404 does not leak internals
+
+--- logging in (demo accounts)
+  (login throttled for admin, waiting 62 s)
+  tokens: c1:ok c2:ok d1:ok o1:ok o2:ok k1:ok analyst:ok admin:ok
+
+--- unauthenticated access to protected routes
+PASS  all 22 protected sample routes return 401 without a token
+  info: Swagger JSON is EXPOSED (fine in development; disabled when NODE_ENV=production)
+
+--- wrong account type (role confusion)
+PASS  cross-type requests are refused with 403
+
+--- IDOR / cross-tenant access
+PASS  customer2 cannot read customer1's order  - HTTP 404
+PASS  customer2 cannot read customer1's order tracking  - HTTP 403
+PASS  customer2 cannot read customer1's order chat  - HTTP 403
+PASS  customer2 cannot cancel customer1's order  - HTTP 404
+PASS  customer2 cannot change customer1's tip  - HTTP 403
+PASS  customer2 cannot open a ticket on customer1's order  - HTTP 404
+PASS  driver1 cannot complete an order that is not assigned to them  - HTTP 403
+PASS  staff WITHOUT the orders permission cannot read order tracking (PIN / phone numbers)  - HTTP 200
+PASS  customer2 cannot edit customer1's address  - HTTP 404
+PASS  merchant 2 cannot read merchant 1's orders via ?restaurantId= tampering  - HTTP 403
+PASS  merchant 2 cannot read merchant 1's menu via ?restaurantId= tampering  - HTTP 403
+PASS  merchant 2 cannot edit merchant 1's store  - HTTP 403
+PASS  KITCHEN role cannot read finance/payouts (owner-only)  - HTTP 403
+PASS  KITCHEN role cannot read finance/dashboard (owner-only)  - HTTP 403
+PASS  KITCHEN role cannot read reports/payouts (owner-only)  - HTTP 403
+PASS  KITCHEN role does not receive tablet code / POS credentials / commission terms
+
+--- privilege escalation
+PASS  read-only staff cannot create a role  - HTTP 403
+PASS  read-only staff cannot change settings  - HTTP 403
+PASS  settings values must keep their type (string for a numeric setting is rejected)  - HTTP 400
+PASS  refund amount "abc" (NaN bypass) is rejected  - HTTP 400
+PASS  refund amount 1e12 is rejected  - HTTP 400
+
+--- mass assignment
+PASS  unknown/privileged fields on PATCH /auth/me are rejected  - HTTP 400
+PASS  client-supplied prices / totals on checkout are rejected  - HTTP 400
+PASS  registration cannot choose the account type  - HTTP 400
+
+--- SQL injection (error- and time-based)
+PASS  injected pg_sleep never executes (no response > 3.5 s)
+PASS  injection payloads never cause 5xx / SQL error leakage
+PASS  NoSQL-style object payload on login is rejected (400)  - HTTP 400
+PASS  sortBy=__proto__ / sortDir injection does not 500  - HTTP 400
+PASS  prototype-pollution key is rejected  - HTTP 400
+
+--- stored XSS
+PASS  HTML in a profile name is stripped before it is stored  - {"id":"3fe27302-baf0-4fa2-a849-853905d37dcc","type":"CUSTOMER","email":"customer
+PASS  ticket subject/body/attachments are neutralised  - HTTP 201
+PASS  javascript: URL in an image field is rejected  - HTTP 400
+
+--- hostile uploads
+PASS  SVG upload (script carrier) is rejected  - HTTP 415
+PASS  HTML disguised as PNG is rejected (magic-byte check)  - HTTP 415
+PASS  .html upload is rejected  - HTTP 415
+
+--- JWT forgery
+PASS  forged / malformed tokens are rejected (401)
+
+--- webhooks
+PASS  Certn webhook rejects unauthenticated calls  - HTTP 401
+
+--- request size limits
+PASS  400 KB JSON body is rejected (413)  - HTTP 413
+PASS  40-level nested JSON is rejected (400)  - HTTP 400
+PASS  3000-element array is rejected (400)  - HTTP 400
+PASS  70 KB query string is rejected (431/414)  - HTTP 431
+PASS  absurd pagination (limit=100000, page=99999999) is rejected  - HTTP 400
+
+--- brute force & rate limiting
+PASS  repeated wrong passwords end in HTTP 429 even when X-Forwarded-For is rotated  - 401,401,401,401,401,429,429,429,429
+PASS  login failure for unknown accounts is generic (no enumeration)  - HTTP 429 Too many requests. Please slow down.
+PASS  burst of 220 anonymous requests from one IP is throttled (429)  - 100 x 429, 120 x 200
+PASS  throttled responses carry Retry-After
+PASS  an authenticated user of the same IP is unaffected by the anonymous flood  - HTTP 200
+
+57/57 checks passed

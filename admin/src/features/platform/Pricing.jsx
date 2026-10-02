@@ -30,7 +30,7 @@ function CitySummary() {
           <div className="row gy-3 mb-24">
             <div className="col-md-3 col-6"><StatCard label="Restaurants in city" value={data.restaurantsInCity} icon="solar:shop-2-outline" /></div>
             <div className="col-md-3 col-6"><StatCard label="Without a tier" value={data.restaurantsWithoutTier} icon="solar:tag-price-outline" tone="warning" hint="Use the default tier" /></div>
-            <div className="col-md-3 col-6"><StatCard label="With custom commission" value={data.restaurantsWithOverrides} icon="solar:percent-square-outline" tone="purple" /></div>
+            <div className="col-md-3 col-6"><StatCard label="With custom commission" value={data.restaurantsWithOverrides} icon="solar:sale-outline" tone="purple" /></div>
             <div className="col-md-3 col-6"><StatCard label="Zones" value={data.zones?.length ?? 0} icon="solar:map-point-outline" tone="info" /></div>
           </div>
           <div className="row gy-3">

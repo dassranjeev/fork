@@ -1,7 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
-import { act, http, impersonation, tokens } from "./api";
+import { act, clearAppStorage, http, impersonation, tokens } from "./api";
+import { disconnectSocket } from "./socket";
+import { IdleGuard } from "./idle";
 
 const AuthContext = createContext(null);
 
@@ -33,9 +35,26 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (tokens.access) loadMe();
-    const onLogout = () => setUser(null);
+    const onLogout = () => {
+      disconnectSocket();
+      setUser(null);
+    };
+    // another tab logged out / its tokens were removed: drop this tab's session too
+    const onStorage = (e) => {
+      if (e.key === "forksy.access" && !e.newValue && !impersonation.active) onLogout();
+    };
+    // back/forward cache: never show a restored authenticated page after logout
+    const onPageShow = (e) => {
+      if (e.persisted && !tokens.access) window.location.reload();
+    };
     window.addEventListener("forksy:logout", onLogout);
-    return () => window.removeEventListener("forksy:logout", onLogout);
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      window.removeEventListener("forksy:logout", onLogout);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("pageshow", onPageShow);
+    };
   }, [loadMe]);
 
   /** Accepts the response of /auth/login | /auth/2fa/verify | /auth/2fa/enable */
@@ -61,6 +80,8 @@ export function AuthProvider({ children }) {
       /* ignore */
     }
     tokens.clear();
+    clearAppStorage();
+    disconnectSocket();
     setUser(null);
   }, [exitImpersonation]);
 
@@ -91,7 +112,12 @@ export function AuthProvider({ children }) {
     };
   }, [user, loading, acceptSession, loadMe, logout, exitImpersonation]);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      {user && <IdleGuard type={user.type === "RESTAURANT" ? "restaurant" : "admin"} suspended={/^\/portal\/kds/.test(window.location.pathname)} onTimeout={() => { logout().then(() => window.location.replace("/sign-in?reason=idle")); }} />}
+    </AuthContext.Provider>
+  );
 }
 
 export const useAuth = () => useContext(AuthContext);

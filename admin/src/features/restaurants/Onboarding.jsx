@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { useFetch } from "../../lib/hooks";
 import { timeAgo } from "../../lib/format";
 import { Badge, Card, EmptyState, ErrorState, Loading, PageHeader, StatusBadge } from "../../ui";

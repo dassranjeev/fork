@@ -1,5 +1,5 @@
 import React from "react";
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { Badge, useConfirm } from "../../ui";
 import { fmtTime } from "../../lib/format";
 import { useAction, useApi } from "./shared";

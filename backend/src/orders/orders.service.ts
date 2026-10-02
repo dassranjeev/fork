@@ -1,11 +1,12 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { timingSafeEqual } from 'crypto';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { ModuleRef } from '@nestjs/core';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { CustomerProfile, DriverProfile, Order, OrderEvent, OrderItem, Restaurant } from '../database/entities';
-import { ActorType, FulfilmentMode, LedgerType, OrderStatus, OrderType, PaymentStatus, PartyType, RefundChargedTo, RefundType } from '../common/enums';
+import { ActorType, FulfilmentMode, LedgerType, OrderStatus, OrderType, PaymentMethod, PaymentStatus, PartyType, RefundChargedTo, RefundType } from '../common/enums';
 import {
   ActorRef,
   Events,
@@ -70,6 +71,14 @@ const CUSTOMER_EVENT: Partial<Record<OrderStatus, string>> = {
  * capture + ledger settlement. Simplifications are called out inline where the full spec nuance
  * was traded for shipping a correct, working core within scope.
  */
+/** Constant-time comparison; undefined / empty input never matches. */
+function codeMatches(given: string | undefined | null, expected: string): boolean {
+  if (typeof given !== 'string' || !given.length || given.length > 32) return false;
+  const a = Buffer.from(given.trim());
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 @Injectable()
 export class OrdersService implements IOrdersService {
   private readonly logger = new Logger(OrdersService.name);
@@ -175,23 +184,41 @@ export class OrdersService implements IOrdersService {
     order = await this.orders.save(order);
     await this.items.save(itemRows.map((i) => Object.assign(i, { orderId: order.id })));
 
-    // authorize the card amount (total minus any wallet applied); only debit the wallet once the hold succeeds.
+    // Reserve the promo FIRST (atomic: usage limit / budget / per-user limit are enforced inside the redemption). If it is gone, the order is abandoned.
+    const promoSvc = quote.promotion ? this.promotions() : null;
+    if (quote.promotion && promoSvc) {
+      try {
+        await promoSvc.redeem(quote.promotion.id, customerId, order.id, quote.discountTotal);
+      } catch (e) {
+        await this.orders.delete(order.id);
+        throw e instanceof BadRequestException ? e : new BadRequestException('This promo code is no longer available. Please remove it and try again.');
+      }
+    }
+
+    // payment method policy: cash only when enabled; wallet / gift-card payments must fully cover the total
     const cardAmount = round2(quote.total - quote.walletUsed);
+    if (input.paymentMethod === PaymentMethod.CASH && !this.settings.get<boolean>('orders.acceptCashPayments', false)) {
+      await this.orders.delete(order.id);
+      await promoSvc?.unredeem(order.id).catch(() => undefined);
+      throw new BadRequestException('Cash payments are not available');
+    }
+    if ((input.paymentMethod === PaymentMethod.WALLET || input.paymentMethod === PaymentMethod.GIFT_CARD) && cardAmount > 0.009) {
+      await this.orders.delete(order.id);
+      await promoSvc?.unredeem(order.id).catch(() => undefined);
+      throw new BadRequestException('Your wallet balance does not cover this order');
+    }
+    // authorize the card amount (total minus any wallet applied); only debit the wallet once the hold succeeds.
     try {
-      const auth = await this.payments.authorize(order, { paymentToken: input.paymentToken, amount: cardAmount, customerEmail: null });
-      if (!auth.ok) throw new BadRequestException(auth.error || 'Payment authorization failed');
+      const auth = cardAmount > 0.009 && input.paymentMethod !== PaymentMethod.CASH ? await this.payments.authorize(order, { paymentToken: input.paymentToken, amount: cardAmount, customerEmail: null }) : { ok: true as const, intentId: undefined };
+      if (!auth.ok) throw new BadRequestException((auth as any).error || 'Payment authorization failed');
       order.paymentIntentId = auth.intentId ?? null;
       order.paymentStatus = PaymentStatus.AUTHORIZED;
       if (quote.walletUsed > 0) await this.wallet.debit(customerId, quote.walletUsed, 'PURCHASE', { orderId: order.id, note: `Order ${order.code}` });
       order = await this.orders.save(order);
     } catch (e) {
+      await promoSvc?.unredeem(order.id).catch(() => undefined);
       await this.orders.delete(order.id);
       throw e;
-    }
-
-    if (quote.promotion) {
-      const promoSvc = this.promotions();
-      await promoSvc?.redeem(quote.promotion.id, customerId, order.id, quote.discountTotal).catch((e) => this.logger.warn(`promo redeem failed: ${(e as Error).message}`));
     }
 
     await this.customerProfiles.increment({ userId: customerId }, 'totalOrders', 1);
@@ -231,6 +258,32 @@ export class OrdersService implements IOrdersService {
       throw new BadRequestException(`Cannot move order ${order.code} from ${from} to ${to}`);
     }
 
+    // ---- proof-of-handover checks come BEFORE anything is changed. A missing / empty code is a failure, never a pass.
+    const isDriver = actor.type === ActorType.DRIVER;
+    const staffOverride = actor.type === ActorType.STAFF && !!(actor as any).supportApproved;
+    if (to === OrderStatus.PICKED_UP && order.pickupCode && !staffOverride) {
+      if (!codeMatches(opts.code, order.pickupCode)) throw new ForbiddenException('Pickup code does not match');
+    }
+    if (to === OrderStatus.COLLECTED && order.pickupCode && isDriver) {
+      if (!codeMatches(opts.code, order.pickupCode)) throw new ForbiddenException('Pickup code does not match');
+    }
+    if (to === OrderStatus.DELIVERED && order.requiresPin && order.deliveryPin && !staffOverride) {
+      if (!codeMatches(opts.code, order.deliveryPin)) throw new ForbiddenException('Delivery PIN is required and must match');
+    }
+
+    // ---- atomic claim: of N concurrent requests for this transition exactly one proceeds (double cancel / double settle protection)
+    const claim = await this.orders.createQueryBuilder().update(Order).set({ status: to }).where('id = :id AND status = :from', { id: orderId, from }).execute();
+    if (!claim.affected) throw new ConflictException('This order was just updated by someone else. Refresh and try again.');
+    try {
+      return await this.applyTransition(order, from, to, actor, opts);
+    } catch (e) {
+      // side effects failed: put the status back so the order is not left half-transitioned
+      await this.orders.createQueryBuilder().update(Order).set({ status: from }).where('id = :id AND status = :to', { id: orderId, to }).execute();
+      throw e;
+    }
+  }
+
+  private async applyTransition(order: Order, from: OrderStatus, to: OrderStatus, actor: ActorRef, opts: TransitionOpts): Promise<Order> {
     const field = TIMESTAMP_FIELD[to];
     if (field && !order[field]) (order as any)[field] = new Date();
 
@@ -253,17 +306,10 @@ export class OrdersService implements IOrdersService {
     if (to === OrderStatus.DRIVER_ASSIGNED && order.driverId) {
       await this.drivers.update(order.driverId, { onTrip: true });
     }
-    if (to === OrderStatus.PICKED_UP && opts.code) {
-      if (order.pickupCode && opts.code !== order.pickupCode) throw new ForbiddenException('Pickup code does not match');
-    }
     if (to === OrderStatus.COLLECTED) {
-      if (order.pickupCode && opts.code && opts.code !== order.pickupCode) throw new ForbiddenException('Pickup code does not match');
       await this.settleDelivered(order);
     }
     if (to === OrderStatus.DELIVERED) {
-      if (order.requiresPin && order.deliveryPin && opts.code && opts.code !== order.deliveryPin) {
-        throw new ForbiddenException('Delivery PIN does not match');
-      }
       if (opts.proofPhotoUrl) order.proofPhotoUrl = opts.proofPhotoUrl;
       await this.settleDelivered(order);
       if (order.driverId) await this.drivers.update(order.driverId, { onTrip: false });
@@ -432,7 +478,15 @@ export class OrdersService implements IOrdersService {
   async updateTip(orderId: string, customerId: string, tip: number): Promise<Order> {
     const order = await this.getById(orderId);
     if (order.customerId !== customerId) throw new ForbiddenException('Not your order');
-    if (order.tipEditableUntil && Date.now() > order.tipEditableUntil.getTime()) throw new BadRequestException('The tip window for this order has closed');
+    // tips can be changed while the order is live, or for N minutes after delivery - never on cancelled orders, never later
+    if (order.status === OrderStatus.CANCELLED || order.status === OrderStatus.REJECTED) throw new BadRequestException('This order was cancelled');
+    if (order.status === OrderStatus.DELIVERED || order.status === OrderStatus.COLLECTED) {
+      const minutes = this.settings.get<number>('orders.tipEditableMinutes', 60);
+      const deadline = new Date((order.deliveredAt ?? order.updatedAt).getTime() + minutes * 60_000);
+      if (Date.now() > deadline.getTime()) throw new BadRequestException('The tip window for this order has closed');
+      order.tipEditableUntil = deadline;
+    }
+    if (!Number.isFinite(tip)) throw new BadRequestException('Invalid tip');
     const maxTip = this.settings.get<number>('orders.maxTip', 200);
     const newTip = Math.min(Math.max(round2(tip), 0), maxTip);
     const delta = round2(newTip - Number(order.tip));
@@ -443,7 +497,6 @@ export class OrdersService implements IOrdersService {
       }
     }
     order.tip = newTip;
-    if (!order.tipEditableUntil) order.tipEditableUntil = new Date(Date.now() + this.settings.get<number>('orders.tipEditableMinutes', 60) * 60_000);
     await this.orders.save(order);
     if (order.driverId) {
       await this.notifications.notify({ userId: order.driverId, audience: 'DRIVER', event: 'order.tip_updated', vars: { code: order.code, tip: `$${newTip.toFixed(2)}` } });

@@ -77,6 +77,8 @@ Useful URLs once running:
 
 `admin/.env`: `REACT_APP_API_URL`, `REACT_APP_WS_URL`, and `DISABLE_ESLINT_PLUGIN=true` (avoids a false error overlay when the project path casing differs).
 
+**Security:** see `docs/SECURITY.md` (findings, controls, production checklist). With `NODE_ENV=production` the API refuses to start on insecure configuration (default/short `JWT_SECRET`, `DB_SYNC`, `EXPOSE_OTP`, localhost CORS, missing Stripe/2FA/`DATA_ENCRYPTION_KEY`, demo accounts, default admin password). Re-run the attack checks any time with `node backend/test/security-smoke.mjs`. New env vars: `TRUST_PROXY`, `DATA_ENCRYPTION_KEY`, `CERTN_WEBHOOK_SECRET`, `GOOGLE_CLIENT_IDS`, `APPLE_CLIENT_IDS`, `SWAGGER_ENABLED`, `DB_STATEMENT_TIMEOUT_MS`.
+
 Most business rules (fees, dispatch timers and weights, chat hours, acceptance window, etc.) are editable at runtime in the Admin Console under **System > Platform Settings**.
 
 ## Demo accounts (after `npm run seed`)
@@ -126,7 +128,7 @@ Route prefixes: `/auth` (all apps), `/admin`, `/restaurant`, `/driver`, `/custom
 ## Known limitations
 
 - **No customer or driver mobile apps yet.** The API, real-time events and the `chat-demo.html` test page are ready for them. Browser-based customer ordering is not included.
-- **Payments are mocked** (Stripe-shaped adapter). SMS, email and push use mock or log-only adapters until provider keys are added; real delivery has not been verified.
+- **Payments are mocked in development** (a real Stripe PaymentIntent integration is implemented but untested against live Stripe; in production payments fail closed without a live key). SMS, email and push use mock or log-only adapters until provider keys are added; real delivery has not been verified.
 - Not yet built in the portal and admin: menu CSV import, document upload screens, tablet activation, editing a promotion after creation.
 - Several admin actions were exercised by hand only on the main paths (for example refund approvals, bank verification and payout release were rendered but not run end to end).
 - Scheduled-order handling and automatic switch-back timers for service mode exist but were not exercised.

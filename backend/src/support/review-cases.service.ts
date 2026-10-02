@@ -52,9 +52,9 @@ export class ReviewCasesService {
   async list(q: PageQueryDto & { subjectType?: string; status?: string; decision?: string }) {
     const qb = this.cases.createQueryBuilder('c');
     if (q.subjectType) qb.andWhere('c.subjectType = :st', { st: q.subjectType });
-    if (q.status) qb.andWhere('c.status IN (:...s)', { s: q.status.split(',') });
-    if (q.decision) qb.andWhere('c.decision IN (:...d)', { d: q.decision.split(',') });
-    if (q.search) qb.andWhere('(c.subjectName ILIKE :s OR c.details ILIKE :s)', { s: `%${q.search}%` });
+    if (q.status) qb.andWhere('c.status IN (:...statuses)', { statuses: q.status.split(',') });
+    if (q.decision) qb.andWhere('c.decision IN (:...decisions)', { decisions: q.decision.split(',') });
+    if (q.search) qb.andWhere('(c.subjectName ILIKE :search OR c.details ILIKE :search)', { search: `%${q.search}%` });
     return paginateQb(qb, q, { sortable: { createdAt: 'c.createdAt', respondBy: 'c.respondBy' }, defaultSort: ['c.createdAt', 'DESC'] });
   }
 

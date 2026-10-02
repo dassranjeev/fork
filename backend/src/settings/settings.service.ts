@@ -155,6 +155,9 @@ export const SETTING_DEFINITIONS: any[] = [
   { key: 'support.chat.waitingDisconnectSec', group: 'support', label: 'Live chat: convert a waiting chat to a ticket when the requester is gone for (sec)', value: 90, inputType: 'number' },
   { key: 'support.chat.presenceTimeoutSec', group: 'support', label: 'Live chat: agent goes offline after no heartbeat (sec)', value: 120, inputType: 'number' },
   // ---- driver ----
+  { key: 'finance.requireDualControl', group: 'payments', label: 'Dual control: the person who approves a payout batch cannot release it, and over-limit adjustments need a Super Admin (default ON in production)', value: process.env.NODE_ENV === 'production', inputType: 'boolean' },
+  { key: 'finance.maxManualAdjustment', group: 'payments', label: 'Largest manual ledger / payout adjustment a Finance Manager may post ($); above this a Super Admin is required', value: 500, inputType: 'number' },
+  { key: 'driver.deliveryGeofenceKm', group: 'driver', label: 'Delivery geofence (km): a driver must be within this distance of the drop-off to complete a delivery (0 = off; recommended 0.5-1 in production)', value: 0, inputType: 'number' },
   { key: 'driver.trainingPassMark', group: 'driver', label: 'Training pass mark (%)', value: 80, inputType: 'number' },
   { key: 'driver.welcomeBoostAmount', group: 'driver', label: 'First-week boost ($/trip)', value: 2, inputType: 'number' },
   { key: 'driver.docExpiryReminderDays', group: 'driver', label: 'Document expiry reminders (days before)', value: [30, 14, 7, 1], inputType: 'json' },
@@ -266,7 +269,7 @@ export class SettingsService implements OnModuleInit {
 
   /** Values flagged isPublic - safe to expose to mobile apps. */
   async publicConfig() {
-    const rows = await this.repo.find({ where: { isPublic: true } });
+    const rows = await this.repo.find({ where: { isPublic: true, isSecret: false } }); // a secret can never be public
     const out: Record<string, any> = {};
     for (const r of rows) out[r.key] = r.value;
     const flags = await this.flags.find();

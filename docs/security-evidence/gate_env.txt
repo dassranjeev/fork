@@ -1,0 +1,16 @@
+
+=== FORKSY refuses to start: insecure PRODUCTION configuration ===
+  - DB_SYNC=true (schema auto-sync must be OFF in production; use migrations)
+  - EXPOSE_OTP=true (one-time codes would be returned in API responses)
+  - CORS_ORIGINS contains a local/wildcard origin: http://localhost:3000
+  - CORS_ORIGINS contains a local/wildcard origin: http://localhost:3001
+  - PUBLIC_URL must be the public https URL (not localhost / http)
+  - STRIPE_SECRET_KEY is not set (payments would silently use the mock provider)
+  - STRIPE_WEBHOOK_SECRET is not set
+  - ENFORCE_2FA is not true (staff and restaurant owners must use two-factor authentication in production)
+  - DATA_ENCRYPTION_KEY is missing or shorter than 32 chars (it encrypts TOTP seeds at rest; keep it separate from JWT_SECRET)
+  - SEED_SUPERADMIN_PASSWORD is the known default - set a unique strong password
+  - DB_PASSWORD is empty or a well-known default; use a dedicated least-privilege DB user with a strong password
+
+Fix the environment and restart. (See docs/SECURITY.md, "Production deployment checklist".)
+

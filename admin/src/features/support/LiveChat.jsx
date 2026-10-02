@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { toast } from "react-toastify";
 import { Badge, Button, Card, EmptyState, ErrorState, Loading, PageHeader, StatCard, StatusBadge } from "../../ui";
 import { useFetch, useLocalState } from "../../lib/hooks";

@@ -162,12 +162,9 @@ export function buildXlsx(sheetName: string, headers: string[], rows: any[][]): 
   return buildZip(files);
 }
 
-/** RFC4180 CSV text from a header row + data rows. */
+import { csvCell } from '../common/csv';
+
+/** RFC4180 CSV text from a header row + data rows (formula-injection safe). */
 export function buildCsv(headers: string[], rows: any[][]): string {
-  const esc = (v: any) => {
-    if (v === null || v === undefined) return '';
-    const s = v instanceof Date ? v.toISOString() : String(v);
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-  return [headers.map(esc).join(','), ...rows.map((r) => r.map(esc).join(','))].join('\n');
+  return [headers.map(csvCell).join(','), ...rows.map((r) => r.map(csvCell).join(','))].join('\n');
 }

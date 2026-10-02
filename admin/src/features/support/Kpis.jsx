@@ -36,7 +36,7 @@ export default function Kpis() {
         <div className="col-6 col-xl-3"><StatCard label="CSAT" value={data.csat.average != null ? `${data.csat.average} / 5` : "-"} hint={`${data.csat.count} ratings`} icon="solar:star-outline" tone="warning" /></div>
         <div className="col-6 col-xl-3"><StatCard label="Refunds issued" value={money(refundTotal)} hint={`${(data.refunds || []).reduce((s, r) => s + r.count, 0)} refunds`} icon="solar:wallet-money-outline" tone="danger" /></div>
         <div className="col-6 col-xl-3"><StatCard label="Open review cases" value={num(data.reviewCases.open)} icon="solar:shield-warning-outline" tone="warning" to="/support/cases" /></div>
-        <div className="col-6 col-xl-3"><StatCard label="Decided cases" value={num(Object.values(data.reviewCases.decided || {}).reduce((a, b) => a + b, 0))} icon="solar:gavel-outline" tone="neutral" /></div>
+        <div className="col-6 col-xl-3"><StatCard label="Decided cases" value={num(Object.values(data.reviewCases.decided || {}).reduce((a, b) => a + b, 0))} icon="solar:scale-outline" tone="neutral" /></div>
       </div>
       {t.total === 0 ? (
         <Card><EmptyState icon="solar:chart-2-outline" title="No tickets in this period" text="Charts appear once tickets are created in the selected range." /></Card>

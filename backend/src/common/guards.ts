@@ -2,6 +2,9 @@ import { CanActivate, ExecutionContext, ForbiddenException, Injectable, Unauthor
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { Observable } from 'rxjs';
+import { Optional } from '@nestjs/common';
+import { SettingsService } from '../settings/settings.service';
+import { clientIp, ipAllowed } from './security';
 import { ALLOW_2FA_PENDING, IS_PUBLIC, NO_IMPERSONATION, PERMISSION, RESTAURANT_ROLES, USER_TYPES } from './decorators';
 import { AuthUser } from './auth.types';
 import { Action, Module, RestaurantRole, UserType } from './enums';
@@ -9,7 +12,10 @@ import { Action, Module, RestaurantRole, UserType } from './enums';
 /** Global: every route needs a valid JWT unless @Public(). */
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
-  constructor(private reflector: Reflector) {
+  constructor(
+    private reflector: Reflector,
+    @Optional() private settings?: SettingsService,
+  ) {
     super();
   }
 
@@ -21,6 +27,11 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
   handleRequest(err: any, user: any, _info: any, ctx: ExecutionContext) {
     if (err || !user) throw err || new UnauthorizedException();
+    // optional admin IP allow-list (setting security.ipAllowlist: exact IPs / IPv4 CIDRs; empty = any)
+    if ((user.type === 'STAFF' || user.type === 'SUPER_ADMIN') && this.settings) {
+      const req = ctx.switchToHttp().getRequest();
+      if (!ipAllowed(clientIp(req), this.settings.get<string[]>('security.ipAllowlist', []))) throw new ForbiddenException('Your network is not allowed to use the admin console');
+    }
     if (user.pending2fa) {
       const allowed = this.reflector.getAllAndOverride<boolean>(ALLOW_2FA_PENDING, [ctx.getHandler(), ctx.getClass()]);
       if (!allowed) throw new UnauthorizedException('Two-factor authentication required');

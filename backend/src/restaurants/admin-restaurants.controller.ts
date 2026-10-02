@@ -1,4 +1,5 @@
 import { Body, Delete, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import { clientIp } from '../common/security';
 import { AdminController, CurrentUser, Permission } from '../common/decorators';
 import { Action, Module } from '../common/enums';
 import { AuthUser } from '../common/auth.types';
@@ -27,6 +28,7 @@ import {
   ServiceModeDto,
   ReviewsQuery,
   StationDto,
+  UpdateStationDto,
   HoursDto,
   RestaurantsQuery,
   TestOrderDto,
@@ -114,10 +116,10 @@ export class AdminRestaurantsController {
 
   /** Open the restaurant portal as this restaurant's owner (short-lived, audited, no password needed). */
   @Post(':id/impersonate')
-  @Permission(Module.RESTAURANTS, Action.EDIT)
+  @Permission(Module.RESTAURANTS, Action.APPROVE)
   impersonate(@Param('id') id: string, @CurrentUser() user: AuthUser, @Req() req: any) {
     return this.auth.impersonateRestaurant(id, user, {
-      ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip,
+      ip: clientIp(req),
       userAgent: req.headers['user-agent'],
     });
   }
@@ -314,7 +316,7 @@ export class AdminRestaurantsController {
 
   @Patch(':id/stations/:stationId')
   @Permission(Module.RESTAURANTS, Action.EDIT)
-  updateStation(@Param('id') id: string, @Param('stationId') stationId: string, @Body() dto: Partial<StationDto>) {
+  updateStation(@Param('id') id: string, @Param('stationId') stationId: string, @Body() dto: UpdateStationDto) {
     return this.store.updateStation(id, stationId, dto);
   }
 

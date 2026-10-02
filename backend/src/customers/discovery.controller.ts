@@ -1,4 +1,7 @@
 import { Body, Get, Param, Post, Query, Req } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { clampPaging } from '../common/pagination';
+import { clientIp } from '../common/security';
 import { CustomerController, CurrentUser, PublicController } from '../common/decorators';
 import { AuthUser } from '../common/auth.types';
 import { CustomerAccountService } from './customer-account.service';
@@ -41,7 +44,8 @@ export class CustomerRestaurantsController {
 
   @Get(':slug/reviews')
   reviews(@Param('slug') slug: string, @Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.discovery.reviewsPage(slug, page ? +page : 1, limit ? +limit : 20);
+    const pg = clampPaging(page, limit, 50);
+    return this.discovery.reviewsPage(slug, pg.page, pg.limit);
   }
 
   @Get(':slug/slots')
@@ -82,7 +86,8 @@ export class PublicRestaurantsController {
 
   @Get(':slug/reviews')
   reviews(@Param('slug') slug: string, @Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.discovery.reviewsPage(slug, page ? +page : 1, limit ? +limit : 20);
+    const pg = clampPaging(page, limit, 50);
+    return this.discovery.reviewsPage(slug, pg.page, pg.limit);
   }
 
   @Get(':slug/slots')
@@ -97,9 +102,10 @@ export class PublicGuestController {
   constructor(private account: CustomerAccountService) {}
 
   @Post('session')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } }) // creates an account row: strictly limited per IP
   session(@Body() dto: GuestSessionDto, @Req() req: any) {
     return this.account.guestSession(dto, {
-      ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip,
+      ip: clientIp(req),
       userAgent: req.headers['user-agent'] as string,
     });
   }

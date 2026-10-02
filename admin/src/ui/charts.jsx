@@ -1,5 +1,6 @@
 import React from "react";
 import ReactApexChart from "react-apexcharts";
+import { chartSafe } from "../lib/safe";
 
 export const PALETTE = ["#f95a16", "#487fff", "#22c55e", "#8b5cf6", "#eab308", "#06b6d4", "#ef4444", "#64748b"];
 
@@ -17,7 +18,9 @@ const base = (height, extra = {}) => ({
  * Line / area chart.
  *  series: [{ name, data: [{x:'2026-01-01', y: 10}, ...] }]  (or data: number[] with `categories`)
  */
-export function LineChart({ series, categories, height = 300, area = true, currency, stacked, colors, yFormatter }) {
+export function LineChart({ series: rawSeries, categories: rawCategories, height = 300, area = true, currency, stacked, colors, yFormatter }) {
+  const series = chartSafe(rawSeries);
+  const categories = chartSafe(rawCategories);
   const fmt = yFormatter || (currency ? (v) => `$${Number(v).toLocaleString("en-CA", { maximumFractionDigits: 0 })}` : (v) => Number(v).toLocaleString("en-CA", { maximumFractionDigits: 1 }));
   const options = {
     ...base(height, { colors, chart: { type: area ? "area" : "line", stacked } }),
@@ -31,7 +34,9 @@ export function LineChart({ series, categories, height = 300, area = true, curre
 }
 
 /** Bar / column chart. horizontal for ranked lists. */
-export function BarChart({ series, categories, height = 300, horizontal, stacked, colors, currency, yFormatter, distributed }) {
+export function BarChart({ series: rawSeries, categories: rawCategories, height = 300, horizontal, stacked, colors, currency, yFormatter, distributed }) {
+  const series = chartSafe(rawSeries);
+  const categories = chartSafe(rawCategories);
   const fmt = yFormatter || (currency ? (v) => `$${Number(v).toLocaleString("en-CA", { maximumFractionDigits: 0 })}` : (v) => Number(v).toLocaleString("en-CA", { maximumFractionDigits: 1 }));
   const options = {
     ...base(height, { colors, chart: { type: "bar", stacked } }),
@@ -43,7 +48,8 @@ export function BarChart({ series, categories, height = 300, horizontal, stacked
   return <ReactApexChart options={options} series={series} type="bar" height={height} />;
 }
 
-export function DonutChart({ labels, values, height = 280, colors, total = true, formatter }) {
+export function DonutChart({ labels: rawLabels, values, height = 280, colors, total = true, formatter }) {
+  const labels = chartSafe(rawLabels);
   const options = {
     ...base(height, { colors }),
     labels,
@@ -55,7 +61,8 @@ export function DonutChart({ labels, values, height = 280, colors, total = true,
 }
 
 /** Day-of-week x hour heat map. data: [{ name:'Mon', data:[{x:'00',y:3},...] }] */
-export function Heatmap({ series, height = 320, color = "#f95a16" }) {
+export function Heatmap({ series: rawSeries, height = 320, color = "#f95a16" }) {
+  const series = chartSafe(rawSeries);
   const options = {
     ...base(height, { chart: { type: "heatmap" } }),
     colors: [color],
@@ -78,7 +85,8 @@ export function Sparkline({ data = [], color = PALETTE[0], height = 40, width = 
 }
 
 /** Radial gauge 0-100. */
-export function Gauge({ value = 0, label, height = 200, color = PALETTE[0] }) {
+export function Gauge({ value = 0, label: rawLabel, height = 200, color = PALETTE[0] }) {
+  const label = chartSafe(rawLabel);
   const options = {
     chart: { type: "radialBar", height },
     plotOptions: { radialBar: { hollow: { size: "62%" }, dataLabels: { name: { fontSize: "13px" }, value: { fontSize: "22px", formatter: (v) => `${Number(v).toFixed(0)}%` } } } },

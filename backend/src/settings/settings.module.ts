@@ -1,7 +1,7 @@
-import { Body, Delete, Get, Global, Module, NotFoundException, Param, Patch, Post, Put, Query, Req } from '@nestjs/common';
+import { BadRequestException, Body, Delete, ForbiddenException, Get, Global, Module, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req } from '@nestjs/common';
 import { InjectRepository, TypeOrmModule } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { IsArray, IsBoolean, IsInt, IsObject, IsOptional, IsString, Max, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsObject, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
 import { AppVersion, FeatureFlag, Incident, Setting } from '../database/entities';
 import { SettingsService } from './settings.service';
 import { AdminController, Permission, PublicController } from '../common/decorators';
@@ -15,20 +15,33 @@ class UpdateSettingsDto {
 
 class FlagDto {
   @IsOptional() @IsBoolean() enabled?: boolean;
-  @IsOptional() @IsString() description?: string;
+  @IsOptional() @IsString() @MaxLength(500) description?: string;
   @IsOptional() @IsInt() @Min(0) @Max(100) rolloutPct?: number;
-  @IsOptional() @IsArray() cityIds?: string[];
-  @IsOptional() @IsString() key?: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(100) @IsUUID('all', { each: true }) cityIds?: string[];
+  @IsOptional() @IsString() @MaxLength(100) @Matches(/^[a-z0-9_.-]+$/i) key?: string;
 }
 
 class AppVersionDto {
-  @IsString() app: 'customer' | 'driver' | 'restaurant';
-  @IsString() platform: 'ios' | 'android';
-  @IsString() minVersion: string;
-  @IsString() latestVersion: string;
+  @IsIn(['customer', 'driver', 'restaurant']) app: 'customer' | 'driver' | 'restaurant';
+  @IsIn(['ios', 'android']) platform: 'ios' | 'android';
+  @IsString() @MaxLength(20) @Matches(/^\d+(\.\d+){0,3}$/) minVersion: string;
+  @IsString() @MaxLength(20) @Matches(/^\d+(\.\d+){0,3}$/) latestVersion: string;
   @IsOptional() @IsBoolean() forceUpdate?: boolean;
-  @IsOptional() @IsString() storeUrl?: string;
-  @IsOptional() @IsString() releaseNotes?: string;
+  @IsOptional() @IsString() @MaxLength(2048) storeUrl?: string;
+  @IsOptional() @IsString() @MaxLength(2000) releaseNotes?: string;
+}
+
+/** Settings that change the security posture or move money: only a Super Admin may write them (a staff role with settings:edit may not). */
+const PRIVILEGED_KEY = /^(security\.|payments\.|customers\.walletAdjustApprovalThreshold|support\..*[Ll]imit|orders\.acceptCashPayments|finance\.|payouts\.)/;
+
+/** The new value must have the same JSON type as the current one (a threshold cannot become the string "unlimited"). */
+function sameKind(oldV: any, newV: any): boolean {
+  if (oldV === null || oldV === undefined || oldV === '') return typeof newV === 'string' || typeof newV === 'number' || typeof newV === 'boolean' || newV === null || typeof newV === 'object';
+  if (typeof oldV === 'number') return typeof newV === 'number' && Number.isFinite(newV) && Math.abs(newV) < 1e9;
+  if (typeof oldV === 'boolean') return typeof newV === 'boolean';
+  if (typeof oldV === 'string') return typeof newV === 'string' && newV.length <= 5000;
+  if (Array.isArray(oldV)) return Array.isArray(newV) && newV.length <= 1000;
+  return typeof newV === 'object' && newV !== null && !Array.isArray(newV);
 }
 
 @AdminController('settings')
@@ -53,10 +66,16 @@ class SettingsController {
   @Permission(Mod.SETTINGS, Action.EDIT)
   async update(@Body() dto: UpdateSettingsDto, @Req() req: any) {
     const changed: Record<string, { before: any; after: any }> = {};
+    const isSuper = req.user?.type === 'SUPER_ADMIN';
     for (const [key, value] of Object.entries(dto.values)) {
       const row = await this.repo.findOne({ where: { key } });
       if (!row) continue;
       if (row.isSecret && (value === '********' || value === undefined)) continue;
+      if (!isSuper && (row.isSecret || PRIVILEGED_KEY.test(key))) {
+        await this.audit.logReq(req, 'security.settings_denied', 'settings', undefined, undefined, { key });
+        throw new ForbiddenException(`Only a Super Admin can change "${key}"`);
+      }
+      if (!sameKind(row.value, value)) throw new BadRequestException(`Invalid value for "${key}" (expected the same type as the current value)`);
       changed[key] = { before: row.isSecret ? '[secret]' : row.value, after: row.isSecret ? '[secret]' : value };
       row.value = value;
       await this.repo.save(row);
@@ -83,7 +102,7 @@ class SettingsController {
 
   @Patch('feature-flags/:id')
   @Permission(Mod.SETTINGS, Action.EDIT)
-  async updateFlag(@Param('id') id: string, @Body() dto: FlagDto, @Req() req: any) {
+  async updateFlag(@Param('id', ParseUUIDPipe) id: string, @Body() dto: FlagDto, @Req() req: any) {
     const f = await this.flags.findOne({ where: { id } });
     if (!f) throw new NotFoundException();
     const before = { ...f };
@@ -95,7 +114,7 @@ class SettingsController {
 
   @Delete('feature-flags/:id')
   @Permission(Mod.SETTINGS, Action.DELETE)
-  async deleteFlag(@Param('id') id: string, @Req() req: any) {
+  async deleteFlag(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
     await this.flags.delete(id);
     await this.audit.logReq(req, 'feature_flag.delete', 'feature_flag', id);
     return { ok: true };

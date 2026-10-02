@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { toast } from "react-toastify";
 import { errorMessage, http } from "../../lib/api";
 import { useFetch } from "../../lib/hooks";

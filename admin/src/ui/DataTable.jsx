@@ -1,5 +1,5 @@
 import React from "react";
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { EmptyState, ErrorState, Loading } from "./basics";
 
 /**

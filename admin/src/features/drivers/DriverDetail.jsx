@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import {
   Avatar, Badge, BoolBadge, Button, Card, DataTable, DateInput, ErrorState, FormModal, FormRow, KeyValue, Loading, MultiCheck, NumberInput,
   PageHeader, Progress, Select, StatusBadge, Switch, Tabs, TextArea, TextInput, useConfirm,
@@ -274,7 +274,7 @@ function Documents({ d, reload, can }) {
               align: "right",
               render: (x) => (
                 <div className="d-flex gap-2 justify-content-end">
-                  {x.fileUrl && <a className="btn btn-sm btn-outline-neutral-300 text-primary-light radius-8" href={fileHref(x.fileUrl)} target="_blank" rel="noreferrer">View</a>}
+                  {x.fileUrl && <a className="btn btn-sm btn-outline-neutral-300 text-primary-light radius-8" href={fileHref(x.fileUrl)} target="_blank" rel="noopener noreferrer">View</a>}
                   {can("drivers", "approve") && <Button variant={x.status === "PENDING" ? "primary" : "light"} onClick={() => setReview(x)}>Review</Button>}
                 </div>
               ),

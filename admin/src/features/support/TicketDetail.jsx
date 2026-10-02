@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { safeUrl } from "../../lib/safe";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Badge, Button, Card, EmptyState, ErrorState, FormModal, KeyValue, Loading, MoneyInput, PageHeader, Select, StatusBadge, Switch, TextArea } from "../../ui";
@@ -130,7 +131,7 @@ function Conversation({ messages, ticket }) {
                 <span title={fmtDateTime(m.createdAt)}>{timeAgo(m.createdAt)}</span>
               </div>
               <div style={{ whiteSpace: "pre-wrap" }}>{m.body}</div>
-              {m.attachments?.length > 0 && <div className="mt-8">{m.attachments.map((u, i) => <a key={i} href={u} target="_blank" rel="noreferrer" className="me-2 text-sm">Attachment {i + 1}</a>)}</div>}
+              {m.attachments?.length > 0 && <div className="mt-8">{m.attachments.map((u, i) => <a key={i} href={safeUrl(u)} target="_blank" rel="noopener noreferrer" className="me-2 text-sm">Attachment {i + 1}</a>)}</div>}
             </div>
           </div>
         );

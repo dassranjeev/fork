@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
@@ -28,8 +28,14 @@ import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { JwtStrategy } from './jwt.strategy';
+import { LoginProtection } from './login-protection.service';
+import { seal, unseal } from '../common/secretbox';
 import { ChangePasswordDto, CustomerRegisterDto, DriverRegisterDto, LoginDto, RestaurantApplyDto, SocialLoginDto } from './dto';
 
+/** Used to burn the same CPU time when the account does not exist (no timing-based user enumeration). */
+const DUMMY_HASHES: Record<number, string> = { 10: bcrypt.hashSync('forksy-dummy-password-never-valid', 10), 12: bcrypt.hashSync('forksy-dummy-password-never-valid', 12) };
+let lastRounds = 12; // bcrypt cost of the most recently seen real hash: the dummy compare mimics it
+const COMMON_PASSWORDS = new Set(['password','password1','password123','passw0rd','12345678','123456789','1234567890','qwerty123','qwertyuiop','iloveyou1','welcome1','welcome123','admin123','admin@123','letmein123','abc12345','abcd1234','changeme1','forksy123','forksy@123','p@ssw0rd','p@ssword1','test1234','test@1234']);
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 const slugify = (s: string) =>
   s
@@ -63,6 +69,7 @@ export class AuthService {
     private settings: SettingsService,
     private notifications: NotificationsService,
     private strategy: JwtStrategy,
+    private protect: LoginProtection,
     @InjectDataSource() private ds: DataSource,
     @InjectRepository(User) private users: Repository<User>,
     @InjectRepository(RefreshToken) private refreshTokens: Repository<RefreshToken>,
@@ -94,7 +101,7 @@ export class AuthService {
   }
 
   private accessToken(user: User, extra: Partial<JwtPayload> = {}) {
-    const payload: JwtPayload = { sub: user.id, type: user.type, ...extra };
+    const payload: JwtPayload = { sub: user.id, type: user.type, tv: user.tokenVersion ?? 0, ...extra };
     return this.jwt.sign(payload, { expiresIn: extra.pending2fa ? '5m' : (this.config.get('jwt.accessTtl') as any) });
   }
 
@@ -114,7 +121,7 @@ export class AuthService {
   }
 
   async publicUser(user: User) {
-    const au = await this.strategy.validate({ sub: user.id, type: user.type });
+    const au = await this.strategy.validate({ sub: user.id, type: user.type, tv: user.tokenVersion ?? 0 });
     this.strategy.invalidate(user.id);
     const { pending2fa, ...rest } = au as any;
     return {
@@ -159,18 +166,46 @@ export class AuthService {
   }
 
   // ------------------------------------------------------------------ login
+  /** Failed credential check: progressive per-IP / per-identifier lockout + audit. Never tells the caller which part was wrong. */
+  private async onLoginFailure(user: User | null, identifier: string, ctx: ReqCtx, scope = 'login') {
+    const ip = ctx.ip ?? 'unknown';
+    const r = this.protect.fail(ip, identifier, scope);
+    if (user && scope === 'login') {
+      const fails = (user.failedLoginCount ?? 0) + 1;
+      await this.users.update(user.id, {
+        failedLoginCount: r.blocked === 'identifier' ? 0 : fails,
+        lockedUntil: r.blocked === 'identifier' ? new Date(Date.now() + r.seconds * 1000) : user.lockedUntil,
+      });
+    }
+    await this.audit.log({
+      actor: user ? { id: user.id, email: user.email, type: user.type } : null,
+      action: r.blocked ? `auth.lockout_${scope}` : `auth.${scope === 'login' ? 'login' : scope}_failed`,
+      entity: 'user',
+      entityId: user?.id,
+      after: user ? undefined : { identifier: identifier.slice(0, 80) },
+      ip,
+      userAgent: ctx.userAgent,
+    });
+  }
+
   async login(dto: LoginDto, ctx: ReqCtx) {
+    const ip = ctx.ip ?? 'unknown';
+    this.protect.check(ip, dto.identifier); // 429 - identical for known / unknown accounts
     const user = await this.findByIdentifier(dto.identifier);
-    const maxFails = this.config.get<number>('security.maxFailedLogins');
-    if (!user || !user.passwordHash) throw new UnauthorizedException('Invalid credentials');
-    if (user.lockedUntil && user.lockedUntil > new Date()) throw new ForbiddenException('Account temporarily locked. Try again later.');
-    const ok = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!ok) {
-      const fails = user.failedLoginCount + 1;
-      const lock = fails >= maxFails ? new Date(Date.now() + this.config.get<number>('security.lockMinutes') * 60_000) : null;
-      await this.users.update(user.id, { failedLoginCount: lock ? 0 : fails, lockedUntil: lock });
-      await this.audit.log({ actor: { id: user.id, email: user.email, type: user.type }, action: 'auth.login_failed', entity: 'user', entityId: user.id, ip: ctx.ip });
+    // always run bcrypt (dummy hash if the account does not exist) so timing does not reveal existence
+    if (user?.passwordHash) lastRounds = bcrypt.getRounds(user.passwordHash) <= 10 ? 10 : 12;
+    const ok = await bcrypt.compare(dto.password, user?.passwordHash || DUMMY_HASHES[lastRounds]);
+    if (!user || !user.passwordHash || !ok) {
+      await this.onLoginFailure(user ?? null, dto.identifier, ctx);
       throw new UnauthorizedException('Invalid credentials');
+    }
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw new HttpException({ statusCode: 429, message: 'Too many attempts. Please try again later.' }, HttpStatus.TOO_MANY_REQUESTS);
+    }
+    this.protect.success(dto.identifier);
+    // transparently upgrade old, cheaper hashes to the current cost
+    if (bcrypt.getRounds(user.passwordHash) < 12) {
+      bcrypt.hash(dto.password, 12).then((h) => this.users.update(user.id, { passwordHash: h })).catch(() => undefined);
     }
     if (user.status === UserStatus.BLOCKED || user.status === UserStatus.DELETED) throw new ForbiddenException('Account is blocked');
     if (user.status === UserStatus.SUSPENDED) throw new ForbiddenException('Account is suspended. Contact support.');
@@ -188,16 +223,30 @@ export class AuthService {
   async verify2fa(tempToken: string, code: string, ctx: ReqCtx) {
     let payload: JwtPayload;
     try {
-      payload = this.jwt.verify<JwtPayload>(tempToken, { secret: this.config.get('jwt.secret') });
+      payload = this.jwt.verify<JwtPayload>(tempToken, { secret: this.config.get('jwt.secret'), algorithms: ['HS256'] });
     } catch {
       throw new UnauthorizedException('Session expired, sign in again');
     }
     if (!payload.pending2fa) throw new BadRequestException();
+    this.protect.check(ctx.ip ?? 'unknown', payload.sub, '2fa'); // brute-forcing the 6 digit code is locked out per user
     const user = await this.users.createQueryBuilder('u').addSelect('u.twoFactorSecret').where('u.id = :id', { id: payload.sub }).getOne();
-    if (!user?.twoFactorSecret || !authenticator.verify({ token: code, secret: user.twoFactorSecret })) {
+    if (!user?.twoFactorSecret || !authenticator.verify({ token: code, secret: unseal(user.twoFactorSecret) }) || this.totpReplayed(user.id, code)) {
+      await this.onLoginFailure(user ?? null, payload.sub, ctx, '2fa');
       throw new UnauthorizedException('Invalid authentication code');
     }
+    this.protect.success(payload.sub, '2fa');
     return this.completeLogin(user, ctx);
+  }
+
+  private usedTotp = new Map<string, number>();
+  /** A TOTP code may be used once (replay within its validity window is rejected). */
+  private totpReplayed(userId: string, code: string): boolean {
+    const key = `${userId}:${code}`;
+    const now = Date.now();
+    for (const [k, t] of this.usedTotp) if (now - t > 120_000) this.usedTotp.delete(k);
+    if (this.usedTotp.has(key)) return true;
+    this.usedTotp.set(key, now);
+    return false;
   }
 
   /** Step 1 of enrolment (accepts the pending-2fa token or a full session). */
@@ -205,7 +254,7 @@ export class AuthService {
     const user = await this.users.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException();
     const secret = authenticator.generateSecret();
-    await this.users.update(userId, { twoFactorSecret: secret, twoFactorEnabled: false });
+    await this.users.update(userId, { twoFactorSecret: seal(secret), twoFactorEnabled: false });
     const label = user.email ?? user.phone ?? user.id;
     const otpauthUrl = authenticator.keyuri(label, 'FORKSY', secret);
     return { secret, otpauthUrl, qrCode: await QRCode.toDataURL(otpauthUrl) };
@@ -215,7 +264,7 @@ export class AuthService {
   async enable2fa(userId: string, code: string, ctx: ReqCtx, completeLogin: boolean) {
     const user = await this.users.createQueryBuilder('u').addSelect('u.twoFactorSecret').where('u.id = :id', { id: userId }).getOne();
     if (!user?.twoFactorSecret) throw new BadRequestException('Start 2FA setup first');
-    if (!authenticator.verify({ token: code, secret: user.twoFactorSecret })) throw new BadRequestException('Invalid code');
+    if (!authenticator.verify({ token: code, secret: unseal(user.twoFactorSecret) })) throw new BadRequestException('Invalid code');
     await this.users.update(userId, { twoFactorEnabled: true });
     await this.audit.log({ actor: { id: user.id, email: user.email, type: user.type }, action: 'auth.2fa_enabled', entity: 'user', entityId: user.id, ip: ctx.ip });
     this.strategy.invalidate(userId);
@@ -240,7 +289,12 @@ export class AuthService {
     }
     const user = await this.users.findOne({ where: { id: rt.userId } });
     if (!user || [UserStatus.BLOCKED, UserStatus.DELETED, UserStatus.SUSPENDED].includes(user.status)) throw new UnauthorizedException();
-    await this.refreshTokens.update(rt.id, { revokedAt: new Date() });
+    // atomic rotation: only one concurrent caller can consume a refresh token; the loser is treated as token reuse
+    const rotated = await this.refreshTokens.update({ id: rt.id, revokedAt: IsNull() }, { revokedAt: new Date() });
+    if (!rotated.affected) {
+      await this.refreshTokens.update({ userId: rt.userId, revokedAt: IsNull() }, { revokedAt: new Date() });
+      throw new UnauthorizedException('Invalid refresh token');
+    }
     return {
       accessToken: this.accessToken(user),
       refreshToken: await this.issueRefresh(user, ctx),
@@ -253,16 +307,22 @@ export class AuthService {
     return { ok: true };
   }
 
+  /** Revoke every refresh token AND every access token issued so far (tokensValidAfter). */
   async logoutAll(userId: string) {
-    await this.refreshTokens.update({ userId, revokedAt: IsNull() }, { revokedAt: new Date() });
+    const now = new Date();
+    await this.refreshTokens.update({ userId, revokedAt: IsNull() }, { revokedAt: now });
+    await this.users.update(userId, { tokensValidAfter: now, tokenVersion: () => '"tokenVersion" + 1' });
+    this.strategy.invalidate(userId);
     return { ok: true };
   }
 
   // ------------------------------------------------------------------ password
   private checkPassword(pw: string) {
-    const min = this.settings.get<number>('security.passwordMinLength', 8);
-    if (pw.length < Math.min(min, 8) && pw.length < 8) throw new BadRequestException(`Password must be at least ${Math.min(min, 8)} characters`);
+    const min = Math.min(Math.max(8, Number(this.settings.get<number>('security.passwordMinLength', 10)) || 10), 64);
+    if (typeof pw !== 'string' || pw.length < min) throw new BadRequestException(`Password must be at least ${min} characters`);
+    if (pw.length > 128) throw new BadRequestException('Password is too long (max 128 characters)');
     if (!/[A-Za-z]/.test(pw) || !/\d/.test(pw)) throw new BadRequestException('Password must contain letters and numbers');
+    if (COMMON_PASSWORDS.has(pw.toLowerCase()) || /^(.)\1+$/.test(pw)) throw new BadRequestException('That password is too common - choose a different one');
   }
 
   hash(pw: string) {
@@ -273,26 +333,45 @@ export class AuthService {
   async changePassword(userId: string, dto: ChangePasswordDto) {
     const user = await this.users.createQueryBuilder('u').addSelect('u.passwordHash').where('u.id = :id', { id: userId }).getOne();
     if (!user || !(await bcrypt.compare(dto.currentPassword, user.passwordHash ?? ''))) throw new UnauthorizedException('Current password is wrong');
+    if (dto.newPassword === dto.currentPassword) throw new BadRequestException('Choose a different password');
     await this.users.update(userId, { passwordHash: await this.hash(dto.newPassword), passwordChangedAt: new Date() });
-    await this.logoutAll(userId);
+    await this.logoutAll(userId); // every other session (access + refresh tokens) is revoked
     await this.audit.log({ actor: { id: user.id, email: user.email, type: user.type }, action: 'auth.password_changed', entity: 'user', entityId: userId });
-    return { ok: true };
+    // keep the current device signed in with fresh tokens
+    const fresh = await this.users.findOne({ where: { id: userId } });
+    return { ok: true, accessToken: this.accessToken(fresh!), refreshToken: await this.issueRefresh(fresh!, {}), expiresIn: this.config.get('jwt.accessTtl') };
   }
 
   async forgotPassword(identifier: string) {
     const user = await this.findByIdentifier(identifier, false);
-    // Always answer OK (no account enumeration)
+    // Always answer OK in the same shape (no account enumeration, no "wait a moment" / rate leak for real accounts)
     if (!user) return { ok: true };
-    const target = this.isEmail(identifier) ? user.email : user.phone;
-    const { devCode } = await this.sendOtp(target!, 'RESET_PASSWORD', user.type);
+    const target = (this.isEmail(identifier) ? user.email : user.phone)!;
+    if (await this.otpCapReached(target, 'RESET_PASSWORD')) return { ok: true };
+    const expose = this.config.get('security.exposeOtp') && this.config.get('env') !== 'production';
+    if (!expose) {
+      this.sendOtp(target, 'RESET_PASSWORD', user.type).catch(() => undefined); // not awaited: response time matches unknown accounts
+      return { ok: true };
+    }
+    const { devCode } = await this.sendOtp(target, 'RESET_PASSWORD', user.type).catch(() => ({ devCode: undefined }));
     return { ok: true, ...(devCode ? { devCode } : {}) };
   }
 
-  async resetPassword(identifier: string, code: string, newPassword: string) {
+  async resetPassword(identifier: string, code: string, newPassword: string, ip = 'unknown') {
+    this.protect.check(ip, identifier, 'reset');
     const user = await this.findByIdentifier(identifier, false);
-    if (!user) throw new BadRequestException('Invalid code');
+    if (!user) {
+      this.protect.fail(ip, identifier, 'reset');
+      throw new BadRequestException('Invalid or expired code');
+    }
     const target = this.isEmail(identifier) ? user.email : user.phone;
-    await this.consumeOtp(target!, 'RESET_PASSWORD', code);
+    try {
+      await this.consumeOtp(target!, 'RESET_PASSWORD', code);
+    } catch (e) {
+      this.protect.fail(ip, identifier, 'reset');
+      throw e;
+    }
+    this.protect.success(identifier, 'reset');
     await this.users.update(user.id, { passwordHash: await this.hash(newPassword), passwordChangedAt: new Date(), failedLoginCount: 0, lockedUntil: null });
     await this.logoutAll(user.id);
     await this.audit.log({ actor: { id: user.id, email: user.email, type: user.type }, action: 'auth.password_reset', entity: 'user', entityId: user.id });
@@ -300,8 +379,16 @@ export class AuthService {
   }
 
   // ------------------------------------------------------------------ OTP
+  /** SMS-pumping / mail-bombing guard: at most 5 codes per target+purpose per hour. */
+  private async otpCapReached(target: string, purpose: OtpPurpose) {
+    const t = this.isEmail(target) ? target.toLowerCase() : this.normalizePhone(target);
+    const n = await this.otps.count({ where: { target: t, purpose, createdAt: MoreThan(new Date(Date.now() - 3600_000)) } });
+    return n >= 5;
+  }
+
   async sendOtp(target: string, purpose: OtpPurpose, type: UserType = UserType.CUSTOMER) {
     const t = this.isEmail(target) ? target.toLowerCase() : this.normalizePhone(target);
+    if (await this.otpCapReached(t, purpose)) throw new HttpException({ statusCode: 429, message: 'Too many codes requested. Please try again later.' }, HttpStatus.TOO_MANY_REQUESTS);
     const recent = await this.otps.findOne({ where: { target: t, purpose, createdAt: MoreThan(new Date(Date.now() - 45_000)) } });
     if (recent) throw new BadRequestException('Please wait a moment before requesting another code');
     const code = String(randomInt(100000, 999999));
@@ -344,8 +431,16 @@ export class AuthService {
   ) {
     const app = dto.app ?? 'customer';
     const p = this.normalizePhone(dto.phone);
+    const ip = ctx.ip ?? 'unknown';
+    this.protect.check(ip, p, 'otp');
     let user = await this.users.findOne({ where: { phone: p } });
-    await this.consumeOtp(p, user ? 'LOGIN' : 'SIGNUP', dto.code);
+    try {
+      await this.consumeOtp(p, user ? 'LOGIN' : 'SIGNUP', dto.code);
+    } catch (e) {
+      this.protect.fail(ip, p, 'otp');
+      throw e;
+    }
+    this.protect.success(p, 'otp');
     if (!user) {
       if (app !== 'customer') throw new NotFoundException('No account for this phone. Please register first.');
       user = await this.createCustomer({ phone: p, firstName: dto.firstName ?? '', lastName: dto.lastName ?? '', email: dto.email, referralCode: dto.referralCode, phoneVerified: true });
@@ -438,6 +533,18 @@ export class AuthService {
     return this.completeLogin(user, ctx);
   }
 
+  /** The id_token must have been issued for OUR app (otherwise a token minted for any other Google/Apple app would log in here). */
+  private assertSocialAudience(provider: 'google' | 'apple', aud: unknown) {
+    const allowed = this.config.get<string[]>(provider === 'google' ? 'social.googleClientIds' : 'social.appleClientIds') ?? [];
+    if (!allowed.length) {
+      if (this.config.get('env') === 'production') throw new UnauthorizedException('Social sign-in is not configured');
+      this.logger.warn(`${provider} sign-in accepted without audience check (set ${provider.toUpperCase()}_CLIENT_IDS) - development only`);
+      return;
+    }
+    const auds = Array.isArray(aud) ? aud : [aud];
+    if (!auds.some((a) => typeof a === 'string' && allowed.includes(a))) throw new UnauthorizedException('Invalid token audience');
+  }
+
   async socialLogin(dto: SocialLoginDto, ctx: ReqCtx) {
     let sub: string;
     let email: string | undefined;
@@ -447,6 +554,7 @@ export class AuthService {
       const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(dto.idToken)}`);
       if (!res.ok) throw new UnauthorizedException('Invalid Google token');
       const info: any = await res.json();
+      this.assertSocialAudience('google', info.aud);
       sub = info.sub;
       email = info.email_verified === 'true' || info.email_verified === true ? info.email : undefined;
       first = first || info.given_name || '';
@@ -454,9 +562,12 @@ export class AuthService {
     } else {
       try {
         const { payload } = await jwtVerify(dto.idToken, this.appleJwks, { issuer: 'https://appleid.apple.com' });
+        this.assertSocialAudience('apple', payload.aud);
         sub = payload.sub as string;
-        email = (payload as any).email;
-      } catch {
+        const ev = (payload as any).email_verified;
+        email = ev === true || ev === 'true' ? (payload as any).email : undefined;
+      } catch (e) {
+        if (e instanceof UnauthorizedException) throw e;
         throw new UnauthorizedException('Invalid Apple token');
       }
     }
@@ -607,8 +718,8 @@ export class AuthService {
       }
     }
     if (!target || !member) throw new BadRequestException('This restaurant has no active owner or staff account to open a panel as. Add a member first.');
-    const ttl = 2 * 60 * 60;
-    const accessToken = this.jwt.sign({ sub: target.id, type: target.type, imp: admin.id } as JwtPayload, { expiresIn: ttl });
+    const ttl = 60 * 60; // 1 h, no refresh token
+    const accessToken = this.jwt.sign({ sub: target.id, type: target.type, tv: target.tokenVersion ?? 0, imp: admin.id } as JwtPayload, { expiresIn: ttl });
     await this.audit.log({
       actor: admin,
       action: 'restaurant.impersonate',

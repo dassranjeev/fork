@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { csvCell } from '../common/csv';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
@@ -552,10 +553,7 @@ export class DriversAdminService {
   // ------------------------------------------------------------------ export
   async exportCsv(q: DriverListQuery): Promise<string> {
     const rows = await this.listQb(q).orderBy('d.createdAt', 'DESC').limit(5000).getMany();
-    const esc = (v: any) => {
-      const s = v === null || v === undefined ? '' : String(v);
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    };
+    const esc = csvCell;
     const head = ['id', 'name', 'email', 'phone', 'status', 'vehicle', 'online', 'rating', 'acceptance', 'completion', 'onTime', 'trips', 'cancellations', 'backgroundCheck', 'unpaidBalance', 'lifetimeEarnings', 'createdAt'];
     const lines = rows.map((d) =>
       [d.id, this.core.driverName(d), d.user?.email, d.user?.phone, d.status, d.vehicleType, d.isOnline, d.rating, d.acceptanceRate, d.completionRate, d.onTimeRate, d.totalTrips, d.cancellations, d.backgroundCheckStatus, d.pendingBalance, d.lifetimeEarnings, d.createdAt?.toISOString()].map(esc).join(','),

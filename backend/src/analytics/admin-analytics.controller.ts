@@ -1,4 +1,5 @@
-import { Get, Param, Query } from '@nestjs/common';
+import { Get, Param, Query, UseInterceptors } from '@nestjs/common';
+import { ShortCacheInterceptor } from '../common/short-cache.interceptor';
 import { AdminController, CurrentUser, Permission } from '../common/decorators';
 import { Action, Module } from '../common/enums';
 import { AuthUser } from '../common/auth.types';
@@ -17,6 +18,7 @@ import { PilotKpisService } from './pilot-kpis.service';
  * all built on `AnalyticsBase` - see analytics.base.ts / analytics.util.ts.
  */
 @AdminController('analytics')
+@UseInterceptors(ShortCacheInterceptor)
 export class AdminAnalyticsController {
   constructor(
     private readonly dashboard: DashboardService,

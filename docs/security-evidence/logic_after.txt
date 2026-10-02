@@ -1,0 +1,20 @@
+===== ACCESS CONTROL / LOGIC ATTACKS: AFTER =====
+victim order (customer1): placed
+[L1] NEVER_ARRIVED claim on a just-placed (undelivered) order -> 201 auto=false; refunds {"n":0,"s":0} -> {"n":0,"s":0}
+[L2] customer2 creates ticket on customer1's order -> 404 Order not found 
+[L2b] customer2 creates ticket attached to arbitrary restaurantId -> 201 restaurantId=undefined
+[L2c] ticket with attachment javascript:alert(1) -> 201 OPEN attachments=[]
+[L3] marketing staff GET /orders/:id/tracking -> 403 Missing permission: orders:view
+[L3b] marketing staff POST /orders/:id/messages -> 403
+[L4] KITCHEN: finance/payouts 403, finance/dashboard 403, reports/payouts 403, store 200 tabletCode=hidden integrations=hidden commission=hidden
+[L4] CASHIER: finance/payouts 403, finance/dashboard 403, reports/payouts 403, store 200 tabletCode=hidden integrations=hidden commission=hidden
+[L5] driver1 POST /driver/location with a foreign orderId -> 201; GPS rows now attached to the victim order: 0
+[L6] non-super staff PUT /admin/settings (disable 2FA enforcement, string threshold, min length 1) -> 403 Only a Super Admin can change "security.enforce2faStaff" updated=undefined
+     values now: [["security.enforce2faStaff",true],["security.passwordMinLength",10],["customers.walletAdjustApprovalThreshold",100]]
+[L7] driver PUT /driver/bank WITHOUT password (stolen-token scenario) -> 400 Validation failed
+     bank now: {"holder":"Liam Tremblay","transit":"12345","institution":"004","accountLast4":"1001"}
+[L9] PATCH /auth/me with walletBalance/type/roleId/passwordHash -> 400 Validation failed
+[L9b] PATCH /customer/profile with same extras -> 400 Validation failed
+     DB row for customer2: {"type":"CUSTOMER","firstName":"Noah","w":0}
+     promo created: 201 
+[L10] 8 concurrent orders using a usageLimit=1/perUserLimit=1 code -> statuses 201,400,400,400,400,400,400,400; orders that got the discount: 1; promo usedCount=1

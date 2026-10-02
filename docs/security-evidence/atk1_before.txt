@@ -1,0 +1,14 @@
+===== BEFORE =====
+[A1] 14 logins with rotating X-Forwarded-For: 401,401,401,401,401,401,401,401,401,401,401,401,401,401
+[A2] 4MB JSON body -> 401 {"statusCode":401,"message":"Invalid credentials","path":"/api/v1/auth/login","t
+[A3] unauthenticated Certn webhook -> 201 {"ok":false}
+[A4] /docs-json -> 200
+[A5] headers: x-powered-by= null nosniff= nosniff hsts= max-age=31536000; includeSubDomains csp= true
+[A6] CORS evil origin -> null
+[A6b] socket.io CORS evil origin -> 204 http://evil.example
+[A7] alg=none token -> 401
+[A8] forged JWT with secret "change-me-in-production" -> 401
+[A8] forged JWT with secret "change-me-to-a-long-random-string" -> 200
+[A9] 400 GET /health rotating XFF: ok=400 throttled=0
+[A10] 15KB header -> 200
+[A10b] 60KB query -> 431

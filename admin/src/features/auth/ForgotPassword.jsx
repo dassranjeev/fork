@@ -53,8 +53,8 @@ export default function ForgotPassword() {
       ) : (
         <form onSubmit={reset}>
           {devCode && <div className="alert alert-warning py-8 text-sm">Dev mode code: <b>{devCode}</b></div>}
-          <input className="form-control h-56-px bg-neutral-50 radius-12 mb-16" placeholder="6-digit code" value={code} onChange={(e) => setCode(e.target.value)} required />
-          <input type="password" className="form-control h-56-px bg-neutral-50 radius-12" placeholder="New password (min 8, letters + numbers)" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+          <input className="form-control h-56-px bg-neutral-50 radius-12 mb-16" placeholder="6-digit code" autoComplete="one-time-code" inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} required />
+          <input type="password" className="form-control h-56-px bg-neutral-50 radius-12" placeholder="New password (min 8, letters + numbers)" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
           <button type="submit" disabled={busy} className="btn btn-primary-600 text-sm btn-sm px-12 py-16 w-100 radius-12 mt-32">
             Reset password
           </button>

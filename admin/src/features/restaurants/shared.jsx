@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { safeUrl } from "../../lib/safe";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import { API_URL, http } from "../../lib/api";
@@ -12,7 +13,11 @@ export const DOC_TYPES = ["BUSINESS_LICENCE", "HEALTH_CERTIFICATE", "VOID_CHEQUE
 export const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 /** Files are served by the API host; stored urls can be relative ("/uploads/..."). */
-export const assetUrl = (u) => (!u ? "#" : /^https?:/i.test(u) ? u : `${API_URL.replace(/\/api\/v\d+\/?$/, "")}${u}`);
+export const assetUrl = (u) => {
+  const s = safeUrl(u, "");
+  if (!s) return "#";
+  return s.startsWith("/") ? `${API_URL.replace(/\/api\/v\d+\/?$/, "")}${s}` : s;
+};
 
 export const listOf = (res) => res?.data ?? (Array.isArray(res) ? res : []);
 

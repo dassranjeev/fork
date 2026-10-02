@@ -1,4 +1,6 @@
 import { Body, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { AdminController, CurrentUser, Permission } from '../common/decorators';
 import { Action, Module } from '../common/enums';
 import { AuthUser } from '../common/auth.types';
@@ -37,6 +39,10 @@ import {
  * Static single-segment GET routes (summary/export/analytics/...) are declared before `:id` so Nest's
  * first-match routing does not swallow them as a driver id.
  */
+class ReinstateBodyDto {
+  @IsOptional() @IsString() @MaxLength(500) reason?: string;
+}
+
 @AdminController('drivers')
 export class AdminDriversController {
   constructor(
@@ -66,6 +72,7 @@ export class AdminDriversController {
   }
 
   @Get('export')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } }) // exports are heavy: 10 per minute per user
   @Permission(Module.DRIVERS, Action.EXPORT)
   async exportCsv(@Query() q: DriverListQuery) {
     return { csv: await this.drivers.exportCsv(q) };
@@ -328,7 +335,8 @@ export class AdminDriversController {
 
   @Post(':id/reinstate')
   @Permission(Module.DRIVERS, Action.APPROVE)
-  async reinstate(@Param('id') id: string, @Body('reason') reason: string | undefined, @CurrentUser() user: AuthUser) {
+  async reinstate(@Param('id') id: string, @Body() dto: ReinstateBodyDto, @CurrentUser() user: AuthUser) {
+    const reason = dto.reason;
     const res = await this.drivers.reinstate(id, reason, user);
     await this.audit.log({ actor: user, action: 'driver.reinstate', entity: 'DriverProfile', entityId: id, after: { reason } });
     return res;

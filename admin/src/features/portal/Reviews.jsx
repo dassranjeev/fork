@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { Badge, Button, EmptyState, ErrorState, FilterSelect, FormModal, Loading, Pager, TextArea } from "../../ui";
 import { fmtDateTime } from "../../lib/format";
 import { useLocalState } from "../../lib/hooks";

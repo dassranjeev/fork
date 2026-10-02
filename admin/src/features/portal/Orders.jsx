@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { Badge, Button, DataTable, ErrorState, FilterSelect, FormModal, ListToolbar, Loading, Modal, Segmented, Select, StatusBadge, TextArea, TextInput, Timeline, useConfirm } from "../../ui";
 import { fmtDateTime, fmtTime, money, ORDER_STATUSES, titleCase } from "../../lib/format";
 import { errorMessage, http } from "../../lib/api";

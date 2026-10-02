@@ -1,0 +1,4 @@
+===== DELIVERY PIN BYPASS: AFTER =====
+requiresPin: true  deliveryPin set: true
+[["picked-up",201],["arrived-customer",201],["delivered",403,"Delivery PIN is required and must match"]]
+driver POST /delivered with NO pin => final order status: PICKED_UP | payment: AUTHORIZED

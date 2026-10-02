@@ -51,7 +51,11 @@ export class CertnAdapter implements BackgroundCheckProvider {
 
   async start(s: BackgroundCheckSubject, onResult: (r: BackgroundCheckResult) => void): Promise<BackgroundCheckResult> {
     const key = process.env.CERTN_API_KEY;
-    if (!key) return this.mockStart(s, onResult);
+    if (!key) {
+      // the mock auto-clears every driver after a few seconds: development only
+      if (process.env.NODE_ENV === 'production') throw new Error('Background-check provider (Certn) is not configured');
+      return this.mockStart(s, onResult);
+    }
     const base = process.env.CERTN_API_URL ?? 'https://api.certn.co';
     const res = await fetch(`${base}/hrpm/api/v1/applications/invite/`, {
       method: 'POST',

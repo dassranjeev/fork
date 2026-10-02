@@ -13,7 +13,8 @@ import {
 import { Repository } from 'typeorm';
 import { Server, Socket } from 'socket.io';
 import { DriverProfile, Order, RestaurantMember, User } from '../database/entities';
-import { UserType } from '../common/enums';
+import { UserStatus, UserType } from '../common/enums';
+import { corsOriginCheck, clientIp } from '../common/security';
 import { JwtPayload } from '../common/auth.types';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -67,10 +68,42 @@ export class RealtimeService {
   }
 }
 
-@WebSocketGateway({ cors: { origin: true, credentials: true }, transports: ['websocket', 'polling'] })
+/**
+ * Socket hardening: explicit CORS allow-list, 16 KB max message (SOCKET_MAX_BUFFER_BYTES), short ping timeouts so dead
+ * sockets are reaped, auth required at handshake (no token => disconnected, joins nothing), per-IP / per-user connection
+ * caps and per-socket event rate limits (see RealtimeGateway).
+ */
+@WebSocketGateway({
+  cors: { origin: corsOriginCheck, credentials: true },
+  transports: ['websocket', 'polling'],
+  maxHttpBufferSize: parseInt(process.env.SOCKET_MAX_BUFFER_BYTES ?? '16384', 10),
+  pingInterval: 25_000,
+  pingTimeout: 20_000,
+  connectTimeout: 10_000,
+})
 export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
   private readonly logger = new Logger('RealtimeGateway');
+  private perIp = new Map<string, number>();
+  private perUser = new Map<string, number>();
+  private maxPerIp = parseInt(process.env.SOCKET_MAX_PER_IP ?? '30', 10);
+  private maxPerUser = parseInt(process.env.SOCKET_MAX_PER_USER ?? '8', 10);
+  private static readonly MAX_ROOMS = 60;
+
+  /** sliding-window event limiter per socket: returns false when the socket is over its budget for this event class */
+  private allow(client: Socket, bucket: string, limit: number, windowMs = 10_000): boolean {
+    const now = Date.now();
+    const st = (client.data.rl ??= {}) as Record<string, number[]>;
+    const arr = (st[bucket] ??= []);
+    while (arr.length && now - arr[0] > windowMs) arr.shift();
+    if (arr.length >= limit) {
+      client.data.rlStrikes = (client.data.rlStrikes ?? 0) + 1;
+      if (client.data.rlStrikes > 200) client.disconnect(true); // persistent abuser
+      return false;
+    }
+    arr.push(now);
+    return true;
+  }
 
   constructor(
     private jwt: JwtService,
@@ -88,16 +121,26 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   }
 
   async handleConnection(client: Socket) {
+    const ip = clientIp(client.handshake as any) || client.handshake.address;
     try {
+      const nIp = (this.perIp.get(ip) ?? 0) + 1;
+      if (nIp > this.maxPerIp) throw new Error('too many connections from this address');
+      this.perIp.set(ip, nIp);
+      client.data.ip = ip;
       const token =
         (client.handshake.auth?.token as string) ||
         (client.handshake.headers?.authorization as string)?.replace(/^Bearer\s+/i, '') ||
         (client.handshake.query?.token as string);
       if (!token) throw new Error('no token');
-      const payload = this.jwt.verify<JwtPayload>(token, { secret: this.config.get('jwt.secret') });
+      const payload = this.jwt.verify<JwtPayload>(token, { secret: this.config.get('jwt.secret'), algorithms: ['HS256'], issuer: this.config.get('jwt.issuer'), audience: this.config.get('jwt.audience') });
       if (payload.pending2fa) throw new Error('2fa pending');
       const user = await this.users.findOne({ where: { id: payload.sub } });
       if (!user) throw new Error('unknown user');
+      if ([UserStatus.BLOCKED, UserStatus.DELETED, UserStatus.SUSPENDED].includes(user.status)) throw new Error('account not active');
+      if ((payload.tv ?? 0) !== (user.tokenVersion ?? 0)) throw new Error('token revoked');
+      const nUser = (this.perUser.get(user.id) ?? 0) + 1;
+      if (nUser > this.maxPerUser) throw new Error('too many sockets for this user');
+      this.perUser.set(user.id, nUser);
       client.data.user = { id: user.id, type: user.type };
       client.join(`user:${user.id}`);
       if (user.type === UserType.STAFF || user.type === UserType.SUPER_ADMIN) {
@@ -136,7 +179,20 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     }
   }
 
-  handleDisconnect(_client: Socket) {}
+  handleDisconnect(client: Socket) {
+    const ip = client.data?.ip;
+    if (ip && this.perIp.has(ip)) {
+      const n = (this.perIp.get(ip) ?? 1) - 1;
+      if (n > 0) this.perIp.set(ip, n);
+      else this.perIp.delete(ip);
+    }
+    const uid = client.data?.user?.id;
+    if (uid && this.perUser.has(uid)) {
+      const n = (this.perUser.get(uid) ?? 1) - 1;
+      if (n > 0) this.perUser.set(uid, n);
+      else this.perUser.delete(uid);
+    }
+  }
 
   /** Live chat: staff with support:view join the agents room (chat.new / chat.updated / chat.message / chat.typing ...). */
   private async joinSupportAgents(client: Socket, userId: string, type: UserType) {
@@ -159,7 +215,8 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   /** Optional client -> server: agent presence over the socket ({ status: 'ONLINE' | 'AWAY' | 'OFFLINE' }); without status it is a heartbeat. */
   @SubscribeMessage('agent.presence')
   agentPresence(@ConnectedSocket() client: Socket, @MessageBody() body: { status?: string }) {
-    if (!client.data.supportAgent || !client.data.user?.id) return { ok: false };
+    if (!client.data.supportAgent || !client.data.user?.id || !this.allow(client, 'presence', 20)) return { ok: false };
+    if (body?.status && !['ONLINE', 'AWAY', 'OFFLINE'].includes(String(body.status))) return { ok: false };
     if (body?.status) this.events.emit('chat.socket.presence', { userId: client.data.user.id, status: body.status });
     else this.events.emit('chat.socket.heartbeat', { userId: client.data.user.id });
     return { ok: true };
@@ -168,7 +225,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   /** Optional client -> server typing indicator for the requester or the assigned agent ({ sessionId, typing }); ownership is checked by the chat service. */
   @SubscribeMessage('chat.typing')
   chatTyping(@ConnectedSocket() client: Socket, @MessageBody() body: { sessionId?: string; typing?: boolean }) {
-    if (!client.data.user?.id || !body?.sessionId) return { ok: false };
+    if (!client.data.user?.id || typeof body?.sessionId !== 'string' || body.sessionId.length > 64 || !this.allow(client, 'typing', 30)) return { ok: false };
     this.events.emit('chat.socket.typing', { userId: client.data.user.id, sessionId: body.sessionId, typing: body.typing !== false });
     return { ok: true };
   }
@@ -177,7 +234,9 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   @SubscribeMessage('order.subscribe')
   async subscribeOrder(@ConnectedSocket() client: Socket, @MessageBody() body: { orderId: string }) {
     const u = client.data.user as { id: string; type: UserType } | undefined;
-    if (!u || !body?.orderId) return { ok: false };
+    if (!u || typeof body?.orderId !== 'string' || !/^[0-9a-f-]{36}$/i.test(body.orderId)) return { ok: false };
+    if (!this.allow(client, 'subscribe', 20)) return { ok: false, error: 'rate_limited' };
+    if (client.rooms.size > RealtimeGateway.MAX_ROOMS) return { ok: false, error: 'too_many_rooms' };
     const order = await this.orders.findOne({ where: { id: body.orderId } });
     if (!order) return { ok: false, error: 'not_found' };
     const allowed =
@@ -193,18 +252,29 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
 
   @SubscribeMessage('order.unsubscribe')
   unsubscribeOrder(@ConnectedSocket() client: Socket, @MessageBody() body: { orderId: string }) {
-    if (body?.orderId) client.leave(`order:${body.orderId}`);
+    if (typeof body?.orderId === 'string' && body.orderId.length <= 64) client.leave(`order:${body.orderId}`);
     return { ok: true };
   }
 
   /** Driver pushes GPS over the socket (REST endpoint exists too). Handled by DriversModule via event. */
   @SubscribeMessage('driver.location')
-  driverLocation(@ConnectedSocket() client: Socket, @MessageBody() body: { lat: number; lng: number; heading?: number; orderId?: string }) {
+  async driverLocation(@ConnectedSocket() client: Socket, @MessageBody() body: { lat: number; lng: number; heading?: number; orderId?: string }) {
     if (client.data.user?.type !== UserType.DRIVER || !client.data.driverId) return { ok: false };
-    // Re-broadcast to the ops room + order room; persistence is done by DriverLocationService listening on this hook.
-    const payload = { driverId: client.data.driverId, ...body, at: new Date().toISOString() };
+    if (!this.allow(client, 'gps', 8, 10_000)) return { ok: false, error: 'rate_limited' }; // clients send every ~5 s
+    const lat = Number(body?.lat);
+    const lng = Number(body?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return { ok: false, error: 'bad_coordinates' };
+    const heading = body?.heading === undefined ? undefined : Number(body.heading);
+    // The identity is the authenticated socket's, never a client-supplied field; only a fixed set of fields is accepted;
+    // and the order room is only fed for an order this driver is actually assigned to.
+    let orderId: string | undefined;
+    if (typeof body?.orderId === 'string' && /^[0-9a-f-]{36}$/i.test(body.orderId)) {
+      const owned = await this.orders.findOne({ where: { id: body.orderId, driverId: client.data.driverId }, select: ['id'] });
+      if (owned) orderId = owned.id;
+    }
+    const payload = { driverId: client.data.driverId as string, lat, lng, heading: heading !== undefined && Number.isFinite(heading) ? heading : undefined, orderId, at: new Date().toISOString() };
     this.rt.emitToOps('driver.location', payload);
-    if (body.orderId) this.rt.emitToOrder(body.orderId, 'driver.location', payload);
+    if (orderId) this.rt.emitToOrder(orderId, 'driver.location', payload);
     this.rt.locationHook?.(payload);
     return { ok: true };
   }
@@ -213,7 +283,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   @SubscribeMessage('zone.subscribe')
   subscribeZone(@ConnectedSocket() client: Socket, @MessageBody() body: { zoneId: string }) {
     const t = client.data.user?.type;
-    if ((t === UserType.STAFF || t === UserType.SUPER_ADMIN) && body?.zoneId) client.join(`zone:${body.zoneId}`);
+    if ((t === UserType.STAFF || t === UserType.SUPER_ADMIN) && typeof body?.zoneId === 'string' && /^[0-9a-f-]{36}$/i.test(body.zoneId) && client.rooms.size <= RealtimeGateway.MAX_ROOMS && this.allow(client, 'zone', 20)) client.join(`zone:${body.zoneId}`);
     return { ok: true };
   }
 }

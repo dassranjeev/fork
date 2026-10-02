@@ -1,4 +1,5 @@
 import { Body, Get, Param, Patch, Post, Delete, Query } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AdminController, CurrentUser, Permission } from '../common/decorators';
 import { Action, Module } from '../common/enums';
 import { AuthUser } from '../common/auth.types';
@@ -62,6 +63,7 @@ export class AdminReportsController {
    * (base64-encoded workbook - matches this codebase's existing export convention, see admin-orders.controller.ts).
    */
   @Get(':dashboard/export')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } }) // exports are heavy: 10 per minute per user
   @Permission(Module.REPORTS, Action.EXPORT)
   async export(@Param('dashboard') dashboard: string, @Query() f: AnalyticsFilterDto, @CurrentUser() user: AuthUser) {
     const result = await this.exportSvc.build(dashboard, f.format, f, user);

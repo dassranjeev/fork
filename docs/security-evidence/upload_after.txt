@@ -1,0 +1,17 @@
+===== UPLOAD ABUSE: AFTER =====
+  served PNG headers: content-type=image/png nosniff=nosniff disposition=inline csp=default-src 'none'; img-src 'self' data:
+  served polyglot: content-type=image/png nosniff=nosniff csp=default-src 'none'; img-src 'self' data:; style-src 'unsafe-
+  served PDF: content-type=application/pdf disposition=attachment nosniff=nosniff
+  legacy legacy-test.svg served: status=200 content-type=application/octet-stream disposition=attachment nosniff=nosniff
+  legacy legacy-test.html served: status=200 content-type=application/octet-stream disposition=attachment nosniff=nosniff
+  unauthenticated upload                                     -> 401 Unauthorized 
+  SVG with <script> (image/svg+xml)                          -> 415 Unsupported or unrecognised file type (allowed: JPG, PNG, GIF, WebP, HEIC, PDF, CSV) 
+  HTML page renamed .png (mime image/png)                    -> 415 Unsupported or unrecognised file type (allowed: JPG, PNG, GIF, WebP, HEIC, PDF, CSV) 
+  Windows executable renamed .jpg                            -> 415 Unsupported or unrecognised file type (allowed: JPG, PNG, GIF, WebP, HEIC, PDF, CSV) 
+  .html file                                                 -> 415 Unsupported or unrecognised file type (allowed: JPG, PNG, GIF, WebP, HEIC, PDF, CSV) 
+  .js file                                                   -> 415 Unsupported or unrecognised file type (allowed: JPG, PNG, GIF, WebP, HEIC, PDF, CSV) 
+  path traversal in filename                                 -> 201 5dec5952-41bf-446d-8e63-ded82b60417e.png 
+  11 MB image                                                -> 413 File too large 
+  valid PNG                                                  -> 201 a79cf41f-7290-4911-a37c-8698f1428a9e.png 
+  polyglot PNG+HTML                                          -> 201 e077334c-b3b6-4cc1-b1ba-8e0e5805f7b5.png 
+  valid PDF                                                  -> 201 ec01fe43-a83c-4933-b9b3-2d98674bba1a.pdf 

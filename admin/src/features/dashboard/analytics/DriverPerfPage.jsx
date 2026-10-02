@@ -19,7 +19,7 @@ export default function DriverPerfPage() {
       <RangeBar state={f} onChange={set} groupBy={false} exportKey="driver_performance" />
       <div className="row gy-4 mb-24">
         <div className="col-xl col-md-4 col-6"><StatCard label="Active drivers" value={num(fleet?.active)} icon="solar:scooter-outline" tone="primary" loading={load} /></div>
-        <div className="col-xl col-md-4 col-6"><StatCard label="Online now" value={num(fleet?.online)} icon="solar:wifi-router-outline" tone="success" loading={load} /></div>
+        <div className="col-xl col-md-4 col-6"><StatCard label="Online now" value={num(fleet?.online)} icon="solar:wi-fi-router-outline" tone="success" loading={load} /></div>
         <div className="col-xl col-md-4 col-6"><StatCard label="Avg. rating" value={num(fleet?.avgRating, 2)} icon="solar:star-outline" tone="warning" loading={load} /></div>
         <div className="col-xl col-md-6 col-6"><StatCard label="Avg. acceptance" value={pct(fleet?.avgAcceptanceRate)} icon="solar:check-circle-outline" tone="info" loading={load} /></div>
         <div className="col-xl col-md-6 col-6"><StatCard label="Avg. on-time" value={pct(fleet?.avgOnTimeRate)} icon="solar:clock-circle-outline" tone="purple" loading={load} /></div>

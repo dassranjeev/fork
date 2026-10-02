@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
+import { safeImgUrl, safeUrl } from "../../lib/safe";
 import { Link } from "react-router-dom";
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { toast } from "react-toastify";
 import { Avatar, Badge, EmptyState, FormModal, KeyValue, Select, StatusBadge, Switch, TextArea } from "../../ui";
 import { useFetch, useForm, useSubmit } from "../../lib/hooks";
@@ -87,8 +88,8 @@ export function Thread({ messages, typing, requesterName }) {
               {m.attachments?.length > 0 && (
                 <div className="d-flex gap-2 flex-wrap mt-8">
                   {m.attachments.map((u, k) => (
-                    <a key={k} href={u} target="_blank" rel="noreferrer">
-                      <img src={u} alt="attachment" className="radius-8" style={{ maxWidth: 160, maxHeight: 120, objectFit: "cover" }} />
+                    <a key={k} href={safeUrl(u)} target="_blank" rel="noopener noreferrer">
+                      <img src={safeImgUrl(u)} alt="attachment" className="radius-8" style={{ maxWidth: 160, maxHeight: 120, objectFit: "cover" }} />
                     </a>
                   ))}
                 </div>
@@ -164,7 +165,7 @@ export function Composer({ chat, ctx, onSend, onTyping, disabled }) {
         <div className="d-flex gap-2 mb-8">
           {files.map((u) => (
             <span key={u} className="position-relative">
-              <img src={u} alt="" className="radius-8" style={{ width: 56, height: 56, objectFit: "cover" }} />
+              <img src={safeImgUrl(u)} alt="" className="radius-8" style={{ width: 56, height: 56, objectFit: "cover" }} />
               <button type="button" className="btn btn-sm p-0 position-absolute top-0 end-0 bg-danger-600 text-white rounded-circle" style={{ width: 18, height: 18, lineHeight: 1 }} onClick={() => setFiles((p) => p.filter((x) => x !== u))}>×</button>
             </span>
           ))}

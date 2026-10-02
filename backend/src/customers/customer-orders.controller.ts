@@ -1,9 +1,15 @@
 import { Body, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { IsString, MaxLength } from 'class-validator';
 import { CustomerController, CurrentUser } from '../common/decorators';
 import { AuthUser } from '../common/auth.types';
 import { PageQueryDto } from '../common/pagination';
 import { CheckoutService } from './checkout.service';
 import { CustomerOrdersQuery, ItemRemovalResponseDto, PlaceOrderDto, ReviewDto, TipDto } from './dto';
+
+class CancelOrderDto {
+  @IsString() @MaxLength(500) reason: string;
+}
 
 /**
  * /customer/orders - place / list / detail / cancel / reorder / tip-edit / review.
@@ -16,6 +22,7 @@ export class CustomerOrdersController {
   constructor(private checkout: CheckoutService) {}
 
   @Post()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   place(@CurrentUser() user: AuthUser, @Body() dto: PlaceOrderDto) {
     return this.checkout.placeOrder(user.id, dto);
   }
@@ -31,8 +38,8 @@ export class CustomerOrdersController {
   }
 
   @Post(':id/cancel')
-  cancel(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body('reason') reason: string) {
-    return this.checkout.cancel(user.id, id, reason);
+  cancel(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: CancelOrderDto) {
+    return this.checkout.cancel(user.id, id, dto.reason);
   }
 
   @Post(':id/reorder')

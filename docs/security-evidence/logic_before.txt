@@ -1,0 +1,16 @@
+===== ACCESS CONTROL / LOGIC ATTACKS: BEFORE =====
+victim order (customer1): placed
+[L1] NEVER_ARRIVED claim on a just-placed (undelivered) order -> 201 auto=true; refunds {"n":0,"s":0} -> {"n":1,"s":26.13}
+[L2] customer2 creates ticket on customer1's order -> 201 OPEN LINKED orderId=495d1479
+[L2b] customer2 creates ticket attached to arbitrary restaurantId -> 201 restaurantId=undefined
+[L2c] ticket with attachment javascript:alert(1) -> 201 OPEN attachments=["alert(1)"]
+[L3] marketing staff GET /orders/:id/tracking -> 403 Missing permission: orders:view
+[L3b] marketing staff POST /orders/:id/messages -> 403
+[L4] KITCHEN: finance/payouts 200, finance/dashboard 200, reports/payouts 200, store 200 tabletCode=EXPOSED integrations=EXPOSED commission=EXPOSED
+[L4] CASHIER: finance/payouts 200, finance/dashboard 200, reports/payouts 200, store 200 tabletCode=EXPOSED integrations=EXPOSED commission=EXPOSED
+[L5] driver1 POST /driver/location with a foreign orderId -> 201; GPS rows now attached to the victim order: 1
+[L6] non-super staff PUT /admin/settings (disable 2FA enforcement, string threshold, min length 1) -> 200  updated=["security.enforce2faStaff","customers.walletAdjustApprovalThreshold","security.passwordMinLength"]
+     values now: [["security.enforce2faStaff",false],["security.passwordMinLength",1],["customers.walletAdjustApprovalThreshold","unlimited"]]
+[L7] driver PUT /driver/bank WITHOUT password (stolen-token scenario) -> 200 
+     bank now: {"holder":"Attacker","transit":"99999","institution":"999","accountLast4":"0000"}
+(script aborted here on a cleanup bug in the test harness; remaining tests are in logic_before_L9_L10.txt)

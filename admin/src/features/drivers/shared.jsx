@@ -1,4 +1,5 @@
 import { fmtDate } from "../../lib/format";
+import { safeUrl } from "../../lib/safe";
 import React from "react";
 import { WS_URL } from "../../lib/api";
 import { useFetch } from "../../lib/hooks";
@@ -18,7 +19,7 @@ export const DOC_TYPES = ["LICENCE", "VEHICLE_REGISTRATION", "INSURANCE", "PHOTO
 export const INCENTIVE_TYPES = ["PEAK_BOOST", "QUEST", "FIRST_WEEK", "WEATHER", "SUPPLY_ALERT"];
 export const EXPIRY_REQUIRED = ["LICENCE", "INSURANCE", "VEHICLE_REGISTRATION"];
 
-export const fileHref = (u) => (!u ? null : /^https?:/i.test(u) ? u : `${WS_URL}${u}`);
+export const fileHref = (u) => { if (!u) return null; const s = safeUrl(u, ""); if (!s) return null; return /^https?:/i.test(s) ? s : s.startsWith("/") ? `${WS_URL}${s}` : null; };
 
 /** Zones come from the heat-map endpoint (same permission as the rest of this area). */
 export function useZones() {

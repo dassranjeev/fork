@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { http } from "../../lib/api";
 import { useFetch, useForm, usePagedList, useSubmit } from "../../lib/hooks";
 import { useAuth } from "../../lib/auth";
@@ -426,7 +426,7 @@ export function DocumentsTab({ r, reload }) {
                   return (
                     <tr key={d.id}>
                       <td className="fw-medium">{titleCase(d.type)}</td>
-                      <td><a href={assetUrl(d.fileUrl)} target="_blank" rel="noreferrer" className="text-primary-600">{d.fileName || "View file"}</a></td>
+                      <td><a href={assetUrl(d.fileUrl)} target="_blank" rel="noopener noreferrer" className="text-primary-600">{d.fileName || "View file"}</a></td>
                       <td><StatusBadge status={d.status} />{d.rejectReason && <div className="text-danger-600 text-xs mt-1">{d.rejectReason}</div>}</td>
                       <td>{exp ? <span className={soon ? "text-danger-600 fw-medium" : ""}>{fmtDate(d.expiresAt)}{soon ? (exp < today ? " (expired)" : " (soon)") : ""}</span> : "—"}</td>
                       <td>{fmtDate(d.createdAt)}</td>

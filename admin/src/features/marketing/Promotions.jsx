@@ -90,7 +90,7 @@ function Approvals({ onChanged, refreshKey }) {
   const { can } = useAuth();
   const confirm = useConfirm();
   const { busy, run } = useSubmit();
-  const { data, loading, error, reload } = useFetch("/admin/promotions/approvals", { limit: 50, k: refreshKey });
+  const { data, loading, error, reload } = useFetch("/admin/promotions/approvals", { limit: 50, _k: refreshKey });
   const rows = data?.data ?? [];
   const done = () => {
     reload();

@@ -52,7 +52,7 @@ export default function RestaurantApply() {
           <TextInput col={6} label="Last name" required {...f.bind("ownerLastName")} />
           <TextInput col={6} label="Email" type="email" required {...f.bind("email")} />
           <TextInput col={6} label="Phone" required {...f.bind("phone")} placeholder="416-555-0100" />
-          <TextInput col={12} label="Password" type="password" required {...f.bind("password")} hint="At least 8 characters with letters and numbers" />
+          <TextInput col={12} label="Password" type="password" autoComplete="new-password" required {...f.bind("password")} hint="At least 8 characters with letters and numbers" />
         </div>
         <h6 className="mb-16 mt-8">Business</h6>
         <div className="row">

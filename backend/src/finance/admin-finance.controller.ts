@@ -1,4 +1,6 @@
 import { Body, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { csvRow } from '../common/csv';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AdminController, CurrentUser, Permission } from '../common/decorators';
@@ -6,6 +8,7 @@ import { Action, ActorType, Module, PartyType, RefundStatus, UserType } from '..
 import { AuthUser } from '../common/auth.types';
 import { Order, Refund } from '../database/entities';
 import { PageQueryDto, like, paginateQb } from '../common/pagination';
+import { IsEnum, IsOptional } from 'class-validator';
 import { AuditService } from '../audit/audit.service';
 import { RefundsService } from '../orders/refunds.service';
 import { PayoutsService, BatchQuery, LedgerQuery, PayoutQuery } from './payouts.service';
@@ -17,6 +20,7 @@ import {
   BankVerifyConfirmDto,
   GenerateBatchDto,
   HoldDto,
+  PartyHoldDto,
   ManualAdjustmentDto,
   PayoutAdjustDto,
   RefundDecisionDto,
@@ -25,10 +29,14 @@ import {
 } from './finance.dto';
 
 function actorFor(user: AuthUser) {
-  return { type: ActorType.STAFF, id: user.id, name: user.name };
+  return { type: ActorType.STAFF, id: user.id, name: user.name, superAdmin: (user.type as string) === 'SUPER_ADMIN' };
 }
 
 /** SOP-07 weekly payout cycle, ledger explorer, HST reports, invoices, refunds approval queue (spec §8). */
+class RefundsListQuery extends PageQueryDto {
+  @IsOptional() @IsEnum(RefundStatus) status?: RefundStatus;
+}
+
 @AdminController('finance')
 export class AdminFinanceController {
   constructor(
@@ -57,6 +65,7 @@ export class AdminFinanceController {
   }
 
   @Get('ledger/export/csv')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } }) // exports are heavy: 10 per minute per user
   @Permission(Module.FINANCE, Action.EXPORT)
   async ledgerExport(@Query() q: LedgerQuery) {
     return { filename: 'ledger.csv', csv: await this.payouts.ledgerExportCsv(q) };
@@ -100,7 +109,8 @@ export class AdminFinanceController {
 
   @Patch('parties/:partyType/:partyId/hold')
   @Permission(Module.FINANCE, Action.EDIT)
-  async setHold(@Param('partyType') partyType: PartyType, @Param('partyId') partyId: string, @Body('hold') hold: boolean, @Body() dto: HoldDto, @CurrentUser() user: AuthUser) {
+  async setHold(@Param('partyType') partyType: PartyType, @Param('partyId') partyId: string, @Body() dto: PartyHoldDto, @CurrentUser() user: AuthUser) {
+    const hold = dto.hold;
     const res = await this.parties.setHold(partyType, partyId, !!hold, dto.reason);
     if (!hold) await this.payouts.releaseHeldForParty(partyType, partyId);
     await this.audit.log({ actor: user, action: hold ? 'finance.party_hold' : 'finance.party_unhold', entity: 'Party', entityId: `${partyType}:${partyId}`, after: { reason: dto.reason } });
@@ -179,12 +189,13 @@ export class AdminFinanceController {
   }
 
   @Get('payouts/export/csv')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } }) // exports are heavy: 10 per minute per user
   @Permission(Module.FINANCE, Action.EXPORT)
   async exportPayouts(@Query() q: PayoutQuery) {
     const { data } = await this.payouts.list({ ...q, page: 1, limit: 5000 });
     const header = 'partyType,partyName,periodStart,periodEnd,gross,deductions,fee,net,status,instant,paidAt\n';
     const body = data
-      .map((p) => [p.partyType, p.partyName ?? '', p.periodStart, p.periodEnd, p.gross, p.deductions, p.fee, p.net, p.status, p.instant, p.paidAt ? new Date(p.paidAt).toISOString() : ''].join(','))
+      .map((p) => csvRow([p.partyType, p.partyName ?? '', p.periodStart, p.periodEnd, p.gross, p.deductions, p.fee, p.net, p.status, p.instant, p.paidAt ? new Date(p.paidAt).toISOString() : '']))
       .join('\n');
     return { csv: header + body };
   }
@@ -270,7 +281,7 @@ export class AdminFinanceController {
   // ------------------------------------------------------------ refunds approval queue (over-limit refunds; logic owned by RefundsService)
   @Get('refunds')
   @Permission(Module.FINANCE, Action.VIEW)
-  async listRefunds(@Query() q: PageQueryDto & { status?: RefundStatus }) {
+  async listRefunds(@Query() q: RefundsListQuery) {
     const qb = this.refunds.createQueryBuilder('r');
     if (q.status) qb.andWhere('r.status = :st', { st: q.status });
     else qb.andWhere('r.status = :st', { st: RefundStatus.PENDING_APPROVAL });
@@ -285,7 +296,7 @@ export class AdminFinanceController {
   @Post('refunds/:id/approve')
   @Permission(Module.FINANCE, Action.APPROVE)
   async approveRefund(@Param('id') id: string, @Body() dto: RefundDecisionDto, @CurrentUser() user: AuthUser) {
-    const refund = await this.refundsSvc.approve(id, { type: ActorType.STAFF, id: user.id, refundLimit: user.roleName === 'SUPER_ADMIN' ? null : user.refundLimit }, dto.notes);
+    const refund = await this.refundsSvc.approve(id, { type: ActorType.STAFF, id: user.id, refundLimit: (user.type as string) === 'SUPER_ADMIN' ? null : user.refundLimit }, dto.notes);
     await this.audit.log({ actor: user, action: 'finance.refund_approve', entity: 'Refund', entityId: id, after: { amount: refund.amount } });
     return refund;
   }
@@ -293,7 +304,7 @@ export class AdminFinanceController {
   @Post('refunds/:id/reject')
   @Permission(Module.FINANCE, Action.APPROVE)
   async rejectRefund(@Param('id') id: string, @Body() dto: RefundDecisionDto, @CurrentUser() user: AuthUser) {
-    const refund = await this.refundsSvc.reject(id, { type: ActorType.STAFF, id: user.id, refundLimit: user.roleName === 'SUPER_ADMIN' ? null : user.refundLimit }, dto.notes);
+    const refund = await this.refundsSvc.reject(id, { type: ActorType.STAFF, id: user.id, refundLimit: (user.type as string) === 'SUPER_ADMIN' ? null : user.refundLimit }, dto.notes);
     await this.audit.log({ actor: user, action: 'finance.refund_reject', entity: 'Refund', entityId: id, after: { reason: dto.notes } });
     return refund;
   }

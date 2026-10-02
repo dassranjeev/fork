@@ -26,17 +26,20 @@ export class RestaurantStaffController {
     return this.store.listMembers(user.merchantId!, this.scopedRestaurantId(user, restaurantId));
   }
 
+  @NoImpersonation()
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() dto: MemberDto, @Query('restaurantId') restaurantId?: string, @Req() req?: any) {
     const defaultRestaurantId = user.restaurantRole === RestaurantRole.OWNER ? null : this.scopedRestaurantId(user, restaurantId);
     return this.store.createMember(user.merchantId!, dto, defaultRestaurantId, user, this.scope(user), req);
   }
 
+  @NoImpersonation()
   @Patch(':id')
   update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateMemberDto, @Req() req?: any) {
     return this.store.updateMember(user.merchantId!, id, dto, user, this.scope(user), req);
   }
 
+  @NoImpersonation()
   @Delete(':id')
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string, @Req() req?: any) {
     return this.store.removeMember(user.merchantId!, id, user, this.scope(user), req);

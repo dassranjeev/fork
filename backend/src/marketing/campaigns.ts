@@ -1,8 +1,9 @@
 import { BadRequestException, Body, Delete, Get, Injectable, Logger, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { Repository } from 'typeorm';
 import { IsDateString, IsEnum, IsIn, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Campaign, CustomerProfile, DriverProfile, RestaurantMember } from '../database/entities';
@@ -157,9 +158,10 @@ export class CampaignsService {
 
   async send(id: string) {
     const c = await this.get(id);
-    if (c.status === 'SENT' || c.status === 'SENDING') throw new BadRequestException('Campaign already sent');
+    // atomic claim: two concurrent sends (or a send + the scheduler) can never both blast the audience; cancelled/sent campaigns cannot be sent
+    const claim = await this.repo.createQueryBuilder().update(Campaign).set({ status: 'SENDING' }).where('id = :id AND status IN (:...ok)', { id, ok: ['DRAFT', 'SCHEDULED'] }).execute();
+    if (!claim.affected) throw new BadRequestException(`Campaign cannot be sent (status ${c.status})`);
     c.status = 'SENDING';
-    await this.repo.save(c);
 
     const audience: Audience = c.audience === 'DRIVERS' ? 'DRIVER' : c.audience === 'RESTAURANTS' ? 'RESTAURANT' : 'CUSTOMER';
     let ids: string[] = [];
@@ -169,8 +171,19 @@ export class CampaignsService {
       this.logger.error(`recipient lookup failed for campaign ${id}: ${e.message}`);
     }
 
+    const maxRecipients = Number(process.env.MAX_CAMPAIGN_RECIPIENTS) || 50_000;
+    if (ids.length > maxRecipients) {
+      await this.repo.update(id, { status: 'DRAFT' } as any);
+      throw new BadRequestException(`Audience too large (${ids.length} > ${maxRecipients}). Narrow the filters or raise MAX_CAMPAIGN_RECIPIENTS.`);
+    }
     let delivered = 0;
+    let sinceBreath = 0;
     for (const userId of ids) {
+      // fan-out in small batches so one campaign cannot starve the API / saturate the SMS & email providers
+      if (++sinceBreath >= 25) {
+        sinceBreath = 0;
+        await new Promise((r) => setTimeout(r, 250));
+      }
       try {
         let body = c.body;
         // CASL: append an unsubscribe link on marketing email/SMS to customers.
@@ -218,7 +231,8 @@ export class CampaignsService {
 
   // ------------------------------------------------------------------ unsubscribe (CASL)
   private token(userId: string) {
-    const secret = this.config.get<string>('jwt.secret') || 'change-me';
+    const secret = this.config.get<string>('jwt.secret');
+    if (!secret) throw new Error('JWT secret is not configured');
     return createHmac('sha256', secret).update(userId).digest('hex').slice(0, 32);
   }
 
@@ -232,7 +246,10 @@ export class CampaignsService {
   }
 
   verifyToken(userId: string, token: string) {
-    return !!userId && !!token && this.token(userId) === token;
+    if (!userId || !token || token.length !== 32) return false;
+    const a = Buffer.from(this.token(userId));
+    const b = Buffer.from(token);
+    return a.length === b.length && timingSafeEqual(a, b);
   }
 }
 
@@ -306,6 +323,7 @@ export class UnsubscribeController {
   constructor(private svc: CampaignsService, @InjectRepository(CustomerProfile) private customerProfiles: Repository<CustomerProfile>) {}
 
   @Get()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   async unsubscribe(@Query() q: UnsubscribeQuery) {
     if (!this.svc.verifyToken(q.u, q.t)) throw new BadRequestException('Invalid or expired unsubscribe link');
     const p = await this.customerProfiles.findOne({ where: { userId: q.u } });

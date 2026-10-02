@@ -109,6 +109,14 @@ export class User extends BaseEntity {
   @Column({ type: 'timestamptz', nullable: true })
   passwordChangedAt: Date | null;
 
+  /** Access tokens issued before this instant are rejected (set on logout-all, password change/reset, block). */
+  @Column({ type: 'timestamptz', nullable: true })
+  tokensValidAfter: Date | null;
+
+  /** Bumped on every revocation; access tokens carry the value they were issued under (`tv`) and die when it no longer matches. Exact, no clock-second races. */
+  @Column({ type: 'int', default: 0 })
+  tokenVersion: number;
+
   @Column({ type: 'timestamptz', nullable: true })
   deletedAt: Date | null;
 

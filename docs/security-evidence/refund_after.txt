@@ -1,0 +1,11 @@
+===== REFUND AMOUNT TAMPERING / RACE: AFTER =====
+order FK-715919 total 343.89 refunds before {"n":0,"s":0,"nan":0}
+  refund amount="abc" -> 400 Validation failed
+  refund amount="NaN" -> 400 Validation failed
+  refund amount="1e308" -> 400 Validation failed
+  refund amount=999999 -> 400 Validation failed
+  refund amount=-5 -> 400 Validation failed
+  refund amount=0.001 -> 400 Validation failed
+refunds after tampering {"n":0,"s":0,"nan":0}
+  6 concurrent refunds of 240.72 (70% of 343.89) -> 201,400,400,400,400,400
+refunds after race {"n":1,"s":240.72,"nan":0}

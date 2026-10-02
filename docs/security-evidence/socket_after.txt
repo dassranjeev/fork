@@ -1,0 +1,12 @@
+===== SOCKET.IO: AFTER =====
+[S1] no token            -> connected after 1.5s? false events: error
+[S2] garbage token       -> connected after 1.5s? false events: error
+[S3] valid customer      -> connected? true events: connected
+[S4] customer1 subscribes to customer2 order -> {"ok":false,"error":"forbidden"}
+[S5] driver1 sends driver.location claiming driverId of another driver + foreign orderId + junk field + bad coords
+     staff dashboard received: [{"driverId":"own","orderId":null,"hasJunk":false}]
+[S6] 40 GPS events in <1s -> acks 40, rate-limited 34
+[S7] 200 KB socket message -> connection closed by server? true
+[S8] 12 simultaneous sockets for one user -> still connected: 8
+[S9] polling handshake from evil origin -> ACAO = null
+     polling handshake from admin console origin -> ACAO = http://localhost:3000

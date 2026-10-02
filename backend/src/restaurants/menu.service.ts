@@ -51,10 +51,8 @@ export function parseCsv(text: string): string[][] {
   return rows;
 }
 
-export const csvCell = (v: unknown) => {
-  const s = v === null || v === undefined ? '' : String(v);
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-};
+export { csvCell } from '../common/csv';
+import { csvCell } from '../common/csv';
 export const toCsv = (rows: unknown[][]) => rows.map((r) => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
 
 export const MENU_CSV_HEADER = [
@@ -150,7 +148,10 @@ export class MenuService {
     if (!c) throw new NotFoundException('Category not found');
     const n = await this.items.count({ where: { categoryId: id } });
     if (n && !moveItemsTo) throw new ConflictException(`Category still has ${n} item(s); pass moveItemsTo=<categoryId> or delete/move the items first`);
-    if (n) await this.items.update({ categoryId: id }, { categoryId: moveItemsTo! });
+    if (n) {
+      if (!(await this.categories.exist({ where: { id: moveItemsTo!, restaurantId } }))) throw new NotFoundException('Target category not found');
+      await this.items.update({ categoryId: id }, { categoryId: moveItemsTo! });
+    }
     await this.categories.delete(id);
     return { ok: true };
   }

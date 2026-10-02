@@ -1,4 +1,5 @@
 import { Body, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
+import { clampPaging } from '../common/pagination';
 import { AdminController, CurrentUser, Permission, PublicController, RestaurantController, RestaurantRoles } from '../common/decorators';
 import { AuthUser } from '../common/auth.types';
 import { Action, Module, RestaurantRole } from '../common/enums';
@@ -179,7 +180,7 @@ export class PublicDealsController {
 
   @Get()
   feed(@Query('cityId') cityId?: string, @Query('zoneId') zoneId?: string, @Query('limit') limit?: string) {
-    return this.promos.dealsFeed({ cityId, zoneId, limit: limit ? +limit : 20 });
+    return this.promos.dealsFeed({ cityId, zoneId, limit: clampPaging(1, limit, 50).limit });
   }
 
   @Get('restaurant/:restaurantId')

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { Badge, Button, ErrorState, Loading, Progress } from "../../ui";
 import { useLocalState } from "../../lib/hooks";
 import { minutesBetween } from "../../lib/format";

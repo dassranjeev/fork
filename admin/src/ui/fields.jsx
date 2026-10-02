@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
-import { Icon } from "@iconify/react";
+import { safeImgUrl, safeUrl } from "../lib/safe";
+import { Icon } from "@iconify/react/offline";
 import { toast } from "react-toastify";
 import { errorMessage, http } from "../lib/api";
 
@@ -220,9 +221,9 @@ export function FileInput({ label, hint, value, onChange, accept = "image/*", co
   return (
     <Field label={label} hint={hint} col={col} className={className}>
       <div className="d-flex align-items-center gap-3 flex-wrap">
-        {preview && isImg && <img src={value} alt="" className="radius-8 object-fit-cover" style={{ width: 64, height: 64 }} />}
+        {preview && isImg && <img src={safeImgUrl(value)} alt="" className="radius-8 object-fit-cover" style={{ width: 64, height: 64 }} />}
         {value && !isImg && (
-          <a href={value} target="_blank" rel="noreferrer" className="text-primary-600 text-sm">
+          <a href={safeUrl(value)} target="_blank" rel="noopener noreferrer" className="text-primary-600 text-sm">
             View file
           </a>
         )}

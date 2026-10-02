@@ -76,6 +76,28 @@ const AUDIENCE: Record<Requester, Audience> = { CUSTOMER: 'CUSTOMER', RESTAURANT
 const short = (s: string, n = 140) => (s.length > n ? `${s.slice(0, n - 1)}...` : s);
 
 /** Ticket lifecycle. Injectable from any module (`support/tickets.service.ts`). */
+/** Attachments from external requesters must be files we stored ourselves via POST /uploads (uuid name, image or pdf). Anything else is dropped. */
+export function cleanAttachments(list: string[] | undefined | null): string[] {
+  const pub = (() => {
+    try {
+      return new URL(process.env.PUBLIC_URL ?? 'http://localhost:4000').host;
+    } catch {
+      return '';
+    }
+  })();
+  return (list ?? [])
+    .filter((a) => typeof a === 'string' && a.length <= 500)
+    .filter((a) => {
+      try {
+        const u = new URL(a);
+        return (u.protocol === 'https:' || u.protocol === 'http:') && u.host === pub && /^\/uploads\/[0-9a-f-]{36}\.(jpe?g|png|gif|webp|heic|pdf)$/i.test(u.pathname);
+      } catch {
+        return false;
+      }
+    })
+    .slice(0, 5);
+}
+
 @Injectable()
 export class TicketsService {
   private readonly logger = new Logger(TicketsService.name);
@@ -108,14 +130,24 @@ export class TicketsService {
   // ------------------------------------------------------------------ create
   async create(input: CreateTicketInput): Promise<Ticket> {
     const category = input.category ?? TicketCategory.OTHER;
-    let restaurantId = input.restaurantId ?? null;
+    const external = input.requesterType === 'CUSTOMER' || input.requesterType === 'DRIVER' || input.requesterType === 'RESTAURANT';
+    // customers / drivers can never choose which restaurant a ticket is filed against; it can only come from an order they own
+    let restaurantId = input.requesterType === 'CUSTOMER' || input.requesterType === 'DRIVER' ? null : input.restaurantId ?? null;
     let driverId = input.driverId ?? null;
     if (input.orderId) {
       const order = await this.orders.findOne({ where: { id: input.orderId } });
       if (!order) throw new NotFoundException('Order not found');
+      if (external && input.source !== 'AUTO' && input.source !== 'SELF_SERVE') {
+        const mine =
+          (input.requesterType === 'CUSTOMER' && order.customerId === input.requesterId) ||
+          (input.requesterType === 'DRIVER' && !!input.driverId && order.driverId === input.driverId) ||
+          (input.requesterType === 'RESTAURANT' && !!restaurantId && order.restaurantId === restaurantId);
+        if (!mine) throw new NotFoundException('Order not found'); // same answer as "does not exist": no probing of other people's order ids
+      }
       restaurantId = restaurantId ?? order.restaurantId;
       driverId = driverId ?? order.driverId;
     }
+    const attachments = external ? cleanAttachments(input.attachments) : input.attachments ?? [];
     let flagged = !!input.flaggedAccount;
     if (!flagged && input.requesterType === 'CUSTOMER' && input.requesterId) {
       const p = await this.profiles.findOne({ where: { userId: input.requesterId } });
@@ -142,7 +174,7 @@ export class TicketsService {
         tier,
         assignedToId: input.assignedToId ?? null,
         ...this.slaDates(priority, now),
-        attachments: input.attachments ?? [],
+        attachments,
         tags: [...new Set((input.tags ?? []).map((t) => t.trim().toLowerCase()).filter(Boolean))],
         source: input.source ?? 'MANUAL',
         meta: input.meta ?? {},
@@ -153,7 +185,7 @@ export class TicketsService {
       }),
     );
     if (input.body) {
-      await this.messages.save(this.messages.create({ ticketId: saved.id, senderType: input.requesterType, senderId: input.requesterId ?? null, body: input.body, attachments: input.attachments ?? [], internal: false }));
+      await this.messages.save(this.messages.create({ ticketId: saved.id, senderType: input.requesterType, senderId: input.requesterId ?? null, body: input.body, attachments, internal: false }));
     }
     if (routed.reason) await this.sysNote(saved.id, `Routed to ${tier}: ${routed.reason}`);
     if (input.systemNote) await this.sysNote(saved.id, input.systemNote);

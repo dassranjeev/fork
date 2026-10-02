@@ -8,6 +8,8 @@ export interface JwtPayload {
   exp?: number;
   /** true while the user still has to pass the 2FA step (limited token) */
   pending2fa?: boolean;
+  /** token version the token was issued under (see User.tokenVersion) */
+  tv?: number;
   /** admin user id when this is an impersonation (support "view as owner") token */
   imp?: string;
 }

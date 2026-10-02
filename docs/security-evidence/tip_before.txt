@@ -1,0 +1,3 @@
+===== TIP EDIT AFTER DELIVERY WINDOW: BEFORE =====
+order FK-436617 delivered 3 days ago; PATCH tip=150 -> 200 
+driver TIP ledger entries before/after: {"n":1,"s":3} {"n":2,"s":150}

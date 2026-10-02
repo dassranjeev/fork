@@ -11,6 +11,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
   MinLength,
 } from 'class-validator';
@@ -128,7 +129,7 @@ export class EightySixDto {
   @IsOptional() @IsInt() @Min(1) @Max(72) hours?: number;
 }
 export class CsvImportDto {
-  @IsString() csv: string;
+  @IsString() @MaxLength(1_500_000) csv: string;
   @IsOptional() @IsIn(['merge', 'replace']) mode?: 'merge' | 'replace';
 }
 export class PrepTargetsDto {
@@ -187,8 +188,12 @@ export class ClosureDto {
 }
 
 export class StationDto {
-  @IsString() name: string;
-  @IsOptional() @IsInt() sortOrder?: number;
+  @IsString() @MaxLength(80) name: string;
+  @IsOptional() @IsInt() @Min(0) @Max(1000) sortOrder?: number;
+}
+export class UpdateStationDto {
+  @IsOptional() @IsString() @MaxLength(80) name?: string;
+  @IsOptional() @IsInt() @Min(0) @Max(1000) sortOrder?: number;
 }
 
 export class BusyModeDto {
@@ -378,6 +383,9 @@ export class AdminUpdateRestaurantDto extends UpdateStoreDto {
   @IsOptional() @IsString() hstNumber?: string | null;
   @IsOptional() @IsBoolean() isFeatured?: boolean;
   @IsOptional() @IsBoolean() isNew?: boolean;
+  /** Admin console "Edit restaurant" form (same ceilings as FulfilmentDto) */
+  @IsOptional() @IsNumber() @Min(0) minimumOrder?: number;
+  @IsOptional() @IsInt() @Min(1) @Max(180) prepTimeMin?: number;
   @IsOptional() @IsIn(['WEEKLY', 'DAILY']) payoutSchedule?: 'WEEKLY' | 'DAILY';
   @IsOptional() @IsNumber() @Min(0) @Max(100) reliabilityScore?: number;
   @IsOptional() @IsBoolean() kdsEnabled?: boolean;

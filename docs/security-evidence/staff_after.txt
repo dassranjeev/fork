@@ -1,0 +1,11 @@
+===== STAFF PRIVILEGE ESCALATION: AFTER =====
+attacker logged in: true  (role has only staff+roles permissions)
+[S0] attacker -> GET /admin/finance/dashboard (no finance perm): 403
+[S1] PATCH own role to add settings/finance + unlimited refunds -> 403 You cannot edit your own role
+[S1] attacker -> GET /admin/finance/dashboard after self-edit: 403
+[S3] create staff in Finance Manager role -> 403 You cannot grant permissions (that role is more privileged than yours) you do not hold yourself (audit:view)
+[S4] reset password of Finance Manager account -> 403 You cannot grant permissions of that account (it is more privileged than you) you do not hold yourself (audit:view)
+[S4] reset 2FA of Finance Manager account -> 403
+[S5] revoke sessions of more privileged user -> 403
+[S6] create SUPER_ADMIN -> 403
+[S7] negative refundLimit role (super admin creating) -> 400

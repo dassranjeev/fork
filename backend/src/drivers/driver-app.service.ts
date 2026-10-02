@@ -13,7 +13,9 @@ import {
   Zone,
 } from '../database/entities';
 import { ActorRef, IDispatchService, IPayoutsService } from '../common/contracts';
-import { ActorType, OrderStatus, OrderType, PartyType } from '../common/enums';
+import { ActorType, DriverStatus, OrderStatus, OrderType, PartyType } from '../common/enums';
+import * as bcrypt from 'bcryptjs';
+import { haversineKm } from '../common/geo.util';
 import { OrdersService } from '../orders/orders.service';
 import { LedgerService } from '../orders/ledger.service';
 import { DriverCoreService } from './driver-core.service';
@@ -164,13 +166,16 @@ export class DriverAppService {
   // ------------------------------------------------------------------ bank / tax
   async setBank(driverId: string, dto: BankDto) {
     const p = await this.core.getProfile(driverId);
+    const u = await this.users.createQueryBuilder('u').addSelect('u.passwordHash').where('u.id = :id', { id: p.userId }).getOne();
+    if (!u?.passwordHash || !(await bcrypt.compare(dto.currentPassword, u.passwordHash))) throw new ForbiddenException('Current password is required to change payout details');
     p.bank = {
       institution: dto.institution ?? p.bank?.institution,
       transit: dto.transit ?? p.bank?.transit,
       accountLast4: dto.accountNumber ? dto.accountNumber.replace(/\D/g, '').slice(-4) : p.bank?.accountLast4,
       holder: dto.holder ?? p.bank?.holder,
       debitCardLast4: dto.debitCardLast4 ?? p.bank?.debitCardLast4,
-    };
+      changedAt: new Date().toISOString(), // instant cash-out is held for 24 h after any change
+    } as any;
     await this.core.profiles.save(p);
     return { institution: p.bank.institution, transit: p.bank.transit, account: maskAccount(p.bank.accountLast4), holder: p.bank.holder };
   }
@@ -328,6 +333,17 @@ export class DriverAppService {
     const p = await this.core.getProfile(driverId);
     const order = await this.myOrder(driverId, orderId);
     const to = order.type === OrderType.PICKUP ? OrderStatus.COLLECTED : OrderStatus.DELIVERED;
+    if (to === OrderStatus.DELIVERED) {
+      // proof of presence: the driver must have tapped "arrived at customer" first and (when enabled) be near the drop-off pin
+      if (!order.driverArrivedCustomerAt) throw new BadRequestException('Mark "arrived at customer" before completing the delivery');
+      const fence = Number(this.core.settings.get<number>('driver.deliveryGeofenceKm', 0));
+      const dest = order.deliveryAddress;
+      const lat = dto.lat ?? p.lat;
+      const lng = dto.lng ?? p.lng;
+      if (fence > 0 && dest?.lat != null && dest?.lng != null && lat != null && lng != null && haversineKm(Number(lat), Number(lng), Number(dest.lat), Number(dest.lng)) > fence) {
+        throw new ForbiddenException('You are too far from the drop-off address to complete this delivery');
+      }
+    }
     return this.ordersService.transition(orderId, to, this.actor(p), { proofPhotoUrl: dto.proofPhotoUrl, code: dto.pin, note: dto.note, lat: dto.lat, lng: dto.lng });
   }
 
@@ -377,6 +393,9 @@ export class DriverAppService {
     const svc = this.payouts();
     if (!svc) throw new ServiceUnavailableException('Instant cash-out is temporarily unavailable - try again shortly');
     const p = await this.core.getProfile(driverId);
+    if (p.status !== DriverStatus.ACTIVE) throw new ForbiddenException('Instant cash-out is only available to active drivers');
+    const changed = (p.bank as any)?.changedAt ? new Date((p.bank as any).changedAt).getTime() : 0;
+    if (changed && Date.now() - changed < 24 * 3600_000) throw new ForbiddenException('Payout details were changed recently - instant cash-out is on hold for 24 hours');
     return svc.instantCashOut(driverId, this.actor(p));
   }
 
@@ -400,6 +419,9 @@ export class DriverAppService {
   async bookShift(driverId: string, slotId: string) {
     const slot = await this.shifts.findOne({ where: { id: slotId } });
     if (!slot || slot.driverId || slot.status !== 'OPEN') throw new BadRequestException('That shift is no longer available');
+    const profile = await this.core.getProfile(driverId);
+    if (profile.status !== DriverStatus.ACTIVE) throw new ForbiddenException('Only active drivers can book shifts');
+    if (!profile.zoneIds.includes(slot.zoneId)) throw new ForbiddenException('You are not approved for that zone');
     if (slot.slotCapacity != null) {
       const booked = await this.shifts.count({ where: { zoneId: slot.zoneId, startsAt: slot.startsAt, endsAt: slot.endsAt, status: In(['BOOKED', 'STARTED', 'COMPLETED']) as any } });
       if (booked >= slot.slotCapacity) throw new BadRequestException('That shift is full');
@@ -410,7 +432,14 @@ export class DriverAppService {
       .andWhere('s.startsAt < :end AND s.endsAt > :start', { start: slot.startsAt, end: slot.endsAt })
       .getCount();
     if (overlap > 0) throw new BadRequestException('You already have a shift that overlaps this time');
-    return this.shifts.save(this.shifts.create({ driverId, zoneId: slot.zoneId, startsAt: slot.startsAt, endsAt: slot.endsAt, status: 'BOOKED', slotCapacity: null }));
+    return this.shifts.manager.transaction(async (em) => {
+      await em.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`shift:${slot.zoneId}:${slot.startsAt.toISOString()}:${slot.endsAt.toISOString()}`]);
+      if (slot.slotCapacity != null) {
+        const booked = await em.getRepository(this.shifts.target as any).count({ where: { zoneId: slot.zoneId, startsAt: slot.startsAt, endsAt: slot.endsAt, status: In(['BOOKED', 'STARTED', 'COMPLETED']) as any } } as any);
+        if (booked >= slot.slotCapacity) throw new BadRequestException('That shift is full');
+      }
+      return em.getRepository(this.shifts.target as any).save(this.shifts.create({ driverId, zoneId: slot.zoneId, startsAt: slot.startsAt, endsAt: slot.endsAt, status: 'BOOKED', slotCapacity: null }) as any);
+    });
   }
 
   async myShifts(driverId: string) {
@@ -457,8 +486,10 @@ export class DriverAppService {
   // ------------------------------------------------------------------ SOS
   async raiseSos(driverId: string, dto: SosDto) {
     const p = await this.core.getProfile(driverId);
+    let sosOrderId: string | null = null;
+    if (dto.orderId && (await this.orders.exist({ where: { id: dto.orderId, driverId } }))) sosOrderId = dto.orderId;
     const alert = await this.sosRepo.save(
-      this.sosRepo.create({ driverId, orderId: dto.orderId ?? null, lat: dto.lat ?? p.lat, lng: dto.lng ?? p.lng, message: dto.message ?? null, status: 'OPEN' }),
+      this.sosRepo.create({ driverId, orderId: sosOrderId, lat: dto.lat ?? p.lat, lng: dto.lng ?? p.lng, message: dto.message ?? null, status: 'OPEN' }),
     );
     this.core.rt.emitToOps('sos.alert', { id: alert.id, driverId, driverName: this.core.driverName(p), lat: alert.lat, lng: alert.lng, orderId: alert.orderId, message: alert.message });
     await this.core.opsNotify('sos.alert', `SOS - ${this.core.driverName(p)}`, dto.message || 'Driver pressed the SOS button.', { driverId, sosId: alert.id });

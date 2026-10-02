@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { toast } from "react-toastify";
 import { Avatar, Badge, Button, Card, DataTable, FilterSelect, FormModal, FormRow, ListToolbar, PageHeader, Select, StatusBadge, TextInput } from "../../ui";
 import { act, http } from "../../lib/api";
@@ -114,7 +114,7 @@ export default function DriversList() {
       </div>
       <div className="row gy-3 mb-20">
         {[
-          ["Online now", summary.data?.online, "solar:wifi-router-outline", "success"],
+          ["Online now", summary.data?.online, "solar:wi-fi-router-outline", "success"],
           ["On a trip", summary.data?.onTrip, "solar:scooter-outline", "purple"],
           ["Docs expiring (30d)", summary.data?.docsExpiring30d, "solar:document-add-outline", "warning"],
           ["Open SOS", summary.data?.openSos, "solar:danger-triangle-outline", "danger"],

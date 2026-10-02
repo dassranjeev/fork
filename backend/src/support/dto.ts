@@ -9,6 +9,7 @@ import {
   IsString,
   IsUUID,
   Max,
+  ArrayMaxSize,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -48,16 +49,16 @@ export class CreateTicketDto {
   @IsOptional() @IsUUID() orderId?: string;
   @IsOptional() @IsUUID() restaurantId?: string;
   @IsNotEmpty() @IsString() @MaxLength(200) subject: string;
-  @IsOptional() @IsString() body?: string;
+  @IsOptional() @IsString() @MaxLength(4000) body?: string;
   @IsOptional() @IsIn(Object.values(TicketCategory)) category?: TicketCategory;
-  @IsOptional() @IsArray() attachments?: string[];
-  @IsOptional() @IsArray() tags?: string[];
+  @IsOptional() @IsArray() @ArrayMaxSize(5) @IsString({ each: true }) @MaxLength(500, { each: true }) attachments?: string[];
+  @IsOptional() @IsArray() @ArrayMaxSize(10) @IsString({ each: true }) @MaxLength(40, { each: true }) tags?: string[];
 }
 
 export class TicketMessageDto {
-  @IsNotEmpty() @IsString() body: string;
+  @IsNotEmpty() @IsString() @MaxLength(4000) body: string;
   @IsOptional() @IsBoolean() internal?: boolean;
-  @IsOptional() @IsArray() attachments?: string[];
+  @IsOptional() @IsArray() @ArrayMaxSize(5) @IsString({ each: true }) @MaxLength(500, { each: true }) attachments?: string[];
 }
 
 export class AssignTicketDto {
@@ -126,16 +127,25 @@ export class RejectRefundDto {
 export class ReportIssueDto {
   @IsUUID() orderId: string;
   @IsIn(Object.values(TicketCategory)) category: TicketCategory;
-  @IsOptional() @IsString() description?: string;
-  @IsOptional() @IsArray() itemIds?: string[];
-  @IsOptional() @IsArray() attachments?: string[];
-  @IsOptional() @IsString() deviceFingerprint?: string;
+  @IsOptional() @IsString() @MaxLength(2000) description?: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(50) @IsUUID('all', { each: true }) itemIds?: string[];
+  @IsOptional() @IsArray() @ArrayMaxSize(5) @IsString({ each: true }) @MaxLength(500, { each: true }) attachments?: string[];
+  @IsOptional() @IsString() @MaxLength(200) deviceFingerprint?: string;
 }
 
 // ------------------------------------------------------------------ canned replies
+export class UpdateCannedReplyDto {
+  @IsOptional() @IsString() @MaxLength(120) title?: string;
+  @IsOptional() @IsString() @MaxLength(4000) body?: string;
+  @IsOptional() @IsIn(Object.values(TicketCategory)) category?: TicketCategory;
+  @IsOptional() @IsIn(['ANY', 'CUSTOMER', 'RESTAURANT', 'DRIVER']) audience?: string;
+  @IsOptional() @IsString() @MaxLength(40) shortcut?: string;
+  @IsOptional() @IsBoolean() active?: boolean;
+}
+
 export class CannedReplyDto {
-  @IsNotEmpty() @IsString() title: string;
-  @IsNotEmpty() @IsString() body: string;
+  @IsNotEmpty() @IsString() @MaxLength(120) title: string;
+  @IsNotEmpty() @IsString() @MaxLength(4000) body: string;
   @IsOptional() @IsIn(Object.values(TicketCategory)) category?: TicketCategory;
   @IsOptional() @IsIn(['ANY', 'CUSTOMER', 'RESTAURANT', 'DRIVER']) audience?: string;
   @IsOptional() @IsString() shortcut?: string;

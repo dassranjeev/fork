@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import ThemeToggleButton from "../helper/ThemeToggleButton";
 import { useAuth } from "../lib/auth";
@@ -120,7 +120,7 @@ function MenuItem({ item, openKey, setOpenKey, pathname }) {
     return (
       <li>
         <a href={item.href} target="_blank" rel="noopener noreferrer">
-          <Icon icon={item.icon || "solar:circle-outline"} className="menu-icon" />
+          <Icon icon={item.icon || "solar:record-circle-outline"} className="menu-icon" />
           <span>{item.label}</span>
           <Icon icon="solar:arrow-right-up-outline" className="ms-auto" />
         </a>
@@ -131,7 +131,7 @@ function MenuItem({ item, openKey, setOpenKey, pathname }) {
     return (
       <li>
         <NavLink to={item.to} end={item.to === "/" || item.to === "/portal"} className={({ isActive }) => (isActive ? "active-page" : "")}>
-          <Icon icon={item.icon || "solar:circle-outline"} className="menu-icon" />
+          <Icon icon={item.icon || "solar:record-circle-outline"} className="menu-icon" />
           <span>{item.label}</span>
           {item.badge ? <span className="badge bg-danger-600 text-white ms-auto">{item.badge}</span> : null}
         </NavLink>
@@ -147,7 +147,7 @@ function MenuItem({ item, openKey, setOpenKey, pathname }) {
           setOpenKey(open ? "" : key);
         }}
       >
-        <Icon icon={item.icon || "solar:circle-outline"} className="menu-icon" />
+        <Icon icon={item.icon || "solar:record-circle-outline"} className="menu-icon" />
         <span>{item.label}</span>
       </a>
       <ul className="sidebar-submenu" style={{ display: open || isChildActive ? "block" : "none" }}>
@@ -208,7 +208,8 @@ export default function AppShell({ menu, home = "/", portal = "admin", topbarLef
   const doLogout = async () => {
     disconnectSocket();
     await logout();
-    navigate("/sign-in");
+    // hard navigation (replace): drops all in-memory state and the authenticated history entry
+    window.location.replace("/sign-in");
   };
 
   useEffect(() => {

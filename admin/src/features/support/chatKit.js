@@ -1,5 +1,5 @@
 import axios from "axios";
-import { http, tokens, WS_URL } from "../../lib/api";
+import { http, tokens, WS_URL , validateUpload } from "../../lib/api";
 
 /** Seconds -> "m:ss" (or "h:mm:ss"). */
 export function clock(sec) {
@@ -64,6 +64,7 @@ export function chime(kind = "message") {
 
 /** Upload an image. POST /uploads is mounted at the server root in the current backend; fall back to it when /api/v1/uploads is 404. */
 export async function uploadImage(file) {
+  validateUpload(file);
   try {
     return await http.upload(file);
   } catch (e) {

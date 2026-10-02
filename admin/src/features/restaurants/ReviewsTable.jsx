@@ -1,5 +1,5 @@
 import React from "react";
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { Link } from "react-router-dom";
 import { http } from "../../lib/api";
 import { useSubmit } from "../../lib/hooks";

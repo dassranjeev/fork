@@ -66,7 +66,7 @@ Mutations are audit-logged. `DRIVER_STATUS_CHANGED` event emitted on status chan
 | GET | `/documents` | - | `{required[],history[]}` |
 | POST | `/documents` | type,fileUrl (from `/uploads`),fileName?,expiresAt? | document (PENDING) |
 | PATCH | `/documents/:id` | fileUrl,fileName?,expiresAt? | document (reset to PENDING) |
-| PUT | `/bank` | institution,transit,accountNumber (only last 4 kept),holder,debitCardLast4 | masked bank |
+| PUT | `/bank` | **currentPassword (required, re-auth)**,institution,transit,accountNumber (only last 4 kept),holder,debitCardLast4 | masked bank; instant cash-out is held 24 h after a change |
 | PUT | `/tax` | sin (last 3 kept),legalName,address | masked tax info |
 | GET | `/training` | - | modules (quiz without answers) + progress |
 | POST | `/training/:moduleId/quiz` | answers[] (index per question) | `{attempt,passed,score,progress}` |
@@ -81,7 +81,7 @@ Mutations are audit-logged. `DRIVER_STATUS_CHANGED` event emitted on status chan
 | POST | `/trip/:orderId/arrived-restaurant` | lat?,lng? | Order |
 | POST | `/trip/:orderId/picked-up` | code,lat?,lng? | Order (PICKED_UP) |
 | POST | `/trip/:orderId/arrived-customer` | lat?,lng? | Order |
-| POST | `/trip/:orderId/delivered` | proofPhotoUrl?,pin?,note?,lat?,lng? | Order (DELIVERED) |
+| POST | `/trip/:orderId/delivered` | proofPhotoUrl?,pin?,note?,lat?,lng? | Order (DELIVERED). Requires `arrived-customer` first; `pin` is mandatory when the order has `requiresPin`; optional geofence setting `driver.deliveryGeofenceKm` |
 | POST | `/trip/:orderId/call` | party(CUSTOMER/RESTAURANT) | `{sessionId,proxyNumber,expiresAt,provider}` |
 | GET | `/earnings` | - | `{today,week:{trips,basePay,tips,boosts,total},unpaidBalance,lifetimeEarnings,payoutSchedule}` |
 | GET | `/trips` | page,limit,from,to | paginated trip history |

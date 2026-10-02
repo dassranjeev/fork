@@ -1,4 +1,5 @@
-import { Get, Query } from '@nestjs/common';
+import { Get, Query, UseInterceptors } from '@nestjs/common';
+import { ShortCacheInterceptor } from '../common/short-cache.interceptor';
 import { AdminController, CurrentUser, Permission } from '../common/decorators';
 import { Action, Module } from '../common/enums';
 import { AuthUser } from '../common/auth.types';
@@ -7,6 +8,7 @@ import { DashboardService } from './dashboard.service';
 
 /** Admin console landing dashboard (spec §12): `/admin/dashboard`. */
 @AdminController('dashboard')
+@UseInterceptors(ShortCacheInterceptor)
 export class AdminDashboardController {
   constructor(private readonly dashboard: DashboardService) {}
 

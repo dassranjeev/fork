@@ -198,9 +198,11 @@ export class DispatchService implements IDispatchService {
     if (!order) throw new NotFoundException('Order not found');
     if (order.driverId) throw new BadRequestException('This order already has a driver');
 
+    // atomic claim: a double-tap / parallel accept can only succeed once
+    const claim = await this.offers.createQueryBuilder().update(DriverOffer).set({ status: OfferStatus.ACCEPTED, respondedAt: new Date() }).where('id = :id AND status = :p', { id: offerId, p: OfferStatus.PENDING }).execute();
+    if (!claim.affected) throw new BadRequestException('Offer already responded to');
     offer.status = OfferStatus.ACCEPTED;
     offer.respondedAt = new Date();
-    await this.offers.save(offer);
 
     await this.drivers.increment({ id: driverId }, 'offersAccepted', 1).catch(() => undefined);
     await this.acceptance.recomputeSafe(driverId);

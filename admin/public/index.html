@@ -3,6 +3,11 @@
 
 <head>
   <meta charset="utf-8" />
+  <!-- Content Security Policy. Origins that differ per environment come from REACT_APP_CSP_* (see .env.example).
+       frame-ancestors / X-Frame-Options cannot be set from a meta tag: send them as headers (docs/security-frontend.md). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org %REACT_APP_CSP_IMG%; font-src 'self' data:; connect-src 'self' %REACT_APP_CSP_CONNECT%; media-src 'self' blob: %REACT_APP_CSP_IMG%; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self' blob:; manifest-src 'self'; frame-src 'none'" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <script src="/frame-guard.js"></script>
   <link rel="shortcut icon" href="/assets/images/forksy-icon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#000000" />
@@ -15,6 +20,7 @@
 
   <link rel="icon" type="image/svg+xml" href="/assets/images/forksy-icon.svg">
   <!-- remix icon font css  -->
+  <link rel="stylesheet" href="/assets/css/inter.css">
   <link rel="stylesheet" href="/assets/css/remixicon.css">
   <!-- BootStrap css -->
   <link rel="stylesheet" href="/assets/css/lib/bootstrap.min.css">

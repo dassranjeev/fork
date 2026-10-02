@@ -1,0 +1,8 @@
+===== 2FA (TOTP) =====
+TOTP seed stored encrypted at rest: true ( enc1:ai7XQge ...)
+enable -> 201 {"enabled":true}
+login with 2FA on -> requires2fa: true  accessToken issued yet: false
+verify with correct code -> 201 | token works: 200
+REPLAY of the same code -> 401
+8 wrong codes -> 401,401,401,401,429,429,429,429
+pending-2FA temp token used as a normal session -> 401

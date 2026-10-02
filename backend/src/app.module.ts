@@ -4,7 +4,10 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ServeStaticModule } from '@nestjs/serve-static';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { AppThrottlerGuard, throttlerDefinitions } from './common/throttle';
+import { InputSanitizerInterceptor } from './common/input.interceptor';
+import { uploadStaticOptions } from './uploads/uploads.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { join } from 'path';
 import configuration from './config/configuration';
@@ -53,15 +56,24 @@ import { AnalyticsModule } from './analytics/analytics.module';
         synchronize: c.get('db.synchronize'),
         logging: c.get('db.logging'),
         autoLoadEntities: false,
+        // connection pool + per-statement guard rails (slow / injected pg_sleep / runaway analytics queries are killed by the DB)
+        extra: {
+          max: c.get<number>('db.poolMax'),
+          statement_timeout: c.get<number>('db.statementTimeoutMs'),
+          lock_timeout: c.get<number>('db.lockTimeoutMs'),
+          idle_in_transaction_session_timeout: 60_000,
+          connectionTimeoutMillis: 10_000,
+          idleTimeoutMillis: 30_000,
+        },
       }),
     }),
     ScheduleModule.forRoot(),
     EventEmitterModule.forRoot({ global: true, maxListeners: 30 }),
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
+    ThrottlerModule.forRoot({ throttlers: throttlerDefinitions(), errorMessage: 'Too many requests. Please slow down.' }),
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), process.env.UPLOAD_DIR ?? 'uploads'),
       serveRoot: '/uploads',
-      serveStaticOptions: { index: false },
+      serveStaticOptions: uploadStaticOptions,
     }),
 
     AuditModule,
@@ -87,11 +99,12 @@ import { AnalyticsModule } from './analytics/analytics.module';
   ],
   providers: [
     // order matters: authenticate -> account type -> staff permission -> restaurant role
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: AppThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: UserTypesGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_GUARD, useClass: RestaurantRolesGuard },
+    { provide: APP_INTERCEPTOR, useClass: InputSanitizerInterceptor },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],

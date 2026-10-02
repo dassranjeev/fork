@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { Button } from "./basics";
 
 /** Bootstrap-styled modal driven by React state (no bootstrap JS needed). size: sm | md | lg | xl */

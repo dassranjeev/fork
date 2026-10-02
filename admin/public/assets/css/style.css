@@ -61,7 +61,6 @@
     4.13 Overlay Css
     4.14 Position Css
 / ================================= Table Of Contents =================================== **/
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap");
 :root {
   --default-font: ;
   --h1: clamp(2rem, 1.2rem + 4vw, 4.5rem);

@@ -1,0 +1,15 @@
+===== STORED XSS PAYLOADS: AFTER =====
+
+  field                                             result
+  customer name (PATCH /auth/me)                     neutralised                  ["Noah","\">"]
+  address label/line1/dropoffNotes                   neutralised                  ["Home","12 Main St","\"> leave at door alert(1)"]
+  ticket subject/body/tags                           neutralised                  [" help",null]
+  restaurant description (PATCH /restaurant/store)   neutralised                  "Best pizza"
+  menu item name/description/imageUrl                neutralised                  "HTTP 400 \"Invalid input - imageUrl: must be an http(s) URL or site-relative path\""
+  CMS page title/body                                neutralised                  ["Terms","<p>ok</p><a rel=\"noopener noreferrer nofollow\">x</a><img src=\"x\" /><h2>t</h2
+  FAQ question/answer                                neutralised                  ["?","<p>a</p>"]
+  banner title/subtitle/link                         neutralised                  ["","\">","url:https://forksy.ca/deal"]
+  banner link=javascript:                            neutralised                  "HTTP 400 (rejected)"
+  banner imageUrl=javascript:                        neutralised                  "HTTP 400 (rejected)"
+  campaign name/subject/body                         neutralised                  ["","\">"," sale"]
+  promo name/description                             neutralised                  ["",""]

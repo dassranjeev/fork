@@ -78,6 +78,8 @@ export class DriverLocationService implements OnModuleInit {
     const now = Date.now();
     const active = await this.activeOrders(p.driverId);
     const onTrip = active.length > 0;
+    // a driver may only attach GPS to an order that is actually theirs (never a foreign order id => no fake tracking / dispute trail)
+    if (p.orderId && !active.some((o) => o.id === p.orderId)) p.orderId = undefined;
     const at = new Date(now);
 
     // 1. driver profile position (throttled)

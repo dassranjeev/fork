@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { usePagedList } from "../../lib/hooks";
 import { fmtDate, money, timeAgo } from "../../lib/format";
 import { Avatar, Badge, Card, DataTable, FilterSelect, ListToolbar, PageHeader } from "../../ui";

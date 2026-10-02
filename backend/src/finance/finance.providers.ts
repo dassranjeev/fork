@@ -52,7 +52,11 @@ export class FinanceProviders {
   /** Move net funds to a merchant / driver. Throws on failure (caller marks the payout FAILED). */
   async transfer(payout: Payout, destinationAccountId: string | null): Promise<TransferResult> {
     const stripe = this.client();
-    if (!stripe) return { ref: `mock_tr_${randomUUID().slice(0, 12)}`, provider: 'mock' };
+    if (!stripe) {
+      // the mock transfer is a development convenience: in production a payout without a real provider must FAIL, never be marked paid
+      if (process.env.NODE_ENV === 'production') throw new Error('Payout provider (Stripe) is not configured');
+      return { ref: `mock_tr_${randomUUID().slice(0, 12)}`, provider: 'mock' };
+    }
     if (!destinationAccountId) throw new Error('No Stripe Connect account on file for this party');
     const t = await stripe.transfers.create(
       {
@@ -72,7 +76,10 @@ export class FinanceProviders {
    */
   async balanceFor(from: Date, to: Date, mockNet: number): Promise<StripeBalanceResult> {
     const stripe = this.client();
-    if (!stripe) return { net: mockNet, source: 'mock' };
+    if (!stripe) {
+      if (process.env.NODE_ENV === 'production') return { net: 0, source: 'mock', error: 'Stripe is not configured' }; // fail closed: reconciliation cannot pass on mock numbers
+      return { net: mockNet, source: 'mock' };
+    }
     try {
       let total = 0;
       const list = stripe.balanceTransactions.list({

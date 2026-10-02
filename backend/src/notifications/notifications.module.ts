@@ -1,4 +1,6 @@
 import { Body, Delete, Get, Global, Module, Param, Post, Query, Req } from '@nestjs/common';
+import { IsUUID } from 'class-validator';
+import { clampPaging } from '../common/pagination';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { IsIn, IsOptional, IsString } from 'class-validator';
 import { CustomerProfile, DeviceToken, Notification, NotificationTemplate, RestaurantMember, User } from '../database/entities';
@@ -16,6 +18,10 @@ class RegisterDeviceDto {
   @IsOptional() @IsString() fingerprint?: string;
 }
 
+class ReadBodyDto {
+  @IsOptional() @IsUUID() id?: string;
+}
+
 /**
  * Shared inbox + device registration for EVERY app (customer / driver / restaurant / admin).
  * GET /api/v1/notifications, GET /notifications/unread-count, POST /notifications/read, POST /notifications/devices
@@ -28,8 +34,9 @@ class NotificationsInboxController {
 
   @Get()
   async list(@CurrentUser() u: AuthUser, @Query('page') page = '1', @Query('limit') limit = '30') {
-    const [data, total] = await this.svc.inbox(u.id, +page, +limit);
-    return { data, meta: { page: +page, limit: +limit, total, totalPages: Math.max(1, Math.ceil(total / +limit)) } };
+    const pg = clampPaging(page, limit, 100, 30);
+    const [data, total] = await this.svc.inbox(u.id, pg.page, pg.limit);
+    return { data, meta: { page: pg.page, limit: pg.limit, total, totalPages: Math.max(1, Math.ceil(total / pg.limit)) } };
   }
 
   @Get('unread-count')
@@ -38,7 +45,7 @@ class NotificationsInboxController {
   }
 
   @Post('read')
-  async readAll(@CurrentUser() u: AuthUser, @Body() body: { id?: string }) {
+  async readAll(@CurrentUser() u: AuthUser, @Body() body: ReadBodyDto) {
     await this.svc.markRead(u.id, body?.id);
     return { ok: true };
   }

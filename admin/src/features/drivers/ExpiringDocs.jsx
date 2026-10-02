@@ -21,7 +21,7 @@ export default function ExpiringDocs() {
     { key: "status", title: "Status", render: (d) => <StatusBadge status={d.status} /> },
     { key: "expiresAt", title: "Expires", render: (d) => fmtDate(d.expiresAt) },
     { key: "in", title: "Remaining", render: (d) => { const past = new Date(d.expiresAt).getTime() < Date.now(); return <span className={past ? "text-danger-main fw-medium" : ""}>{past ? "Expired " : ""}{timeAgo(d.expiresAt)}</span>; } },
-    { key: "file", title: "", align: "right", render: (d) => d.fileUrl && <a href={fileHref(d.fileUrl)} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-neutral-300 text-primary-light radius-8">View file</a> },
+    { key: "file", title: "", align: "right", render: (d) => d.fileUrl && <a href={fileHref(d.fileUrl)} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-neutral-300 text-primary-light radius-8">View file</a> },
   ];
   return (
     <>

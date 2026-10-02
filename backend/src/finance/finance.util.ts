@@ -30,6 +30,7 @@ function tzOffsetMs(at: Date): number {
 
 /** Instant of 00:00 Toronto time on a YYYY-MM-DD date. */
 export function torontoMidnight(date: string): Date {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) throw new BadRequestException('Dates must be YYYY-MM-DD');
   const [y, m, d] = date.split('-').map(Number);
   const guess = new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
   let res = new Date(guess.getTime() - tzOffsetMs(guess));
@@ -72,14 +73,9 @@ export function flag(v: any): boolean {
   return v === true || v === 'true' || v === '1' || v === 1;
 }
 
-export function csvCell(v: any): string {
-  if (v === null || v === undefined) return '';
-  let s = v instanceof Date ? v.toISOString() : typeof v === 'object' ? JSON.stringify(v) : String(v);
-  // guard against spreadsheet formula injection
-  if (/^[=+@]/.test(s) || (/^-/.test(s) && Number.isNaN(Number(s)))) s = `'${s}`;
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
+export { csvCell } from '../common/csv';
 
+import { csvCell } from '../common/csv';
 export function toCsv(headers: string[], rows: any[][]): string {
   return [headers.map(csvCell).join(','), ...rows.map((r) => r.map(csvCell).join(','))].join('\r\n') + '\r\n';
 }

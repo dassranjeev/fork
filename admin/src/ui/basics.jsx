@@ -1,5 +1,6 @@
 import React from "react";
-import { Icon } from "@iconify/react";
+import { safeImgUrl } from "../lib/safe";
+import { Icon } from "@iconify/react/offline";
 import { Link } from "react-router-dom";
 import { initials, statusColor, titleCase } from "../lib/format";
 
@@ -135,7 +136,7 @@ export function BoolBadge({ value, yes = "Yes", no = "No", invert }) {
 
 export function Avatar({ name, src, size = 40, tone = "primary" }) {
   const style = { width: size, height: size, fontSize: size * 0.4 };
-  if (src) return <img src={src} alt={name} className="rounded-circle object-fit-cover flex-shrink-0" style={style} />;
+  if (safeImgUrl(src)) return <img src={safeImgUrl(src)} alt={name} className="rounded-circle object-fit-cover flex-shrink-0" style={style} />;
   return (
     <span className={`rounded-circle d-inline-flex align-items-center justify-content-center fw-semibold flex-shrink-0 ${TONE_ICON_BG[tone]}`} style={style}>
       {initials(name) || "?"}

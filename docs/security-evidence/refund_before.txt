@@ -1,0 +1,11 @@
+===== REFUND AMOUNT TAMPERING / RACE: BEFORE =====
+order FK-715919 total 343.89 refunds before {"n":0,"s":0,"nan":0}
+  refund amount="abc" -> 201 PROCESSED
+  refund amount="NaN" -> 201 PROCESSED
+  refund amount="1e308" -> 201 PROCESSED
+  refund amount=999999 -> 201 PROCESSED
+  refund amount=-5 -> 400 Refund amount must be positive
+  refund amount=0.001 -> 400 Refund amount must be positive
+refunds after tampering {"n":4,"s":999999,"nan":3}
+  6 concurrent refunds of 240.72 (70% of 343.89) -> 201,201,201,201,201,201
+refunds after race {"n":10,"s":1001443.32,"nan":3}

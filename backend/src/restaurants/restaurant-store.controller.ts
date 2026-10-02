@@ -1,4 +1,4 @@
-import { Body, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { ParseUUIDPipe, Body, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { CurrentUser, RestaurantController, RestaurantRoles } from '../common/decorators';
 import { RestaurantRole } from '../common/enums';
 import { AuthUser } from '../common/auth.types';
@@ -20,6 +20,7 @@ import {
   TabletActivateDto,
   TabletHeartbeatDto,
   UpdateIntegrationDto,
+  UpdateStationDto,
   UpdateStoreDto,
 } from './dto';
 
@@ -39,8 +40,12 @@ export class RestaurantStoreController {
   }
 
   @Get()
-  view(@CurrentUser() user: AuthUser, @Query('restaurantId') restaurantId?: string) {
-    return this.store.view(this.rid(user, restaurantId));
+  async view(@CurrentUser() user: AuthUser, @Query('restaurantId') restaurantId?: string) {
+    const v: any = await this.store.view(this.rid(user, restaurantId));
+    if (user.restaurantRole && MANAGERS.includes(user.restaurantRole)) return v;
+    // cashiers / kitchen staff: no tablet activation code, POS credentials, commission terms or documents
+    const { tabletCode, integrations, documents, commissionTier, commissionTierId, deliveryCommissionPct, pickupCommissionPct, ownDriverCommissionPct, payoutSchedule, hstNumber, ...safe } = v;
+    return safe;
   }
 
   @Patch()
@@ -98,7 +103,7 @@ export class RestaurantStoreController {
 
   @Patch('stations/:stationId')
   @RestaurantRoles(...MANAGERS)
-  updateStation(@CurrentUser() user: AuthUser, @Param('stationId') stationId: string, @Body() dto: Partial<StationDto>, @Query('restaurantId') restaurantId?: string) {
+  updateStation(@CurrentUser() user: AuthUser, @Param('stationId', ParseUUIDPipe) stationId: string, @Body() dto: UpdateStationDto, @Query('restaurantId') restaurantId?: string) {
     return this.store.updateStation(this.rid(user, restaurantId), stationId, dto);
   }
 

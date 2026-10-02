@@ -10,10 +10,11 @@ import { RestaurantRole, UserStatus, UserType } from '../common/enums';
 
 /** Short-lived cache so we don't hit the DB on every request. */
 const CACHE_MS = 10_000;
+type Cached = { at: number; user: AuthUser; tva: number; tv: number };
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  private cache = new Map<string, { at: number; user: AuthUser }>();
+  private cache = new Map<string, Cached>();
 
   constructor(
     config: ConfigService,
@@ -27,7 +28,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: config.get<string>('jwt.secret'),
+      algorithms: ['HS256'], // pinned: no alg=none, no RS/HS confusion
+      issuer: config.get<string>('jwt.issuer'),
+      audience: config.get<string>('jwt.audience'),
     });
+  }
+
+  /** Tokens issued before logout-all / password change / block are dead (iat compared at 1 s resolution). */
+  private assertFresh(payload: JwtPayload, tva: number, tv: number) {
+    if ((payload.tv ?? 0) !== tv) throw new UnauthorizedException('Session expired, sign in again');
+    if (tva && payload.iat !== undefined && payload.iat < Math.floor(tva / 1000)) throw new UnauthorizedException('Session expired, sign in again');
   }
 
   invalidate(userId: string) {
@@ -36,13 +46,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: JwtPayload): Promise<AuthUser & { pending2fa?: boolean }> {
     const hit = this.cache.get(payload.sub);
-    if (hit && Date.now() - hit.at < CACHE_MS) return { ...hit.user, pending2fa: payload.pending2fa, ...(payload.imp ? { impersonatedBy: payload.imp } : {}) };
+    if (hit && Date.now() - hit.at < CACHE_MS) {
+      this.assertFresh(payload, hit.tva, hit.tv);
+      return { ...hit.user, pending2fa: payload.pending2fa, ...(payload.imp ? { impersonatedBy: payload.imp } : {}) };
+    }
 
     const user = await this.users.findOne({ where: { id: payload.sub } });
     if (!user) throw new UnauthorizedException();
     if (user.status === UserStatus.BLOCKED || user.status === UserStatus.DELETED || user.status === UserStatus.SUSPENDED) {
       throw new UnauthorizedException('Account is not active');
     }
+    const tva = user.tokensValidAfter ? user.tokensValidAfter.getTime() : 0;
     const au: AuthUser = {
       id: user.id,
       type: user.type,
@@ -85,7 +99,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         au.restaurantIds = [];
       }
     }
-    this.cache.set(user.id, { at: Date.now(), user: au });
+    const tv = user.tokenVersion ?? 0;
+    this.cache.set(user.id, { at: Date.now(), user: au, tva, tv });
+    this.assertFresh(payload, tva, tv);
     return { ...au, pending2fa: payload.pending2fa, ...(payload.imp ? { impersonatedBy: payload.imp } : {}) };
   }
 }

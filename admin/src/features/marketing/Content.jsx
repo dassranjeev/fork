@@ -1,4 +1,5 @@
 import React from "react";
+import { safeImgUrl } from "../../lib/safe";
 import { http } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { useSubmit } from "../../lib/hooks";
@@ -48,7 +49,7 @@ export function Banners() {
           title: "Banner",
           render: (b) => (
             <div className="d-flex align-items-center gap-3">
-              <img src={b.imageUrl} alt="" width={80} height={44} className="radius-8 object-fit-cover bg-neutral-200" onError={(e) => (e.currentTarget.style.visibility = "hidden")} />
+              <img src={safeImgUrl(b.imageUrl)} alt="" width={80} height={44} className="radius-8 object-fit-cover bg-neutral-200" onError={(e) => (e.currentTarget.style.visibility = "hidden")} />
               <div>
                 <div className="fw-semibold">{b.title}</div>
                 <div className="text-secondary-light text-xs">{b.subtitle}</div>

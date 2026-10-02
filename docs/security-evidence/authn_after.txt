@@ -1,0 +1,11 @@
+===== AUTHENTICATION / SESSION TESTS: AFTER =====
+register -> 201
+[A1] weak passwords rejected?  short1:400  password123:400  aaaaaaaaaaaa:400  NoDigitsHereAtAll:400
+[A2] refresh rotate -> 201; replay of the OLD token -> 401; then the NEW token (family revoked) -> 401
+[A3] old access token before/after password change: 200 -> 401; fresh token returned by change-password: 200
+[A4] access token after logout-all -> 401
+[A5] blocked user: existing token -> 401; new login -> 403
+[A6] forged / limited tokens against /admin/dashboard -> alg=none: 401 | old default secret: 401 | wrong issuer: 401 | expired: 401 | 2FA-pending token on a normal route: 401
+[A7] forgot-password known vs unknown: 201 {"ok":true,"devCode":"<code>"} | 201 {"ok":true}
+[A8] wrong-password login, known vs unknown account (status:time): known:401:365ms  unknown:401:336ms  known:401:376ms  unknown:401:342ms
+[A9] 8 wrong reset codes for one account -> 400,400,400,400,400,429,429,429

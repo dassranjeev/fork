@@ -1,0 +1,7 @@
+===== ACCESS CONTROL / LOGIC ATTACKS: BEFORE =====
+victim order (customer1): placed
+[L9] PATCH /auth/me with walletBalance/type/roleId/passwordHash -> 400 Validation failed
+[L9b] PATCH /customer/profile with same extras -> 400 Validation failed
+     DB row for customer2: {"type":"CUSTOMER","firstName":"Noah","w":0}
+     promo created: 201 
+[L10] 8 concurrent orders using a usageLimit=1/perUserLimit=1 code -> statuses 201,201,201,201,201,201,201,400; orders that got the discount: 7; promo usedCount=7

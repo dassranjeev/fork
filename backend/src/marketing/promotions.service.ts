@@ -207,13 +207,23 @@ export class PromotionsService implements IPromotionsService {
       await this.ds.transaction(async (m) => {
         const existing = await m.findOne(PromoRedemption, { where: { promotionId, orderId } });
         if (existing) return; // idempotent
-        await m.insert(PromoRedemption, { promotionId, customerId, orderId, discount: r2(discount) });
-        await m
+        // serialise redemptions of one promo by one customer (per-user limit), then claim usage/budget atomically in a single UPDATE
+        await m.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`promo:${promotionId}:${customerId}`]);
+        const p = await m.findOne(Promotion, { where: { id: promotionId } });
+        if (!p) throw new BadRequestException('This promo code is no longer available.');
+        if (p.perUserLimit > 0) {
+          const used = await m.count(PromoRedemption, { where: { promotionId, customerId } });
+          if (used >= p.perUserLimit) throw new BadRequestException("You've already used this promo code.");
+        }
+        const d = r2(discount);
+        const claimed = await m
           .createQueryBuilder()
           .update(Promotion)
-          .set({ usedCount: () => '"usedCount" + 1', spent: () => `"spent" + ${r2(discount)}` })
-          .where('id = :id', { id: promotionId })
+          .set({ usedCount: () => '"usedCount" + 1', spent: () => `"spent" + ${d}` })
+          .where('id = :id AND ("usageLimit" IS NULL OR "usedCount" < "usageLimit") AND (budget <= 0 OR "spent" + :d <= budget + 0.005)', { id: promotionId, d })
           .execute();
+        if (!claimed.affected) throw new BadRequestException('This promo code has reached its usage limit.');
+        await m.insert(PromoRedemption, { promotionId, customerId, orderId, discount: d });
       });
     } catch (e: any) {
       this.logger.error(`redeem failed for order ${orderId}: ${e.message}`);

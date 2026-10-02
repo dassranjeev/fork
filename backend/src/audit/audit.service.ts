@@ -4,6 +4,7 @@ import { Brackets, Repository } from 'typeorm';
 import { AuditLog } from '../database/entities';
 import { AuthUser } from '../common/auth.types';
 import { PageQueryDto, paginateQb } from '../common/pagination';
+import { clientIp } from '../common/security';
 
 const SENSITIVE = /password|secret|token|otp|pin|apikey|api_key|authorization|cvc|card/i;
 
@@ -77,7 +78,7 @@ export class AuditService {
       entityId,
       before,
       after,
-      ip: (req?.headers?.['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req?.ip,
+      ip: clientIp(req),
       userAgent: req?.headers?.['user-agent'],
       path: req?.originalUrl,
       method: req?.method,

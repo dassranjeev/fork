@@ -1,4 +1,5 @@
 import { Body, Get, Param, Post } from '@nestjs/common';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { DriverController, CurrentUser } from '../common/decorators';
 import { DispatchService } from './dispatch.service';
 
@@ -7,6 +8,10 @@ import { DispatchService } from './dispatch.service';
  * `/driver/*` portal (per docs/ARCHITECTURE.md: "current offer / accept / decline via DispatchService"). These
  * primitives just forward to DispatchService; DriversModule may add richer trip endpoints alongside these.
  */
+class DeclineBodyDto {
+  @IsOptional() @IsString() @MaxLength(300) reason?: string;
+}
+
 @DriverController('offer')
 export class DriverOfferController {
   constructor(private dispatch: DispatchService) {}
@@ -22,7 +27,7 @@ export class DriverOfferController {
   }
 
   @Post(':id/decline')
-  decline(@Param('id') id: string, @CurrentUser('driverId') driverId: string, @Body('reason') reason?: string) {
-    return this.dispatch.declineOffer(id, driverId, reason);
+  decline(@Param('id') id: string, @CurrentUser('driverId') driverId: string, @Body() dto: DeclineBodyDto) {
+    return this.dispatch.declineOffer(id, driverId, dto.reason);
   }
 }

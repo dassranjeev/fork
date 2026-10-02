@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Patch, Post, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { AuthService } from './auth.service';
 import {
   ChangePasswordDto,
@@ -20,20 +20,21 @@ import {
 } from './dto';
 import { Allow2faPending, CurrentUser, NoImpersonation, Public } from '../common/decorators';
 import { AuthUser } from '../common/auth.types';
+import { clientIp } from '../common/security';
 
 class UpdateProfileDto {
-  @IsOptional() @IsString() firstName?: string;
-  @IsOptional() @IsString() lastName?: string;
-  @IsOptional() @IsString() avatarUrl?: string;
-  @IsOptional() @IsString() language?: string;
+  @IsOptional() @IsString() @MaxLength(80) firstName?: string;
+  @IsOptional() @IsString() @MaxLength(80) lastName?: string;
+  @IsOptional() @IsString() @MaxLength(2048) avatarUrl?: string;
+  @IsOptional() @IsString() @MaxLength(10) language?: string;
 }
 
 class PasswordDto {
-  @IsString() password: string;
+  @IsString() @MaxLength(128) password: string;
 }
 
 const ctx = (req: any) => ({
-  ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip,
+  ip: clientIp(req),
   userAgent: req.headers['user-agent'] as string,
   deviceInfo: req.headers['x-device-info'] as string,
 });
@@ -101,8 +102,9 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Post('logout')
-  logout(@Body() dto: Partial<RefreshDto>) {
+  logout(@Body() dto: RefreshDto) {
     return this.auth.logout(dto.refreshToken);
   }
 
@@ -123,8 +125,8 @@ export class AuthController {
   @Public()
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('reset-password')
-  reset(@Body() dto: ResetPasswordDto) {
-    return this.auth.resetPassword(dto.identifier, dto.code, dto.newPassword);
+  reset(@Body() dto: ResetPasswordDto, @Req() req: any) {
+    return this.auth.resetPassword(dto.identifier, dto.code, dto.newPassword, clientIp(req));
   }
 
   @ApiBearerAuth()

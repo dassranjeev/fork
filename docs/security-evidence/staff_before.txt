@@ -1,0 +1,12 @@
+===== STAFF PRIVILEGE ESCALATION: BEFORE =====
+attacker logged in: true  (role has only staff+roles permissions)
+[S0] attacker -> GET /admin/finance/dashboard (no finance perm): 403
+[S1] PATCH own role to add settings/finance + unlimited refunds -> 200 
+[S1] attacker -> GET /admin/finance/dashboard after self-edit: 200
+[S3] create staff in Finance Manager role -> 201 
+[S4] reset password of Finance Manager account -> 201 temporary password RETURNED: Dhf***
+[S4] reset 2FA of Finance Manager account -> 201
+[S4] login as victim with the stolen temporary password -> 201 ACCOUNT TAKEN OVER
+[S5] revoke sessions of more privileged user -> 201
+[S6] create SUPER_ADMIN -> 403
+[S7] negative refundLimit role (super admin creating) -> 201

@@ -1,4 +1,5 @@
 import { Body, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { CustomerController, CurrentUser } from '../common/decorators';
 import { AuthUser } from '../common/auth.types';
 import { CartService } from './cart.service';
@@ -36,6 +37,7 @@ export class CustomerCartController {
   }
 
   @Post('promo')
+  @Throttle({ default: { limit: 15, ttl: 60_000 } }) // promo code guessing
   setPromo(@CurrentUser() user: AuthUser, @Body() dto: SetPromoDto) {
     return this.cart.setPromo(user.id, dto.code ?? null);
   }
@@ -52,6 +54,7 @@ export class CustomerCheckoutController {
   constructor(private checkout: CheckoutService) {}
 
   @Post('quote')
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
   quote(@CurrentUser() user: AuthUser, @Body() dto: CheckoutQuoteDto) {
     return this.checkout.quote(user.id, dto);
   }

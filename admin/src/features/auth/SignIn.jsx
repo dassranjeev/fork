@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Icon } from "@iconify/react";
+import { safeImgUrl } from "../../lib/safe";
+import { Icon } from "@iconify/react/offline";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { errorMessage, http } from "../../lib/api";
@@ -105,7 +106,7 @@ export default function SignIn() {
       <AuthFrame title={step === "setup" ? "Set up two-factor authentication" : "Two-factor authentication"} subtitle={step === "setup" ? "Two-factor authentication is required for your account." : "Enter the 6-digit code from your authenticator app."}>
         {step === "setup" && qr && (
           <div className="text-center mb-24">
-            <img src={qr.qrCode} alt="2FA QR" style={{ width: 200 }} />
+            <img src={safeImgUrl(qr.qrCode)} alt="2FA QR" style={{ width: 200 }} />
             <p className="text-sm text-secondary-light mt-2 mb-1">Scan with Google Authenticator, Authy or 1Password, or enter this key:</p>
             <code className="user-select-all">{qr.secret}</code>
           </div>
@@ -130,14 +131,14 @@ export default function SignIn() {
           <span className="icon top-50 translate-middle-y">
             <Icon icon="mage:email" />
           </span>
-          <input type="text" className="form-control h-56-px bg-neutral-50 radius-12" placeholder="Email" value={identifier} onChange={(e) => setIdentifier(e.target.value)} autoFocus required />
+          <input type="text" className="form-control h-56-px bg-neutral-50 radius-12" placeholder="Email" name="username" autoComplete="username" value={identifier} onChange={(e) => setIdentifier(e.target.value)} autoFocus required />
         </div>
         <div className="position-relative mb-20">
           <div className="icon-field">
             <span className="icon top-50 translate-middle-y">
               <Icon icon="solar:lock-password-outline" />
             </span>
-            <input type={show ? "text" : "password"} className="form-control h-56-px bg-neutral-50 radius-12" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <input type={show ? "text" : "password"} className="form-control h-56-px bg-neutral-50 radius-12" placeholder="Password" name="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </div>
           <span className="cursor-pointer position-absolute end-0 top-50 translate-middle-y me-16 text-secondary-light" onClick={() => setShow(!show)}>
             <Icon icon={show ? "solar:eye-closed-outline" : "solar:eye-outline"} />

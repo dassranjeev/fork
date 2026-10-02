@@ -118,25 +118,25 @@ export class CheckoutQuoteDto {
   @IsIn(Object.values(OrderType)) type: OrderType;
   @IsOptional() @IsIn(Object.values(FulfilmentMode)) fulfilment?: FulfilmentMode;
   @IsOptional() @IsUUID() addressId?: string;
-  @IsOptional() @IsNumber() lat?: number;
-  @IsOptional() @IsNumber() lng?: number;
-  @IsOptional() @IsNumber() @Min(0) tip?: number;
+  @IsOptional() @IsNumber({ allowNaN: false, allowInfinity: false }) @Min(-90) @Max(90) lat?: number;
+  @IsOptional() @IsNumber({ allowNaN: false, allowInfinity: false }) @Min(-180) @Max(180) lng?: number;
+  @IsOptional() @IsNumber({ allowNaN: false, allowInfinity: false }) @Min(0) @Max(500) tip?: number;
   @IsOptional() @IsBoolean() useWallet?: boolean;
-  @IsOptional() @IsString() promoCode?: string;
+  @IsOptional() @IsString() @MaxLength(40) promoCode?: string;
   @IsOptional() @IsDateString() scheduledFor?: string;
 }
 
 export class PlaceOrderDto extends CheckoutQuoteDto {
   @IsIn(Object.values(PaymentMethod)) paymentMethod: PaymentMethod;
-  @IsOptional() @IsString() paymentToken?: string;
-  @IsOptional() @IsString() giftCardCode?: string;
+  @IsOptional() @IsString() @MaxLength(200) paymentToken?: string;
+  @IsOptional() @IsString() @MaxLength(40) giftCardCode?: string;
   @IsOptional() @IsBoolean() contactless?: boolean;
   @IsOptional() @IsString() @MaxLength(1000) customerNotes?: string;
 }
 
 // ------------------------------------------------------------------ orders
 export class TipDto {
-  @IsNumber() @Min(0) tip: number;
+  @IsNumber({ allowNaN: false, allowInfinity: false }) @Min(0) @Max(500) tip: number;
 }
 
 export class ReviewDto {
@@ -168,13 +168,18 @@ export class DeletionRequestDto {
 
 // ------------------------------------------------------------------ guest checkout
 export class GuestSessionDto {
-  @IsEmail() email: string;
-  @IsOptional() @IsString() phone?: string;
-  @IsOptional() @IsString() firstName?: string;
-  @IsOptional() @IsString() lastName?: string;
+  @IsEmail() @MaxLength(254) email: string;
+  @IsOptional() @IsString() @MaxLength(30) phone?: string;
+  @IsOptional() @IsString() @MaxLength(80) firstName?: string;
+  @IsOptional() @IsString() @MaxLength(80) lastName?: string;
 }
 
 // ------------------------------------------------------------------ admin
+export class DataRequestsQuery extends PageQueryDto {
+  @IsOptional() @IsString() @MaxLength(30) status?: string;
+  @IsOptional() @IsString() @MaxLength(30) type?: string;
+}
+
 export class AdminCustomerListQuery extends PageQueryDto {
   @IsOptional() @IsIn(['true', 'false']) blocked?: string;
   @IsOptional() @IsIn(['true', 'false']) fraudFlag?: string;

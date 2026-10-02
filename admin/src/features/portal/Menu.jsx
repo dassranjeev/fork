@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { Badge, BoolBadge, Button, Card, EmptyState, FormModal, IconButton, MultiCheck, NumberInput, MoneyInput, Select, Switch, TagsInput, Tabs, TextArea, TextInput, useConfirm } from "../../ui";
 import { fmtDateTime, money } from "../../lib/format";
 import { Async, PortalPage, useAction, useApi, usePortalFetch } from "./shared";

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react/offline";
 import { Button, Card, DataTable, ErrorState, IconButton, KeyValue, Loading, PageHeader, StatusBadge, TextArea, FormModal, useConfirm } from "../../ui";
 import { http } from "../../lib/api";
 import { useFetch, useForm, useSubmit } from "../../lib/hooks";

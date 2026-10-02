@@ -14,7 +14,7 @@ import {
   Ticket,
   User,
 } from '../database/entities';
-import { OrderStatus, RefundChargedTo, RefundStatus, RefundType, TicketCategory } from '../common/enums';
+import { OrderStatus, OrderType, PaymentStatus, RefundChargedTo, RefundStatus, RefundType, TicketCategory } from '../common/enums';
 import { haversineKm } from '../common/geo.util';
 import { SettingsService } from '../settings/settings.service';
 import { ChargedTo, round2 } from './support.constants';
@@ -331,7 +331,8 @@ export class OrderContextService {
           totalAmount: amount,
           evidenceNeeded: ['Driver GPS trail', 'Delivery photo'],
           warnings: [...base.warnings, ...(priorDriverClaims ? [`Driver has ${priorDriverClaims} other never-arrived ticket(s) in 60 days`] : []), ...(gps.points === 0 ? ['No GPS points recorded for this trip'] : [])],
-          autoEligible: amount > 0,
+          // never auto-refund an order that is still in progress, was cancelled/rejected, is a pickup order or was not paid: those go to an agent
+          autoEligible: amount > 0 && done && order.type === OrderType.DELIVERY && order.paymentStatus === PaymentStatus.CAPTURED,
           summary: `GPS/photo do not confirm delivery -> full refund charged to ${chargedTo.toLowerCase()}.`,
         };
       }

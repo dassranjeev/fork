@@ -508,10 +508,18 @@ export class PayoutsService implements IPayoutsService {
   }
 
   /** Manual adjustment to a single payout while its batch is still in draft (before Finance Manager approval). */
+  /** Manual money movements above finance.maxManualAdjustment need a Super Admin; NaN / absurd values are refused outright. */
+  private assertAdjustmentAllowed(amount: number, actor: ActorRef & { superAdmin?: boolean }) {
+    if (!Number.isFinite(amount) || Math.abs(amount) > 1_000_000) throw new BadRequestException('Invalid adjustment amount');
+    const max = Number(this.settings.get<number>('finance.maxManualAdjustment', 500));
+    if (Math.abs(amount) > max && !(actor as any).superAdmin) throw new ForbiddenException(`Adjustments above $${max.toFixed(2)} need a Super Admin`);
+  }
+
   async adjustPayout(payoutId: string, amount: number, reason: string, actor: ActorRef): Promise<Payout> {
     if (!reason?.trim()) throw new BadRequestException('A reason is required');
     const delta = r2(amount);
     if (!delta) throw new BadRequestException('Amount must not be zero');
+    this.assertAdjustmentAllowed(delta, actor);
     const p = await this.payouts.findOne({ where: { id: payoutId } });
     if (!p) throw new NotFoundException('Payout not found');
     if (!p.batchId) throw new BadRequestException('Direct payouts cannot be adjusted - use a manual ledger adjustment instead');
@@ -546,10 +554,12 @@ export class PayoutsService implements IPayoutsService {
     if (!b) throw new NotFoundException('Batch not found');
     if (b.status !== BatchStatus.LOCKED) throw new ConflictException(`Batch is ${b.status} - only a LOCKED batch can be approved`);
     if (b.reconciliation && b.reconciliation.resolved === false) throw new BadRequestException('Resolve the Stripe reconciliation gap before approving this batch');
+    // atomic claim: concurrent approvals cannot both pass the status check
+    const claim = await this.batches.createQueryBuilder().update(PayoutBatch).set({ status: BatchStatus.APPROVED, approvedById: actor.id ?? null, approvedAt: new Date() }).where('id = :id AND status = :s', { id: batchId, s: BatchStatus.LOCKED }).execute();
+    if (!claim.affected) throw new ConflictException('This batch was just approved by someone else');
     b.status = BatchStatus.APPROVED;
     b.approvedById = actor.id ?? null;
     b.approvedAt = new Date();
-    await this.batches.save(b);
     await this.payouts.update({ batchId, status: PayoutStatus.PENDING }, { status: PayoutStatus.APPROVED, approvedById: actor.id ?? null });
     return b;
   }
@@ -563,10 +573,15 @@ export class PayoutsService implements IPayoutsService {
     if (!b) throw new NotFoundException('Batch not found');
     if (b.status !== BatchStatus.APPROVED) throw new ConflictException(`Batch is ${b.status} - only an APPROVED batch can be released`);
     if (b.requiresSuperAdmin && !isSuperAdmin) throw new ForbiddenException(`This batch's total (${money(b.total)}) is above the release threshold - only a Super Admin can release it`);
+    // dual control (four eyes): whoever approved the batch may not also release it, unless they are a Super Admin
+    if (this.settings.get<boolean>('finance.requireDualControl', false) && !isSuperAdmin && b.approvedById && actor.id && b.approvedById === actor.id) {
+      throw new ForbiddenException('Dual control: a different person must release a batch you approved');
+    }
+    const claim = await this.batches.createQueryBuilder().update(PayoutBatch).set({ status: BatchStatus.RELEASED, releasedById: actor.id ?? null, releasedAt: new Date() }).where('id = :id AND status = :s', { id: batchId, s: BatchStatus.APPROVED }).execute();
+    if (!claim.affected) throw new ConflictException('This batch was just released by someone else');
     b.status = BatchStatus.RELEASED;
     b.releasedById = actor.id ?? null;
     b.releasedAt = new Date();
-    await this.batches.save(b);
     await this.payouts.update({ batchId, status: PayoutStatus.APPROVED }, { status: PayoutStatus.RELEASED });
     const toSend = await this.payouts.find({ where: { batchId, status: PayoutStatus.RELEASED } });
     for (const p of toSend) {
@@ -649,6 +664,7 @@ export class PayoutsService implements IPayoutsService {
     if (!input.reason?.trim()) throw new BadRequestException('A reason is required');
     const amount = r2(input.amount);
     if (!amount) throw new BadRequestException('Amount must not be zero');
+    this.assertAdjustmentAllowed(amount, actor);
     await this.parties.info(input.partyType, input.partyId);
     await this.ledger.insert({ partyType: input.partyType, partyId: input.partyId, restaurantId: input.restaurantId ?? null, orderId: null, type: LedgerType.ADJUSTMENT, amount, description: input.reason, meta: { manual: true, actorId: actor.id ?? null } } as any);
     return { balance: await this.ledgerSvc.balance(input.partyType, input.partyId) };

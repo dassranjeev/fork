@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Badge, Button, Card, DataTable, FormModal, KeyValue, Modal, NumberInput, StatCard, StatusBadge, Tabs, TextInput, DateInput } from "../../ui";
 import { fmtDate, money, titleCase } from "../../lib/format";
 import { errorMessage } from "../../lib/api";
+import { sanitizeDocument } from "../../lib/safe";
 import { toast } from "react-toastify";
 import { usePagedList } from "../../lib/hooks";
 import { Async, PortalPage, daysAgo, isoDay, useAction, useApi, usePortalFetch } from "./shared";
@@ -158,11 +159,18 @@ function Invoices() {
   const open = async (inv) => {
     const r = await run(inv.id, () => api.get(`/restaurant/finance/invoices/${inv.id}/download`, { format: "html" }));
     if (!r.ok) return;
-    const w = window.open("", "_blank");
-    if (w) {
-      w.document.write(r.data.body);
-      w.document.close();
-    } else saveText(r.data.filename || `${inv.number}.html`, r.data.body, "text/html");
+    // server-generated HTML is sanitised again here (defence in depth) and opened as an inert blob document
+    // with noopener: no window.document.write into a same-origin window, so no access to our storage/tokens.
+    const clean = sanitizeDocument(r.data.body);
+    const url = URL.createObjectURL(new Blob([clean], { type: "text/html" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
   const cols = [
     { key: "number", title: "Invoice", render: (i) => <span className="fw-semibold">{i.number}</span> },

@@ -1,8 +1,13 @@
 import { Body, Delete, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import { IsString, Length, Matches } from 'class-validator';
+import { Throttle } from '@nestjs/throttler';
+import { clampPaging } from '../common/pagination';
+import { clientIp } from '../common/security';
 import { CustomerController, CurrentUser } from '../common/decorators';
 import { AuthUser } from '../common/auth.types';
 import { CustomerAccountService } from './customer-account.service';
 import {
+
   AddressDto,
   DataRequestDto,
   DeletionRequestDto,
@@ -14,8 +19,12 @@ import {
   UpdateProfileDto,
 } from './dto';
 
+class RedeemGiftCardDto {
+  @IsString() @Length(6, 40) @Matches(/^[A-Za-z0-9-]+$/) code: string;
+}
+
 const ctx = (req: any) => ({
-  ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip,
+  ip: clientIp(req),
   userAgent: req.headers['user-agent'] as string,
 });
 
@@ -140,12 +149,14 @@ export class CustomerWalletController {
 
   @Get()
   wallet(@CurrentUser() user: AuthUser, @Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.account.wallet(user.id, page ? +page : 1, limit ? +limit : 20);
+    const pg = clampPaging(page, limit);
+    return this.account.wallet(user.id, pg.page, pg.limit);
   }
 
   @Post('redeem-gift-card')
-  redeem(@CurrentUser() user: AuthUser, @Body('code') code: string) {
-    return this.account.redeemGiftCard(user.id, code);
+  @Throttle({ default: { limit: 5, ttl: 60_000 } }) // gift card codes are guess-resistant, but never let anyone try them at speed
+  redeem(@CurrentUser() user: AuthUser, @Body() dto: RedeemGiftCardDto) {
+    return this.account.redeemGiftCard(user.id, dto.code);
   }
 }
 
@@ -176,6 +187,7 @@ export class CustomerPrivacyController {
   }
 
   @Get('requests/:id/export')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } }) // exports are heavy: 10 per minute per user
   exportRequest(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.account.myDataExport(user.id, id);
   }

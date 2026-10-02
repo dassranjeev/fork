@@ -2,12 +2,17 @@ import React, { useEffect, useMemo } from "react";
 import L from "leaflet";
 import { MapContainer, Marker, Polygon, Polyline, Popup, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import { escapeHtml, safeColor } from "../lib/safe";
 
 export const DEFAULT_CENTER = [43.589, -79.6441]; // Mississauga
 
 // divIcon based coloured pins (avoids bundler issues with leaflet default images)
 const iconCache = {};
 export function pin(color = "#f95a16", glyph = "", size = 30) {
+  // these values end up in an HTML string (L.divIcon): never trust them
+  color = safeColor(color, "#f95a16");
+  glyph = escapeHtml(glyph);
+  size = Number(size) || 30;
   const key = `${color}|${glyph}|${size}`;
   if (!iconCache[key]) {
     iconCache[key] = L.divIcon({
@@ -22,6 +27,8 @@ export function pin(color = "#f95a16", glyph = "", size = 30) {
 }
 
 export function dot(color = "#22c55e", size = 16) {
+  color = safeColor(color, "#22c55e");
+  size = Number(size) || 16;
   const key = `dot|${color}|${size}`;
   if (!iconCache[key]) {
     iconCache[key] = L.divIcon({

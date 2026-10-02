@@ -1,0 +1,17 @@
+===== LOAD / ABUSE TESTS: AFTER =====
+[1] burst of 2000 from one IP  : total=2000 2xx=120 429=1880 5xx=0 non2xx=1880 p99=248ms avg=35ms
+    second client (other IP) during the burst: 9 probes, 9 x 200, max latency 279ms, statuses=200
+[1b] burst of 2000 as one customer: total=2000 2xx=120 429=1880 5xx=0 non2xx=1880 p99=96ms avg=38ms
+     a different customer meanwhile -> 200
+[2] 20 wrong-password logins (rotating X-Forwarded-For): 401,401,401,401,401,429,429,429,429,429,429,429,429,429
+    correct password while locked/throttled -> 429 (Too many requests. Please slow down.)  [generic text, same as for unknown accounts]
+    unknown account -> 429 Too many requests. Please slow down.
+[3a] 300 KB JSON body -> 413
+[3b] 6 MB JSON body -> 413
+[3c] array with 5000 elements -> 400 Invalid input - tags: array longer than 1000
+[3d] 40-level nested JSON -> 400 Invalid input - a.a.a.a.a.a.a.a.a.a.a: nesting deeper than 10
+[3e] 70 KB query string -> 431
+[3f] slowloris (header never completes): connection dropped by server after 34.1 s
+throttled, waiting 62s
+[4] legitimate polling (driver GPS+offer poll every 5 s, dashboard every 5 s, 60 s): 36 requests, 0 throttled
+    dashboard page-load burst of 25 parallel calls -> statuses 200

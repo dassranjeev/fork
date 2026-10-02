@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { safeImgUrl } from "../../lib/safe";
 import { toast } from "react-toastify";
 import { errorMessage, http } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
@@ -38,8 +39,8 @@ export default function Account() {
         </div>
         <div className="col-lg-6">
           <Card title="Change password">
-            <TextInput label="Current password" type="password" {...pw.bind("currentPassword")} />
-            <TextInput label="New password" type="password" {...pw.bind("newPassword")} hint="Minimum 8 characters with letters and numbers. You will be signed out on all devices." />
+            <TextInput label="Current password" type="password" autoComplete="current-password" {...pw.bind("currentPassword")} />
+            <TextInput label="New password" type="password" autoComplete="new-password" {...pw.bind("newPassword")} hint="Minimum 8 characters with letters and numbers. You will be signed out on all devices." />
             <Button loading={busy} disabled={!pw.values.currentPassword || pw.values.newPassword.length < 8} onClick={() => run(async () => { await http.post("/auth/change-password", pw.values); pw.reset({ currentPassword: "", newPassword: "" }); }, { success: "Password changed" })}>
               Update password
             </Button>
@@ -52,7 +53,7 @@ export default function Account() {
             )}
             {twofa && (
               <div className="d-flex flex-wrap gap-4 align-items-center">
-                <img src={twofa.qrCode} alt="QR" style={{ width: 180 }} />
+                <img src={safeImgUrl(twofa.qrCode)} alt="QR" style={{ width: 180 }} />
                 <div style={{ maxWidth: 360 }}>
                   <p className="text-secondary-light text-sm">Scan the QR code, then enter the 6-digit code to confirm. Manual key: <code>{twofa.secret}</code></p>
                   <div className="d-flex gap-2">
@@ -64,7 +65,7 @@ export default function Account() {
             )}
             {user.twoFactorEnabled && (
               <div className="d-flex gap-2 align-items-end" style={{ maxWidth: 480 }}>
-                <TextInput className="mb-0 flex-grow-1" type="password" label="Password to disable" value={disablePw} onChange={setDisablePw} />
+                <TextInput className="mb-0 flex-grow-1" type="password" autoComplete="current-password" label="Password to disable" value={disablePw} onChange={setDisablePw} />
                 <Button variant="outline-danger" loading={busy} disabled={!disablePw} onClick={() => run(async () => { await http.post("/auth/2fa/disable", { password: disablePw }); setDisablePw(""); await reload(); }, { success: "Two-factor disabled" })}>Disable</Button>
               </div>
             )}

@@ -19,6 +19,7 @@ import {
   ApproveRefundDto,
   AssignTicketDto,
   CannedReplyDto,
+  UpdateCannedReplyDto,
   CannedReplyQueryDto,
   CloseTicketDto,
   CreateTicketDto,
@@ -236,7 +237,7 @@ export class AdminSupportController {
 
   @Patch('canned-replies/:id')
   @Permission(Mod.SUPPORT, Action.EDIT)
-  async updateCanned(@Param('id') id: string, @Body() dto: Partial<CannedReplyDto>) {
+  async updateCanned(@Param('id') id: string, @Body() dto: UpdateCannedReplyDto) {
     const row = await this.canned.findOne({ where: { id } });
     if (!row) throw new NotFoundException('Canned reply not found');
     Object.assign(row, dto);

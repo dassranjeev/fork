@@ -10,9 +10,11 @@ import {
   IsInt,
   IsNumber,
   IsOptional,
+  IsNotEmpty,
   IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
   MinLength,
   ValidateNested,
@@ -264,12 +266,14 @@ export class ReplaceDocumentDto {
 }
 
 export class BankDto {
-  @IsOptional() @IsString() institution?: string;
-  @IsOptional() @IsString() transit?: string;
+  /** re-authentication: payout details can only be changed by someone who knows the password */
+  @IsString() @MaxLength(128) currentPassword: string;
+  @IsOptional() @IsString() @MaxLength(10) institution?: string;
+  @IsOptional() @IsString() @MaxLength(10) transit?: string;
   /** full number is never stored - only the last 4 digits are kept */
-  @IsOptional() @IsString() accountNumber?: string;
-  @IsOptional() @IsString() holder?: string;
-  @IsOptional() @IsString() debitCardLast4?: string;
+  @IsOptional() @IsString() @MaxLength(30) accountNumber?: string;
+  @IsOptional() @IsString() @MaxLength(100) holder?: string;
+  @IsOptional() @IsString() @MaxLength(4) debitCardLast4?: string;
 }
 
 export class TaxInfoDto {
@@ -306,20 +310,20 @@ export class DeclineOfferDto {
 }
 
 export class StepDto {
-  @IsOptional() @Type(() => Number) @IsNumber() lat?: number;
-  @IsOptional() @Type(() => Number) @IsNumber() lng?: number;
+  @IsOptional() @Type(() => Number) @IsNumber({ allowNaN: false, allowInfinity: false }) @Min(-90) @Max(90) lat?: number;
+  @IsOptional() @Type(() => Number) @IsNumber({ allowNaN: false, allowInfinity: false }) @Min(-180) @Max(180) lng?: number;
 }
 
 export class PickupDto extends StepDto {
-  /** order code the restaurant shows / reads out */
-  @IsString() code: string;
+  /** order code the restaurant shows / reads out (must not be empty) */
+  @IsString() @IsNotEmpty() @MaxLength(20) code: string;
 }
 
 export class DeliverDto extends StepDto {
-  @IsOptional() @IsString() proofPhotoUrl?: string;
+  @IsOptional() @IsString() @MaxLength(2048) proofPhotoUrl?: string;
   /** customer PIN for high-value orders */
-  @IsOptional() @IsString() pin?: string;
-  @IsOptional() @IsString() note?: string;
+  @IsOptional() @IsString() @MaxLength(10) pin?: string;
+  @IsOptional() @IsString() @MaxLength(500) note?: string;
 }
 
 export class CallDto {
@@ -328,9 +332,9 @@ export class CallDto {
 
 export class SosDto {
   @IsOptional() @IsUUID() orderId?: string;
-  @IsOptional() @Type(() => Number) @IsNumber() lat?: number;
-  @IsOptional() @Type(() => Number) @IsNumber() lng?: number;
-  @IsOptional() @IsString() message?: string;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(-90) @Max(90) lat?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(-180) @Max(180) lng?: number;
+  @IsOptional() @IsString() @MaxLength(500) message?: string;
 }
 
 export class TripQuery extends PageQueryDto {

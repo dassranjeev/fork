@@ -50,6 +50,31 @@ export const tokens = {
   },
 };
 
+/**
+ * Remove EVERY app key (forksy.*) from localStorage and sessionStorage: tokens, impersonation, cached UI state,
+ * last-activity marker. Called on logout / idle timeout. The (non sensitive) theme preference is kept.
+ */
+export function clearAppStorage() {
+  for (const store of [localStorage, sessionStorage]) {
+    try {
+      Object.keys(store)
+        .filter((k) => k.startsWith("forksy."))
+        .forEach((k) => store.removeItem(k));
+    } catch {
+      /* storage unavailable */
+    }
+  }
+}
+
+export const UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
+export const UPLOAD_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "application/pdf"];
+/** Client-side upload guard (defence in depth; the server must enforce the same). Throws an Error with a user message. */
+export function validateUpload(file) {
+  if (!file) throw new Error("No file selected");
+  if (file.size > UPLOAD_MAX_BYTES) throw new Error("File is too large (max 10 MB)");
+  if (!UPLOAD_TYPES.includes(file.type)) throw new Error("Only PNG, JPEG, WebP, GIF images or PDF files are allowed");
+}
+
 const api = axios.create({ baseURL: API_URL, timeout: 30000 });
 
 api.interceptors.request.use((config) => {
@@ -144,6 +169,7 @@ export const http = {
   },
   /** upload one file to POST /uploads -> { url } */
   async upload(file) {
+    validateUpload(file);
     const fd = new FormData();
     fd.append("file", file);
     return api.post("/uploads", fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);

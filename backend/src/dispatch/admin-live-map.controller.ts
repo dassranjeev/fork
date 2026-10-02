@@ -1,4 +1,6 @@
 import { BadRequestException, Body, Get, Param, Post, Query } from '@nestjs/common';
+import { IsIn, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
+import { clampPaging } from '../common/pagination';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AdminController, CurrentUser, Permission } from '../common/decorators';
@@ -17,8 +19,25 @@ import { OrderFlagConfig } from './dispatch.types';
 
 const LIVE_STATUSES = [OrderStatus.PLACED, OrderStatus.ACCEPTED, OrderStatus.DRIVER_ASSIGNED, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.PICKED_UP, OrderStatus.ON_THE_WAY];
 
+class AssignBodyDto {
+  @IsUUID() driverId: string;
+  @IsOptional() @IsNumber({ allowNaN: false, allowInfinity: false }) @Min(0) @Max(50) boost?: number;
+}
+class ReassignBodyDto {
+  @IsUUID() driverId: string;
+  @IsOptional() @IsString() @MaxLength(500) reason?: string;
+}
+class UnassignBodyDto {
+  @IsOptional() @IsString() @MaxLength(500) reason?: string;
+}
+class OfferAltBodyDto {
+  @IsIn(['CREDIT', 'PICKUP_OFFER']) type: 'CREDIT' | 'PICKUP_OFFER';
+  @IsOptional() @IsNumber({ allowNaN: false, allowInfinity: false }) @Min(0.01) @Max(100) amount?: number;
+  @IsOptional() @IsString() @MaxLength(500) reason?: string;
+}
+
 function actorFor(user: AuthUser): ActorRef & { staff: boolean; refundLimit: number | null; supportApproved: boolean } {
-  return { type: ActorType.STAFF, id: user.id, name: user.name, staff: true, refundLimit: user.roleName === 'SUPER_ADMIN' ? null : user.refundLimit ?? null, supportApproved: true };
+  return { type: ActorType.STAFF, id: user.id, name: user.name, staff: true, refundLimit: (user.type as string) === 'SUPER_ADMIN' ? null : user.refundLimit ?? null, supportApproved: true };
 }
 
 /** SOP: dispatcher live operations map (spec 5.4 / admin console) - snapshot + manual dispatch tools. */
@@ -108,13 +127,13 @@ export class AdminLiveMapController {
   @Get('orders/:id/candidates')
   @Permission(Module.LIVE_MAP, Action.VIEW)
   candidates(@Param('id') id: string, @Query('limit') limit?: string) {
-    return this.dispatch.candidates(id, limit ? Number(limit) : 10);
+    return this.dispatch.candidates(id, clampPaging(1, limit, 50, 10).limit);
   }
 
   @Post('orders/:id/assign')
   @Permission(Module.OPERATIONS, Action.EDIT)
-  async assign(@Param('id') id: string, @CurrentUser() user: AuthUser, @Body('driverId') driverId: string, @Body('boost') boost?: number) {
-    if (!driverId) throw new BadRequestException('driverId is required');
+  async assign(@Param('id') id: string, @CurrentUser() user: AuthUser, @Body() dto: AssignBodyDto) {
+    const { driverId, boost } = dto;
     const order = await this.dispatch.assignManually(id, driverId, actorFor(user), { boost });
     await this.audit.log({ actor: user, action: 'dispatch.manual_assign', entity: 'Order', entityId: id, after: { driverId, boost } });
     return order;
@@ -122,8 +141,8 @@ export class AdminLiveMapController {
 
   @Post('orders/:id/reassign')
   @Permission(Module.OPERATIONS, Action.EDIT)
-  async reassign(@Param('id') id: string, @CurrentUser() user: AuthUser, @Body('driverId') driverId: string, @Body('reason') reason?: string) {
-    if (!driverId) throw new BadRequestException('driverId is required');
+  async reassign(@Param('id') id: string, @CurrentUser() user: AuthUser, @Body() dto: ReassignBodyDto) {
+    const { driverId, reason } = dto;
     await this.ordersSvc.unassignDriver(id, actorFor(user), reason ?? 'Reassigned by dispatcher');
     const order = await this.dispatch.assignManually(id, driverId, actorFor(user));
     await this.audit.log({ actor: user, action: 'dispatch.reassign', entity: 'Order', entityId: id, after: { driverId, reason } });
@@ -133,7 +152,8 @@ export class AdminLiveMapController {
   /** Take the driver off the order and put it back into automatic dispatch (the removed driver is not re-offered). READY orders keep status READY. */
   @Post('orders/:id/unassign')
   @Permission(Module.OPERATIONS, Action.EDIT)
-  async unassign(@Param('id') id: string, @CurrentUser() user: AuthUser, @Body('reason') reason?: string) {
+  async unassign(@Param('id') id: string, @CurrentUser() user: AuthUser, @Body() dto: UnassignBodyDto) {
+    const reason = dto.reason;
     const order = await this.ordersSvc.unassignDriver(id, actorFor(user), reason ?? 'Unassigned by dispatcher', { redispatch: true });
     await this.audit.log({ actor: user, action: 'dispatch.unassign', entity: 'Order', entityId: id, after: { reason } });
     return order;
@@ -153,10 +173,9 @@ export class AdminLiveMapController {
   async offerAlternative(
     @Param('id') id: string,
     @CurrentUser() user: AuthUser,
-    @Body('type') type: 'CREDIT' | 'PICKUP_OFFER',
-    @Body('amount') amount?: number,
-    @Body('reason') reason?: string,
+    @Body() dto: OfferAltBodyDto,
   ) {
+    const { type, amount, reason } = dto;
     const order = await this.ordersSvc.getById(id);
     if (order.driverId) throw new BadRequestException('Order already has a driver assigned');
     if (type === 'CREDIT') {

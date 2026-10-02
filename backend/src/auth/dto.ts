@@ -1,120 +1,122 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsBoolean, IsEmail, IsEnum, IsIn, IsNumber, IsOptional, IsString, Length, MinLength, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsEmail, IsEnum, IsIn, IsNumber, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
 import { VehicleType } from '../common/enums';
 
+const PW = { min: 8, max: 128 };
+
 export class LoginDto {
-  @IsString() identifier: string; // email or phone
-  @IsString() password: string;
+  @IsString() @MaxLength(254) identifier: string; // email or phone
+  @IsString() @MaxLength(PW.max) password: string;
   /** which app is logging in - used to reject wrong account types */
   @IsOptional() @IsIn(['admin', 'restaurant', 'driver', 'customer']) app?: 'admin' | 'restaurant' | 'driver' | 'customer';
-  @IsOptional() @IsString() deviceInfo?: string;
+  @IsOptional() @IsString() @MaxLength(200) deviceInfo?: string;
 }
 
 export class TwoFactorVerifyDto {
-  @IsString() tempToken: string;
-  @IsString() @Length(6, 6) code: string;
+  @IsString() @MaxLength(2048) tempToken: string;
+  @IsString() @Length(6, 6) @Matches(/^\d{6}$/) code: string;
 }
 
 export class TwoFactorEnableDto {
-  @IsString() @Length(6, 6) code: string;
+  @IsString() @Length(6, 6) @Matches(/^\d{6}$/) code: string;
 }
 
 export class RefreshDto {
-  @IsString() refreshToken: string;
+  @IsString() @MaxLength(200) refreshToken: string;
 }
 
 export class ChangePasswordDto {
-  @IsString() currentPassword: string;
-  @IsString() @MinLength(8) newPassword: string;
+  @IsString() @MaxLength(PW.max) currentPassword: string;
+  @IsString() @MinLength(PW.min) @MaxLength(PW.max) newPassword: string;
 }
 
 export class ForgotPasswordDto {
-  @IsString() identifier: string;
+  @IsString() @MaxLength(254) identifier: string;
 }
 
 export class ResetPasswordDto {
-  @IsString() identifier: string;
-  @IsString() code: string;
-  @IsString() @MinLength(8) newPassword: string;
+  @IsString() @MaxLength(254) identifier: string;
+  @IsString() @MaxLength(12) code: string;
+  @IsString() @MinLength(PW.min) @MaxLength(PW.max) newPassword: string;
 }
 
 export class OtpRequestDto {
-  @IsString() phone: string;
+  @IsString() @MaxLength(30) phone: string;
   @IsOptional() @IsIn(['customer', 'driver', 'restaurant']) app?: 'customer' | 'driver' | 'restaurant';
 }
 
 export class OtpVerifyDto {
-  @IsString() phone: string;
+  @IsString() @MaxLength(30) phone: string;
   @IsString() @Length(4, 8) code: string;
   @IsOptional() @IsIn(['customer', 'driver', 'restaurant']) app?: 'customer' | 'driver' | 'restaurant';
   /** when the phone is new, these create a customer account */
-  @IsOptional() @IsString() firstName?: string;
-  @IsOptional() @IsString() lastName?: string;
-  @IsOptional() @IsEmail() email?: string;
-  @IsOptional() @IsString() referralCode?: string;
-  @IsOptional() @IsString() deviceInfo?: string;
+  @IsOptional() @IsString() @MaxLength(80) firstName?: string;
+  @IsOptional() @IsString() @MaxLength(80) lastName?: string;
+  @IsOptional() @IsEmail() @MaxLength(254) email?: string;
+  @IsOptional() @IsString() @MaxLength(20) referralCode?: string;
+  @IsOptional() @IsString() @MaxLength(200) deviceInfo?: string;
 }
 
 export class CustomerRegisterDto {
-  @IsString() firstName: string;
-  @IsString() lastName: string;
-  @IsOptional() @IsEmail() email?: string;
-  @IsOptional() @IsString() phone?: string;
-  @IsString() @MinLength(8) password: string;
-  @IsOptional() @IsString() referralCode?: string;
+  @IsString() @MaxLength(80) firstName: string;
+  @IsString() @MaxLength(80) lastName: string;
+  @IsOptional() @IsEmail() @MaxLength(254) email?: string;
+  @IsOptional() @IsString() @MaxLength(30) phone?: string;
+  @IsString() @MinLength(PW.min) @MaxLength(PW.max) password: string;
+  @IsOptional() @IsString() @MaxLength(20) referralCode?: string;
   @IsOptional() @IsBoolean() marketingEmailConsent?: boolean;
   @IsOptional() @IsBoolean() marketingSmsConsent?: boolean;
-  @IsOptional() @IsString() language?: string;
+  @IsOptional() @IsString() @MaxLength(10) language?: string;
 }
 
 export class SocialLoginDto {
   @IsIn(['google', 'apple']) provider: 'google' | 'apple';
-  @IsString() idToken: string;
-  @IsOptional() @IsString() firstName?: string;
-  @IsOptional() @IsString() lastName?: string;
-  @IsOptional() @IsString() referralCode?: string;
+  @IsString() @MaxLength(4096) idToken: string;
+  @IsOptional() @IsString() @MaxLength(80) firstName?: string;
+  @IsOptional() @IsString() @MaxLength(80) lastName?: string;
+  @IsOptional() @IsString() @MaxLength(20) referralCode?: string;
 }
 
 export class DriverRegisterDto {
-  @IsString() firstName: string;
-  @IsString() lastName: string;
-  @IsString() phone: string;
-  @IsEmail() email: string;
-  @IsString() @MinLength(8) password: string;
+  @IsString() @MaxLength(80) firstName: string;
+  @IsString() @MaxLength(80) lastName: string;
+  @IsString() @MaxLength(30) phone: string;
+  @IsEmail() @MaxLength(254) email: string;
+  @IsString() @MinLength(PW.min) @MaxLength(PW.max) password: string;
   /** phone OTP obtained from /auth/otp/request (purpose SIGNUP) */
-  @IsString() otpCode: string;
-  @IsString() cityId: string;
+  @IsString() @MaxLength(12) otpCode: string;
+  @IsUUID() cityId: string;
   @IsEnum(VehicleType) vehicleType: VehicleType;
-  @IsOptional() @IsString() vehicleMake?: string;
-  @IsOptional() @IsString() vehicleModel?: string;
-  @IsOptional() @IsString() vehicleColor?: string;
-  @IsOptional() @IsString() licensePlate?: string;
-  @IsOptional() @IsString() language?: string;
+  @IsOptional() @IsString() @MaxLength(60) vehicleMake?: string;
+  @IsOptional() @IsString() @MaxLength(60) vehicleModel?: string;
+  @IsOptional() @IsString() @MaxLength(40) vehicleColor?: string;
+  @IsOptional() @IsString() @MaxLength(20) licensePlate?: string;
+  @IsOptional() @IsString() @MaxLength(10) language?: string;
 }
 
 export class RestaurantApplyDto {
   // owner
-  @IsString() ownerFirstName: string;
-  @IsString() ownerLastName: string;
-  @IsEmail() email: string;
-  @IsString() phone: string;
-  @IsString() @MinLength(8) password: string;
+  @IsString() @MaxLength(80) ownerFirstName: string;
+  @IsString() @MaxLength(80) ownerLastName: string;
+  @IsEmail() @MaxLength(254) email: string;
+  @IsString() @MaxLength(30) phone: string;
+  @IsString() @MinLength(PW.min) @MaxLength(PW.max) password: string;
   // business
-  @IsString() businessName: string;
-  @IsOptional() @IsString() legalName?: string;
-  @IsOptional() @IsString() hstNumber?: string;
+  @IsString() @MaxLength(150) businessName: string;
+  @IsOptional() @IsString() @MaxLength(150) legalName?: string;
+  @IsOptional() @IsString() @MaxLength(40) hstNumber?: string;
   // location
-  @IsString() restaurantName: string;
-  @IsString() addressLine1: string;
-  @IsOptional() @IsString() addressLine2?: string;
-  @IsString() city: string;
-  @IsOptional() @IsString() province?: string;
-  @IsString() postalCode: string;
-  @IsOptional() @IsNumber() lat?: number;
-  @IsOptional() @IsNumber() lng?: number;
-  @IsOptional() @IsArray() cuisineIds?: string[];
-  @IsOptional() @IsString() description?: string;
-  @IsOptional() @IsString() cityId?: string;
+  @IsString() @MaxLength(150) restaurantName: string;
+  @IsString() @MaxLength(200) addressLine1: string;
+  @IsOptional() @IsString() @MaxLength(200) addressLine2?: string;
+  @IsString() @MaxLength(80) city: string;
+  @IsOptional() @IsString() @MaxLength(40) province?: string;
+  @IsString() @MaxLength(12) postalCode: string;
+  @IsOptional() @IsNumber() @Min(-90) @Max(90) lat?: number;
+  @IsOptional() @IsNumber() @Min(-180) @Max(180) lng?: number;
+  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsUUID('all', { each: true }) cuisineIds?: string[];
+  @IsOptional() @IsString() @MaxLength(2000) description?: string;
+  @IsOptional() @IsUUID() cityId?: string;
   @IsOptional() @IsBoolean() pickupEnabled?: boolean;
   @IsOptional() @IsBoolean() deliveryEnabled?: boolean;
 }

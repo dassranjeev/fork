@@ -1,5 +1,5 @@
 import { BadRequestException, Body, ForbiddenException, Get, Param, Post, Query } from '@nestjs/common';
-import { RestaurantController, CurrentUser, RestaurantRoles } from '../common/decorators';
+import { RestaurantController, CurrentUser, NoImpersonation, RestaurantRoles } from '../common/decorators';
 import { PartyType, RestaurantRole } from '../common/enums';
 import { AuthUser } from '../common/auth.types';
 import { PayoutsService, PayoutQuery } from './payouts.service';
@@ -11,6 +11,7 @@ import { addDays, torontoMidnight } from './finance.util';
 
 /** Restaurant portal: statements, payouts, invoices, bank details (spec §4, "Finance" tab). Scoped to the caller's merchant. */
 @RestaurantController('finance')
+@RestaurantRoles(RestaurantRole.OWNER) // money data is owner-only (managers / cashiers / kitchen get 403)
 export class RestaurantFinanceController {
   constructor(
     private payouts: PayoutsService,
@@ -83,18 +84,21 @@ export class RestaurantFinanceController {
   }
 
   @Post('bank')
+  @NoImpersonation()
   @RestaurantRoles(RestaurantRole.OWNER)
   updateBank(@CurrentUser() user: AuthUser, @Body() dto: BankDetailsDto) {
     return this.parties.updateBank(PartyType.RESTAURANT, this.merchantId(user), dto);
   }
 
   @Post('bank/verify/initiate')
+  @NoImpersonation()
   @RestaurantRoles(RestaurantRole.OWNER)
   initiateBankVerification(@CurrentUser() user: AuthUser) {
     return this.parties.initiateVerification(PartyType.RESTAURANT, this.merchantId(user));
   }
 
   @Post('bank/verify/confirm')
+  @NoImpersonation()
   @RestaurantRoles(RestaurantRole.OWNER)
   confirmBankVerification(@CurrentUser() user: AuthUser, @Body() dto: BankVerifyConfirmDto) {
     return this.parties.confirmVerification(PartyType.RESTAURANT, this.merchantId(user), dto.amounts);

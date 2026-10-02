@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { safeUrl } from "../../lib/safe";
 import { useParams } from "react-router-dom";
 import { Badge, Button, Card, EmptyState, ErrorState, FormModal, KeyValue, Loading, MoneyInput, NumberInput, PageHeader, Select, StatusBadge, Timeline, TextArea, TextInput } from "../../ui";
 import { useFetch, useForm, useSubmit } from "../../lib/hooks";
@@ -98,7 +99,7 @@ export default function CaseDetail() {
       {edit && !finished && <Button variant="light" icon="solar:paperclip-outline" onClick={() => setModal("evidence")}>Add evidence</Button>}
       {edit && !finished && <Button variant="light" icon="solar:letter-outline" onClick={() => setModal("notice")}>{c.noticeSentAt ? "Resend notice" : "Send notice"}</Button>}
       {edit && !finished && <Button variant="light" loading={busy} onClick={dismiss}>Dismiss</Button>}
-      {approve && !finished && <Button icon="solar:gavel-outline" onClick={() => setModal("decide")}>Decide</Button>}
+      {approve && !finished && <Button icon="solar:scale-outline" onClick={() => setModal("decide")}>Decide</Button>}
       {approve && c.appealStatus === "REQUESTED" && <Button variant="warning" onClick={() => setModal("appeal")}>Decide appeal</Button>}
       {approve && decided && !c.finalPayoutDone && ["SUSPENDED", "DEACTIVATED"].includes(c.decision) && <Button variant="outline" onClick={() => setModal("payout")}>Final payout</Button>}
     </>
@@ -132,7 +133,7 @@ export default function CaseDetail() {
                   <div key={i} className="p-12 radius-8 bg-neutral-100">
                     <div className="d-flex gap-2 align-items-center text-xs text-secondary-light mb-4"><Badge>{titleCase(e.type)}</Badge>{e.ref && <span>{e.ref}</span>}{e.at && <span>{fmtDateTime(e.at)}</span>}</div>
                     <div>{e.note}</div>
-                    {e.url && <a href={e.url} target="_blank" rel="noreferrer" className="text-sm">{e.url}</a>}
+                    {e.url && <a href={safeUrl(e.url)} target="_blank" rel="noopener noreferrer" className="text-sm">{e.url}</a>}
                   </div>
                 ))}
               </div>

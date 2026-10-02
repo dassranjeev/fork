@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMinSize, IsArray, IsEnum, IsNumber, IsOptional, IsString, MinLength } from 'class-validator';
+import { ArrayMinSize, IsArray, IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
 import { PartyType } from '../common/enums';
 
 export class GenerateBatchDto {
@@ -21,11 +21,14 @@ export class ResolveGapDto {
 
 export class PayoutAdjustDto {
   @Type(() => Number)
-  @IsNumber()
+  @IsNumber({ allowNaN: false, allowInfinity: false })
+  @Min(-1000000)
+  @Max(1000000)
   amount: number;
 
   @IsString()
   @MinLength(3)
+  @MaxLength(500)
   reason: string;
 }
 
@@ -34,14 +37,18 @@ export class ManualAdjustmentDto {
   partyType: PartyType;
 
   @IsString()
+  @MaxLength(64)
   partyId: string;
 
   @Type(() => Number)
-  @IsNumber()
+  @IsNumber({ allowNaN: false, allowInfinity: false })
+  @Min(-1000000)
+  @Max(1000000)
   amount: number;
 
   @IsString()
   @MinLength(3)
+  @MaxLength(500)
   reason: string;
 
   @IsOptional()
@@ -55,9 +62,16 @@ export class HoldDto {
   reason?: string;
 }
 
+/** PATCH parties/:type/:id/hold - the admin console sends { hold, reason } */
+export class PartyHoldDto extends HoldDto {
+  @IsBoolean()
+  hold: boolean;
+}
+
 export class VoidInvoiceDto {
   @IsString()
   @MinLength(3)
+  @MaxLength(500)
   reason: string;
 }
 

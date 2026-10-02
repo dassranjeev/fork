@@ -1,10 +1,12 @@
 import { Body, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { clampPaging } from '../common/pagination';
 import { AdminController, CurrentUser, Permission } from '../common/decorators';
 import { Action, Module } from '../common/enums';
 import { AuthUser } from '../common/auth.types';
 import { PageQueryDto } from '../common/pagination';
 import { AdminCustomersService } from './admin-customers.service';
-import { ApproveDataRequestDto, BlockCustomerDto, RejectDataRequestDto, SetFlagsDto, SetNotesDto, WalletAdjustDto } from './dto';
+import { AdminCustomerListQuery, ApproveDataRequestDto, BlockCustomerDto, CustomerOrdersQuery, DataRequestsQuery, RejectDataRequestDto, SetFlagsDto, SetNotesDto, WalletAdjustDto } from './dto';
 
 /**
  * Admin console "Customers" section (ARCHITECTURE.md CustomersModule row): list/detail, orders, wallet + manual
@@ -16,14 +18,14 @@ export class AdminCustomersController {
 
   @Get()
   @Permission(Module.CUSTOMERS, Action.VIEW)
-  list(@Query() q: PageQueryDto & { blocked?: string; fraudFlag?: string }) {
+  list(@Query() q: AdminCustomerListQuery) {
     return this.admin.list(q);
   }
 
   // NOTE: static sub-routes must be declared before the ':id' wildcard routes below.
   @Get('data-requests')
   @Permission(Module.CUSTOMERS, Action.VIEW)
-  dataRequests(@Query() q: PageQueryDto & { status?: string; type?: string }) {
+  dataRequests(@Query() q: DataRequestsQuery) {
     return this.admin.dataRequestsList(q);
   }
 
@@ -40,6 +42,7 @@ export class AdminCustomersController {
   }
 
   @Get('data-requests/:id/export')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } }) // exports are heavy: 10 per minute per user
   @Permission(Module.CUSTOMERS, Action.VIEW)
   exportDataRequest(@Param('id') id: string) {
     return this.admin.exportDataRequest(id);
@@ -53,14 +56,15 @@ export class AdminCustomersController {
 
   @Get(':id/orders')
   @Permission(Module.CUSTOMERS, Action.VIEW)
-  orders(@Param('id') id: string, @Query() q: PageQueryDto & { status?: string }) {
+  orders(@Param('id') id: string, @Query() q: CustomerOrdersQuery) {
     return this.admin.ordersOf(id, q);
   }
 
   @Get(':id/wallet')
   @Permission(Module.CUSTOMERS, Action.VIEW)
   wallet(@Param('id') id: string, @Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.admin.walletOf(id, page ? +page : 1, limit ? +limit : 20);
+    const pg = clampPaging(page, limit, 200);
+    return this.admin.walletOf(id, pg.page, pg.limit);
   }
 
   @Post(':id/wallet/adjust')

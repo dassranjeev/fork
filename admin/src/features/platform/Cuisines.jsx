@@ -1,4 +1,5 @@
 import React from "react";
+import { safeImgUrl } from "../../lib/safe";
 import { BoolBadge, FormRow, NumberInput, Switch, TextInput, FileInput } from "../../ui";
 import { CrudPage } from "./crud";
 
@@ -25,7 +26,7 @@ export default function Cuisines() {
           sortable: true,
           render: (r) => (
             <div className="d-flex align-items-center gap-2">
-              {r.iconUrl && <img src={r.iconUrl} alt="" width={24} height={24} className="radius-4" />}
+              {r.iconUrl && <img src={safeImgUrl(r.iconUrl)} alt="" width={24} height={24} className="radius-4" />}
               <span className="fw-semibold">{r.name}</span>
             </div>
           ),

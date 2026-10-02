@@ -2,6 +2,7 @@ import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nes
 import { Observable, tap } from 'rxjs';
 import { AuditService } from './audit.service';
 import { UserType } from '../common/enums';
+import { clientIp } from '../common/security';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -31,7 +32,7 @@ export class AuditInterceptor implements NestInterceptor {
             entity: undefined,
             entityId: req.params?.id,
             after: { params: req.params, body: req.body },
-            ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip,
+            ip: clientIp(req),
             userAgent: req.headers['user-agent'],
             path: url,
             method: req.method,

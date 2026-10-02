@@ -29,7 +29,8 @@ export function useFetch(path, params, { refreshMs, initial = null } = {}) {
       const id = ++seq.current;
       if (!silent) setLoading(true);
       try {
-        const res = await http.get(path, params);
+        // keys starting with "_" only re-trigger the fetch (cache keys) and are never sent to the API (forbidNonWhitelisted)
+        const res = await http.get(path, params ? Object.fromEntries(Object.entries(params).filter(([k]) => !k.startsWith("_"))) : params);
         if (id === seq.current) {
           setData(res);
           setError(null);

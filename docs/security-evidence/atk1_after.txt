@@ -1,0 +1,14 @@
+===== AFTER =====
+[A1] 14 logins with rotating X-Forwarded-For: 401,401,401,401,401,429,429,429,429,429,429,429,429,429
+[A2] 4MB JSON body -> 413 {"statusCode":413,"message":"Request body too large","path":"/api/v1/auth/login"
+[A3] unauthenticated Certn webhook -> 401 {"statusCode":401,"message":"Unauthorized","path":"/api/v1/p
+[A4] /docs-json -> 200
+[A5] headers: x-powered-by= null nosniff= nosniff hsts= null csp= true
+[A6] CORS evil origin -> null
+[A6b] socket.io CORS evil origin -> 400 null
+[A7] alg=none token -> 401
+[A8] forged JWT with secret "change-me-in-production" -> 401
+[A8] forged JWT with secret "change-me-to-a-long-random-string" -> 401
+[A9] 400 GET /health rotating XFF: ok=118 throttled=282
+[A10] 15KB header -> 429
+[A10b] 60KB query -> 431
