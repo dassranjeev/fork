@@ -3,6 +3,7 @@ import { CurrentUser, DriverController } from '../common/decorators';
 import { AuthUser } from '../common/auth.types';
 import { DriverAppService } from './driver-app.service';
 import { DriverOpsService } from './driver-ops.service';
+import { RatingsAdminService } from '../ratings/ratings-admin.service';
 import { AvailableShiftsQuery, SosDto, TripQuery } from './drivers.dto';
 
 /** Earnings, trip history, instant cash-out, shifts, incentives, ratings, heat-map and SOS (spec §5.4-5.7). */
@@ -11,6 +12,7 @@ export class DriverEarningsController {
   constructor(
     private app: DriverAppService,
     private ops: DriverOpsService,
+    private ratingsAdmin: RatingsAdminService,
   ) {}
 
   @Get('earnings')
@@ -54,8 +56,10 @@ export class DriverEarningsController {
   }
 
   @Get('ratings')
-  ratings(@CurrentUser() user: AuthUser) {
-    return this.app.ratingsPerformance(user.driverId!);
+  async ratings(@CurrentUser() user: AuthUser) {
+    const [perf, summary] = await Promise.all([this.app.ratingsPerformance(user.driverId!), this.ratingsAdmin.driverSummary(user.driverId!, false)]);
+    // rating/ratingCount follow the display rule (null + "New" until ratings.minCountToShow reviews); recentReviews keeps its legacy name
+    return { ...perf, ...summary, recentReviews: summary.recent };
   }
 
   @Get('heat-map')

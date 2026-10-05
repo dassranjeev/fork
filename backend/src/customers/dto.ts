@@ -12,13 +12,15 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   Max,
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { FulfilmentMode, OrderType, PaymentMethod } from '../common/enums';
+import { DropoffMethod, FulfilmentMode, OrderType, PaymentMethod } from '../common/enums';
 import { PageQueryDto } from '../common/pagination';
 
 // ------------------------------------------------------------------ profile
@@ -64,7 +66,12 @@ export class AddressDto {
   @IsString() @IsNotEmpty() postalCode: string;
   @IsOptional() @IsNumber() @Min(-90) @Max(90) lat?: number | null;
   @IsOptional() @IsNumber() @Min(-180) @Max(180) lng?: number | null;
-  @IsOptional() @IsString() dropoffNotes?: string | null;
+  /** default delivery instructions for the DRIVER at this address (max 300) */
+  @IsOptional() @IsString() @MaxLength(300) dropoffNotes?: string | null;
+  /** default handoff method at this address */
+  @IsOptional() @IsIn(Object.values(DropoffMethod)) dropoffMethod?: DropoffMethod;
+  /** buzzer / gate code (stored encrypted, masked in lists) */
+  @IsOptional() @Matches(/^[A-Za-z0-9 #*\-_./]{1,40}$/, { message: 'accessCode: up to 40 letters, digits, space and # * - _ . /' }) accessCode?: string | null;
   @IsOptional() @IsBoolean() isDefault?: boolean;
 }
 
@@ -77,7 +84,10 @@ export class UpdateAddressDto {
   @IsOptional() @IsString() postalCode?: string;
   @IsOptional() @IsNumber() @Min(-90) @Max(90) lat?: number | null;
   @IsOptional() @IsNumber() @Min(-180) @Max(180) lng?: number | null;
-  @IsOptional() @IsString() dropoffNotes?: string | null;
+  @IsOptional() @IsString() @MaxLength(300) dropoffNotes?: string | null;
+  @IsOptional() @IsIn(Object.values(DropoffMethod)) dropoffMethod?: DropoffMethod;
+  /** null / empty string clears the saved code */
+  @IsOptional() @ValidateIf((_o, v) => v !== null && v !== '') @Matches(/^[A-Za-z0-9 #*\-_./]{1,40}$/, { message: 'accessCode: up to 40 letters, digits, space and # * - _ . /' }) accessCode?: string | null;
   @IsOptional() @IsBoolean() isDefault?: boolean;
 }
 
@@ -124,6 +134,12 @@ export class CheckoutQuoteDto {
   @IsOptional() @IsBoolean() useWallet?: boolean;
   @IsOptional() @IsString() @MaxLength(40) promoCode?: string;
   @IsOptional() @IsDateString() scheduledFor?: string;
+  /** HAND_TO_ME (default) | LEAVE_AT_DOOR (contactless, photo proof) | MEET_OUTSIDE. Omitted = the chosen address's saved default. */
+  @IsOptional() @IsIn(Object.values(DropoffMethod)) dropoffMethod?: DropoffMethod;
+  /** delivery instructions for the DRIVER, e.g. "Unit 5, use side door, dog in yard" (max 300). NOT the kitchen note. */
+  @IsOptional() @IsString() @MaxLength(300) dropoffNotes?: string;
+  /** buzzer / gate / door code (max 40, sensitive: shown only to the assigned driver after pickup) */
+  @IsOptional() @Matches(/^[A-Za-z0-9 #*\-_./]{1,40}$/, { message: 'accessCode: up to 40 letters, digits, space and # * - _ . /' }) accessCode?: string;
 }
 
 export class PlaceOrderDto extends CheckoutQuoteDto {
@@ -131,7 +147,14 @@ export class PlaceOrderDto extends CheckoutQuoteDto {
   @IsOptional() @IsString() @MaxLength(200) paymentToken?: string;
   @IsOptional() @IsString() @MaxLength(40) giftCardCode?: string;
   @IsOptional() @IsBoolean() contactless?: boolean;
+  /** KITCHEN notes: a note for the restaurant (allergies, no onions...). Delivery instructions go in dropoffNotes. */
   @IsOptional() @IsString() @MaxLength(1000) customerNotes?: string;
+}
+
+export class UpdateDeliveryInstructionsDto {
+  @IsOptional() @IsIn(Object.values(DropoffMethod)) dropoffMethod?: DropoffMethod;
+  @IsOptional() @IsString() @MaxLength(300) dropoffNotes?: string | null;
+  @IsOptional() @ValidateIf((_o, v) => v !== null && v !== '') @Matches(/^[A-Za-z0-9 #*\-_./]{1,40}$/, { message: 'accessCode: up to 40 letters, digits, space and # * - _ . /' }) accessCode?: string | null;
 }
 
 // ------------------------------------------------------------------ orders

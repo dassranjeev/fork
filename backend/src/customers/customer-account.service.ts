@@ -23,6 +23,7 @@ import { AuditService } from '../audit/audit.service';
 import { ExternalServices } from './lazy';
 import { DiscoveryService } from './discovery.service';
 import { DataRequestsService } from './data-requests.service';
+import { cleanAccessCode, cleanNotes, maskCode, openCode, sealCode } from '../orders/delivery-instructions';
 
 export interface AddressInput {
   label?: string;
@@ -34,6 +35,8 @@ export interface AddressInput {
   lat?: number | null;
   lng?: number | null;
   dropoffNotes?: string | null;
+  dropoffMethod?: string;
+  accessCode?: string | null;
   isDefault?: boolean;
 }
 
@@ -157,8 +160,31 @@ export class CustomerAccountService {
   }
 
   // ------------------------------------------------------------------ addresses
-  listAddresses(customerId: string) {
-    return this.ds.getRepository(Address).find({ where: { customerId }, order: { isDefault: 'DESC', createdAt: 'DESC' } });
+  private addressQb() {
+    return this.ds.getRepository(Address).createQueryBuilder('a').addSelect('a.accessCode');
+  }
+
+  /** accessCode in responses: masked in lists, clear only in the owner's single-address GET (never the sealed ciphertext) */
+  private shapeAddress(a: Address, reveal = false) {
+    const raw = (a as any).accessCode as string | null | undefined;
+    return { ...a, accessCode: reveal ? openCode(raw) : maskCode(raw), accessCodeSet: !!raw };
+  }
+
+  async listAddresses(customerId: string) {
+    const rows = await this.addressQb().where('a.customerId = :customerId', { customerId }).orderBy('a.isDefault', 'DESC').addOrderBy('a.createdAt', 'DESC').getMany();
+    return rows.map((a) => this.shapeAddress(a));
+  }
+
+  async getAddress(customerId: string, id: string) {
+    const a = await this.addressQb().where('a.id = :id AND a.customerId = :customerId', { id, customerId }).getOne();
+    if (!a) throw new NotFoundException('Address not found');
+    return this.shapeAddress(a, true);
+  }
+
+  private async maskedAddress(customerId: string, id: string) {
+    const a = await this.addressQb().where('a.id = :id AND a.customerId = :customerId', { id, customerId }).getOne();
+    if (!a) throw new NotFoundException('Address not found');
+    return this.shapeAddress(a);
   }
 
   async createAddress(customerId: string, dto: AddressInput) {
@@ -167,7 +193,7 @@ export class CustomerAccountService {
     const count = await repo.count({ where: { customerId } });
     if (count >= 20) throw new BadRequestException('You can save up to 20 addresses');
     const makeDefault = dto.isDefault || count === 0;
-    return this.ds.transaction(async (em) => {
+    const saved = await this.ds.transaction(async (em) => {
       if (makeDefault) await em.update(Address, { customerId }, { isDefault: false });
       return em.save(
         em.create(Address, {
@@ -180,11 +206,14 @@ export class CustomerAccountService {
           postalCode: dto.postalCode.trim().toUpperCase(),
           lat: dto.lat ?? null,
           lng: dto.lng ?? null,
-          dropoffNotes: dto.dropoffNotes?.trim() || null,
+          dropoffNotes: cleanNotes(dto.dropoffNotes),
+          dropoffMethod: dto.dropoffMethod ?? 'HAND_TO_ME',
+          accessCode: sealCode(cleanAccessCode(dto.accessCode)),
           isDefault: makeDefault,
         }),
       );
     });
+    return this.maskedAddress(customerId, saved.id);
   }
 
   async ownAddress(customerId: string, id: string) {
@@ -202,13 +231,15 @@ export class CustomerAccountService {
     if (dto.postalCode !== undefined) patch.postalCode = dto.postalCode.trim().toUpperCase();
     if (dto.lat !== undefined) patch.lat = dto.lat;
     if (dto.lng !== undefined) patch.lng = dto.lng;
-    if (dto.dropoffNotes !== undefined) patch.dropoffNotes = dto.dropoffNotes?.trim() || null;
+    if (dto.dropoffNotes !== undefined) patch.dropoffNotes = cleanNotes(dto.dropoffNotes);
+    if (dto.dropoffMethod !== undefined) patch.dropoffMethod = dto.dropoffMethod;
+    if (dto.accessCode !== undefined) patch.accessCode = sealCode(cleanAccessCode(dto.accessCode));
     await this.ds.transaction(async (em) => {
       if (dto.isDefault) await em.update(Address, { customerId }, { isDefault: false });
       if (dto.isDefault !== undefined) patch.isDefault = dto.isDefault || a.isDefault;
       if (Object.keys(patch).length) await em.update(Address, id, patch);
     });
-    return this.ownAddress(customerId, id);
+    return this.maskedAddress(customerId, id);
   }
 
   async setDefaultAddress(customerId: string, id: string) {

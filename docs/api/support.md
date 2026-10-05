@@ -74,6 +74,12 @@ Order-level chat with restaurant/driver stays on the existing `/orders/:id/messa
 | POST | /review-cases/:id/respond | response | case (only while AWAITING_RESPONSE) |
 | POST | /review-cases/:id/appeal | notes? | case (only after decision) |
 
+### "Order never arrived" and delivery proof
+`OrderContextService.suggest()` / `SelfServeService.reportIssue()` check the delivery evidence record (docs/proof-of-delivery.md):
+- **Valid proof** (customer PIN verified, or a clean photo inside the geofence with no integrity flag): no auto-refund. The ticket is escalated to Tier 2 with "Proof on file - review required", suggestion action `PROOF_ON_FILE`, evidence in the ticket detail (`orderContext.deliveryProof`).
+- **Missing / weak / flagged proof** (including old orders and a legacy photo URL with no evidence record): the existing refund path applies (charged to platform, or to the driver on repeat claims) and the driver gets a **delivery-dispute strike** (`DriverProfile.deliveryDisputes30d` / `deliveryDisputesTotal`). The SOP-08 detector proposes a DELIVERY_DISPUTES review case at `support.deliveryDisputeStrikeThreshold` strikes in 30 days.
+- Staff record the verdict: `POST /admin/support/tickets/:id/delivery-outcome` `{outcome: UPHELD_DELIVERED|NOT_DELIVERED|INCONCLUSIVE, note?}` (support:edit). UPHELD_DELIVERED reverses the driver strike and adds to the customer's `falseDeliveryClaims`; at `support.falseClaimFlagThreshold` (2) the customer is flagged for review (fraud flag + `FALSE_DELIVERY_CLAIMS`), never auto-banned. NOT_DELIVERED keeps/creates the strike. Changing a verdict undoes the previous side effects.
+
 Background jobs: every minute flags SLA breaches (`slaBreached`, `slaBreachType` FIRST_RESPONSE|RESOLUTION); hourly SOP-08 detector proposes cases (status PROPOSED).
 
 ## Live chat

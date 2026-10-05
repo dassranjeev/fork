@@ -17,6 +17,7 @@ import {
 import { OrderStatus, OrderType, PaymentStatus, RefundChargedTo, RefundStatus, RefundType, TicketCategory } from '../common/enums';
 import { haversineKm } from '../common/geo.util';
 import { SettingsService } from '../settings/settings.service';
+import { ProofService } from '../orders/proof.service';
 import { ChargedTo, round2 } from './support.constants';
 
 export interface SuggestedLine {
@@ -30,7 +31,7 @@ export interface SuggestedLine {
 export interface Suggestion {
   category: TicketCategory;
   rule: string; // spec 9.3 rule name
-  action: 'ITEM_REFUND' | 'FULL_REFUND' | 'DELIVERY_FEE_REFUND_AND_CREDIT' | 'PARTIAL_CREDIT' | 'REVIEW' | 'EVIDENCE_CONTRADICTS' | 'NOT_ELIGIBLE' | 'NONE';
+  action: 'PROOF_ON_FILE' | 'ITEM_REFUND' | 'FULL_REFUND' | 'DELIVERY_FEE_REFUND_AND_CREDIT' | 'PARTIAL_CREDIT' | 'REVIEW' | 'EVIDENCE_CONTRADICTS' | 'NOT_ELIGIBLE' | 'NONE';
   lines: SuggestedLine[];
   totalAmount: number;
   refundableRemaining: number;
@@ -50,6 +51,7 @@ const nameOf = (u?: Pick<User, 'firstName' | 'lastName'> | null) => (u ? `${u.fi
 export class OrderContextService {
   constructor(
     private settings: SettingsService,
+    private proofService: ProofService,
     @InjectRepository(Order) private orders: Repository<Order>,
     @InjectRepository(OrderItem) private items: Repository<OrderItem>,
     @InjectRepository(OrderEvent) private events: Repository<OrderEvent>,
@@ -207,6 +209,8 @@ export class OrderContextService {
         paymentMethod: order.paymentMethod,
         deliveryAddress: order.deliveryAddress,
         contactless: order.contactless,
+        dropoffMethod: order.dropoffMethod,
+        dropoffNotes: order.dropoffNotes,
         requiresPin: order.requiresPin,
         proofPhotoUrl: order.proofPhotoUrl,
         customerNotes: order.customerNotes,
@@ -220,6 +224,7 @@ export class OrderContextService {
   async context(orderId: string) {
     const order = await this.orders.findOne({ where: { id: orderId } });
     if (!order) return null;
+    const proofRow = await this.proofService.find(orderId);
     const [summary, items, timeline, gps, history, refunds] = await Promise.all([
       this.summaryFor(order),
       this.items.find({ where: { orderId }, order: { createdAt: 'ASC' } }),
@@ -233,9 +238,13 @@ export class OrderContextService {
       items: items.map((i) => ({ id: i.id, name: i.name, quantity: i.quantity, unitPrice: i.unitPrice, lineTotal: i.lineTotal, taxAmount: i.taxAmount, modifiers: i.modifiers, notes: i.notes, removed: i.removed })),
       timeline: timeline.map((e) => ({ at: e.createdAt, type: e.type, from: e.fromStatus, to: e.toStatus, actorType: e.actorType, note: e.note })),
       gps,
+      deliveryProof: proofRow ? { ...this.proofService.summary(proofRow), valid: this.proofService.isValid(proofRow), method: proofRow.method, photoLat: proofRow.photoLat, photoLng: proofRow.photoLng, dropoffLat: proofRow.dropoffLat, dropoffLng: proofRow.dropoffLng } : null,
       deliveryEvidence: {
-        proofPhotoUrl: order.proofPhotoUrl,
-        photoPresent: !!order.proofPhotoUrl,
+        proofPhotoUrl: proofRow?.photoFile ? order.proofPhotoUrl : null,
+        photoPresent: !!proofRow?.photoFile && !proofRow.photoPurgedAt,
+        legacyPhotoUnverified: !proofRow && !!order.proofPhotoUrl,
+        proofType: proofRow?.proofType ?? null,
+        proofValid: this.proofService.isValid(proofRow),
         gpsConfirmsDelivery: gps.confirmsDelivery,
         deliveredAt: order.deliveredAt,
         driverArrivedCustomerAt: order.driverArrivedCustomerAt,
@@ -302,8 +311,10 @@ export class OrderContextService {
       }
       case TicketCategory.NEVER_ARRIVED: {
         const gps = await this.gpsEvidence(order);
-        const photo = !!order.proofPhotoUrl;
-        const confirms = gps.confirmsDelivery === true || (photo && done);
+        const proofRow = await this.proofService.find(order.id);
+        const validProof = done && this.proofService.isValid(proofRow);
+        // a legacy photo URL without an evidence record (seeded / pre-proof orders) cannot be verified and does not count
+        const confirms = !validProof && gps.confirmsDelivery === true;
         const priorDriverClaims = order.driverId
           ? await this.tickets
               .createQueryBuilder('t')
@@ -311,6 +322,16 @@ export class OrderContextService {
               .andWhere(excludeTicketId ? 't.id <> :ex' : '1=1', { ex: excludeTicketId })
               .getCount()
           : 0;
+        if (validProof) {
+          return {
+            ...base,
+            rule: 'NEVER_ARRIVED',
+            action: 'PROOF_ON_FILE',
+            evidenceNeeded: ['Delivery proof record', 'Driver GPS trail'],
+            warnings: [...base.warnings, `Proof on file: ${proofRow!.proofType}${proofRow!.pinVerified ? ' (customer PIN verified)' : ''}, ${proofRow!.distanceMeters ?? '?'} m from the drop-off pin`, 'Do not refund automatically; review with the customer'],
+            summary: 'Proof on file - review required. The delivery is backed by a valid evidence record, so no automatic refund is suggested.',
+          };
+        }
         if (confirms) {
           return {
             ...base,

@@ -310,7 +310,8 @@ export class ReplyDto {
 }
 export class ModerateReviewDto {
   @IsIn(['VISIBLE', 'HIDDEN', 'FLAGGED']) status: 'VISIBLE' | 'HIDDEN' | 'FLAGGED';
-  @IsOptional() @IsString() reason?: string;
+  /** required: why the review is hidden / flagged / restored (audit-logged) */
+  @IsString() @MinLength(3) @MaxLength(500) reason: string;
 }
 
 // ------------------------------------------------------------------ documents

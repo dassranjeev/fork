@@ -9,6 +9,7 @@ import { http } from "../../lib/api";
 import { fmtDateTime, money, timeAgo, titleCase } from "../../lib/format";
 import { useSocketEvent } from "../../lib/socket";
 import { CHARGED_TO, SlaBadge, TIERS, tierLabel } from "./shared";
+import { CompactProof } from "../orders/DeliveryProof";
 
 function ReasonSelect({ value, onChange, label = "Reason code", required = true }) {
   const codes = useFetch("/admin/support/reason-codes");
@@ -195,13 +196,14 @@ export default function TicketDetail() {
                 { label: "Driver", value: oc.driver?.name },
                 { label: "Customer", value: oc.customer?.name },
                 { label: "Minutes late", value: oc.order.minutesLate },
-                { label: "Delivery proof", value: oc.deliveryEvidence?.photoPresent ? "Photo on file" : "No photo" },
+                { label: "Delivery proof", value: oc.deliveryProof ? `${titleCase(oc.deliveryProof.proofType)} (${oc.deliveryProof.valid ? "valid" : "weak / flagged"})` : "No proof on file" },
                 { label: "GPS evidence", value: oc.gps?.note || (oc.gps?.confirmsDelivery ? "Confirms delivery" : "Does not confirm") },
               ]} />
               {oc.items?.length > 0 && <div className="mt-16 text-sm">Items: {oc.items.map((i) => `${i.quantity}x ${i.name}`).join(", ")}</div>}
               {oc.refunds?.length > 0 && <div className="mt-16 text-sm">Prior refunds: {oc.refunds.map((r) => `${money(r.amount)} (${titleCase(r.status)})`).join(", ")}</div>}
             </Card>
           )}
+          {oc && <CompactProof ticket={t} orderContext={oc} onChanged={d.reload} />}
         </div>
         <div className="col-lg-4">
           <Card title="Details" className="mb-24">

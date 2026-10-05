@@ -20,6 +20,17 @@ export const tempPassword = () => `Fk${randomBytes(4).toString('hex')}!${Math.fl
 export const restaurantActor = (u: AuthUser): ActorRef => ({ type: ActorType.RESTAURANT, id: u.id, name: u.name });
 export const staffActor = (u: AuthUser): ActorRef => ({ type: ActorType.STAFF, id: u.id, name: u.name });
 
+/**
+ * Restaurant-facing order shape: the kitchen needs the handoff METHOD as information (e.g. "Contactless") but never the customer's delivery PIN,
+ * the driver instructions, the access code or the proof photo.
+ */
+export function restaurantOrderView<T extends Record<string, any>>(o: T): T {
+  if (!o) return o;
+  const { deliveryPin: _p, dropoffNotes: _n, accessCode: _a, proofPhotoUrl: _ph, ...rest } = o as any;
+  if (rest.deliveryAddress) rest.deliveryAddress = { ...rest.deliveryAddress, dropoffNotes: undefined };
+  return rest as T;
+}
+
 /** parse "true"/"1" query strings (implicit conversion turns "false" into true, so query flags are strings). */
 export const flag = (v: unknown) => v === true || v === 'true' || v === '1' || v === 1;
 

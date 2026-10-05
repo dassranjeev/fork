@@ -77,11 +77,11 @@ Mutations are audit-logged. `DRIVER_STATUS_CHANGED` event emitted on status chan
 | GET | `/trip/offer` | - | current pending offer or null (DispatchService) |
 | POST | `/trip/offer/:offerId/accept` | - | Order |
 | POST | `/trip/offer/:offerId/decline` | reason? | `{ok}` |
-| GET | `/trip/active` | - | tracking view (DRIVER-masked) or null |
+| GET | `/trip/active` | - | tracking view (DRIVER-masked) or null. Includes `dropoff:{method,contactless,notes,accessCode,proofRule,proofLabel,exceptionReasons}` (`notes` and `accessCode` only once the food is picked up; the access code never before) and `maskedCall` |
 | POST | `/trip/:orderId/arrived-restaurant` | lat?,lng? | Order |
 | POST | `/trip/:orderId/picked-up` | code,lat?,lng? | Order (PICKED_UP) |
 | POST | `/trip/:orderId/arrived-customer` | lat?,lng? | Order |
-| POST | `/trip/:orderId/delivered` | proofPhotoUrl?,pin?,note?,lat?,lng? | Order (DELIVERED). Requires `arrived-customer` first; `pin` is mandatory when the order has `requiresPin`; optional geofence setting `driver.deliveryGeofenceKm` |
+| POST | `/trip/:orderId/delivered` | pin?, proofPhotoUrl?, lat?, lng?, accuracy?, capturedAt?, exceptionReason? (CUSTOMER_UNREACHABLE/PIN_NOT_AVAILABLE/SAFETY_CONCERN), note? | Order (DELIVERED). Layered proof of delivery, see [proof-of-delivery.md](../proof-of-delivery.md): `arrived-customer` first; HAND_TO_ME / MEET_OUTSIDE need the customer PIN; LEAVE_AT_DOOR needs a photo uploaded by this driver via `POST /uploads` (JPEG/PNG, our URL) with lat, lng, accuracy, capturedAt; delivery location must be within `delivery.proof.geofenceMeters` (403 otherwise; retry or use the exception path = photo + reason, flagged WEAK_PROOF); photo reuse = 409; 5 wrong PINs lock the PIN path |
 | POST | `/trip/:orderId/call` | party(CUSTOMER/RESTAURANT) | `{sessionId,proxyNumber,expiresAt,provider}` |
 | GET | `/earnings` | - | `{today,week:{trips,basePay,tips,boosts,total},unpaidBalance,lifetimeEarnings,payoutSchedule}` |
 | GET | `/trips` | page,limit,from,to | paginated trip history |
@@ -91,7 +91,8 @@ Mutations are audit-logged. `DRIVER_STATUS_CHANGED` event emitted on status chan
 | GET | `/shifts` | - | my shifts |
 | DELETE | `/shifts/:id` | - | cancelled shift |
 | GET | `/incentives` | - | active incentives applicable to me |
-| GET | `/ratings` | - | performance rates + recent reviews |
+| GET | `/ratings` | - | performance rates (as before) plus the rating summary: `{rating or null, ratingLabel, ratingCount, minCountToShow, smoothedRolling, smoothedAllTime, rawAverage, rolling{days,count,average,smoothed}, last30{count,average}, distribution{1..5}, positiveTags[], negativeTags[], trend[{week,count,avg}], recent[{rating,tags,comment,customer (first name only),createdAt}], recentReviews (same list, legacy name)}`; `rating` is `null` with `ratingLabel:'New'` until 5 ratings |
+| POST | `/trip/:orderId/rate-customer` | `{rating 1-5, tags[] (ADDRESS_HARD_TO_FIND, NO_ANSWER, RUDE, ABUSIVE, UNSAFE, LONG_WAIT, FRIENDLY, GOOD_TIPPER, CLEAR_INSTRUCTIONS, EASY_HANDOFF), note? <=500}` | `{ok,orderId,rating,tags}`. Only the order's own FORKSY driver, after DELIVERED, within `ratings.partnerWindowDays` (3), once per order (409). Private: the customer and their average are never returned. Rate limited 10/min |
 | GET | `/heat-map` | - | zone demand/supply (same as admin) |
 | POST | `/sos` | orderId?,lat?,lng?,message? | SosAlert; ops get `sos.alert` |
 | GET | `/sos` | - | my SOS history |
@@ -107,3 +108,13 @@ Driver trip flow works from `READY`: `GET /driver/trip/offer` -> `POST /driver/t
 Admin: `GET /admin/drivers` rows and `GET /admin/drivers/:id` (also under `performance`) carry `acceptance`. `GET /admin/drivers/:id/offers?days=14` (`DRIVERS:VIEW`) returns `{ acceptance, offers: [{ id, orderId, orderCode, outcome (ACCEPTED|DECLINED|EXPIRED|CANCELLED), sentAt, respondedAt, responseSec, declineReason, pickupKm, estimatedPay, score, countedInScore }] }`. Admin console: list column "Acceptance (14d)" (green >= 90, amber 70-89, red < 70) and an acceptance card + offer table on the Performance tab.
 
 New `driver_profiles` columns (additive): `offersAccepted14d`, `offersDeclined14d`, `offersExpired14d`, `offersTotal14d`, `acceptanceUpdatedAt`.
+
+## Ratings admin (`/admin/ratings`)
+| Method | Path | Permission | Response |
+|---|---|---|---|
+| GET | `/admin/ratings/drivers/:driverId` | drivers:view | summary as above plus `alert` (WARN/REVIEW/null) and `recent[]` with review `id,status,flagReasons,moderation,orderCode,customerName` |
+| GET | `/admin/ratings/driver-reviews?status=FLAGGED` or `HIDDEN` | drivers:view | the moderation queue of driver-side ratings |
+| POST | `/admin/ratings/driver-reviews/:id/moderate` | drivers:approve | `{action: HIDE/FLAG/RESTORE, reason (3-500, required)}`; audit-logged (`review.hide`, `review.flag`, `review.restore`); the driver's aggregates update immediately |
+| POST | `/admin/ratings/recompute` | settings:edit | recompute all aggregates now (also nightly 03:00) |
+
+Thresholds: below `ratings.driver.warnBelow` (4.5, 30-day, >= 20 ratings) the driver gets a coaching notification (`rating.driver_warn`) and ops are told; below `ratings.driver.reviewBelow` (4.2) the SOP-08 detector (`support/review-cases.service.ts`, trigger LOW_RATING) also proposes a review case. Dispatch scoring reads the smoothed `rating` ([dispatch.md](dispatch.md)). Policy: [../ratings.md](../ratings.md).

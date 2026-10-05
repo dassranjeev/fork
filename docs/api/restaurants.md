@@ -78,7 +78,9 @@ Requires `restaurants:approve`. Issues a short-lived (1 h) access token, **no re
 | Method & path | Permission | Body / query | Response |
 |---|---|---|---|
 | GET `/reviews` | restaurants:view | `ReviewsQuery{restaurantId?,status?,maxRating?,replied?}` + paging | `{data, meta}` (all restaurants unless `restaurantId` given) |
-| POST `/reviews/:reviewId/moderate` | restaurants:approve | `ModerateReviewDto{status:'VISIBLE'|'HIDDEN'|'FLAGGED', reason?}` | review row; restaurant rating aggregate recomputed |
+| POST `/reviews/:reviewId/moderate` | restaurants:approve | `ModerateReviewDto{status:'VISIBLE'|'HIDDEN'|'FLAGGED', reason (required, 3-500)}` | `{id,side,status,moderation}`; audit-logged, aggregates recomputed immediately. Equivalent: `POST /admin/ratings/restaurant-reviews/:id/moderate {action: HIDE/FLAG/RESTORE, reason}` |
+| GET `/reviews` (staff rows) | restaurants:view | rows add `reportedAt, reportReason, editCount, flagReasons, moderation` | flagged/hidden reviews are excluded from every public rating until restored |
+| GET `/api/v1/admin/ratings/restaurants/:id/summary` | restaurants:view | `?weeks=12` | same shape as the portal summary below, plus `hiddenCount` |
 
 ## Portal - `/api/v1/restaurant/dashboard` (all roles)
 
@@ -194,6 +196,14 @@ All order actions go through `OrdersService.transition` / `removeItem` / `setEta
 |---|---|---|
 | GET `/` | `ReviewsQuery{status?,maxRating?,replied?}` + paging | `{data, meta}` (scoped to the caller's locations) |
 | POST `/:id/reply` | `ReplyDto{reply}` | review row; customer notified |
+| GET `/summary` | `?restaurantId=` | `{rating or null, ratingLabel, ratingCount, minCountToShow, smoothedRolling, smoothedAllTime, rawAverage, rolling{days,count,average,smoothed}, last30{count,average}, distribution{1..5}, positiveTags[], negativeTags[], alert, flaggedCount, repliedCount, totalReviews, trend[{week,count,avg}]}` |
+| POST `/:id/report` | `{reason 5-500}` | `{id,reported:true,status:'FLAGGED'}`. Report an abusive review: it is held back from the public rating for staff review. One report per review (409), max `ratings.restaurant.maxReportsPer30d` (10) per 30 days, own locations only (404 otherwise) |
+
+`GET /` rows add `reportedAt` (internal flag reasons are staff-only). Below `ratings.restaurant.warnBelow` (4.0, 30-day, >= 20 ratings) the owner and ops get `rating.restaurant_warn`.
+
+## Portal - `POST /api/v1/restaurant/orders/:id/rate-customer` (OWNER, LOCATION_MANAGER, CASHIER)
+
+`?restaurantId=` + body `{rating 1-5, tags[], note?}` (same tags as the driver endpoint). The order must belong to the location, be DELIVERED/COLLECTED, within `ratings.partnerWindowDays` (3 days), once per order (409). Private feedback for FORKSY staff; the customer and their average are never returned. Policy: [../ratings.md](../ratings.md).
 
 ## Notes / deferrals
 

@@ -15,6 +15,8 @@ import { seedCustomers, seedCustomersExtra } from '../customers/customers.seed';
 import { seedOrders } from '../orders/orders.seed';
 import { seedSupport } from '../support/support.seed';
 import { seedFinance } from '../finance/finance.seed';
+import { seedRatings } from '../ratings/ratings.seed';
+import { backfillDeliveryInstructions } from '../orders/delivery-backfill';
 
 /** Demo staff (one per default role). Password = demoPassword. */
 const DEMO_STAFF: { email: string; first: string; last: string; role: string }[] = [
@@ -82,6 +84,8 @@ async function main() {
     ['driver offer history (rolling 14-day acceptance)', () => seedDriverOfferHistory(ds, opts)],
     ['support (tickets, cases)', () => seedSupport(ds, opts)],
     ['finance (payout batches, invoices)', () => seedFinance(ds, opts)],
+    ['ratings (varied review distributions, partner feedback, aggregates)', () => seedRatings(ds, opts)],
+    ['delivery instructions (saved address defaults, contactless history backfill)', () => backfillDeliveryInstructions(ds, { demo: opts.demo })],
   ];
   for (const [name, fn] of steps) {
     console.log(`Seeding ${name} ...`);

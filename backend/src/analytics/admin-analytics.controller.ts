@@ -11,6 +11,7 @@ import { DriverPerformanceService } from './driver-performance.service';
 import { FinanceAnalyticsService } from './finance-analytics.service';
 import { SupportAnalyticsService } from './support-analytics.service';
 import { PilotKpisService } from './pilot-kpis.service';
+import { RatingsAnalyticsService } from './ratings-analytics.service';
 
 /**
  * Every other admin dashboard from spec §12 (Live Ops, Executive, Restaurant/Driver Performance,
@@ -28,7 +29,14 @@ export class AdminAnalyticsController {
     private readonly financeSvc: FinanceAnalyticsService,
     private readonly supportSvc: SupportAnalyticsService,
     private readonly pilot: PilotKpisService,
+    private readonly ratingsSvc: RatingsAnalyticsService,
   ) {}
+
+  @Get('ratings')
+  @Permission(Module.REPORTS, Action.VIEW)
+  ratings(@Query() f: AnalyticsFilterDto, @CurrentUser() user: AuthUser) {
+    return this.ratingsSvc.ratings(f, user);
+  }
 
   @Get('live-ops')
   @Permission(Module.REPORTS, Action.VIEW)

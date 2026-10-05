@@ -12,6 +12,8 @@ import { TicketsService } from './tickets.service';
 import { OrderContextService } from './order-context.service';
 import { RefundGateway } from './refund-gateway.service';
 import { ReviewCasesService } from './review-cases.service';
+import { DeliveryDisputesService } from './delivery-disputes.service';
+import { DisputeOutcome } from '../common/enums';
 import { REASON_CODES } from './support.constants';
 import {
   AddEvidenceDto,
@@ -24,6 +26,7 @@ import {
   CloseTicketDto,
   CreateTicketDto,
   DecideCaseDto,
+  DeliveryOutcomeDto,
   EscalateTicketDto,
   FinalPayoutDto,
   OpenReviewCaseDto,
@@ -47,6 +50,7 @@ export class AdminSupportController {
     private orderContext: OrderContextService,
     private refundGateway: RefundGateway,
     private reviewCases: ReviewCasesService,
+    private disputes: DeliveryDisputesService,
     private audit: AuditService,
     @InjectRepository(CannedReply) private canned: Repository<CannedReply>,
     @InjectRepository(Refund) private refunds: Repository<Refund>,
@@ -94,6 +98,13 @@ export class AdminSupportController {
     const suggestion = ticket.orderId ? await this.orderContext.suggest(ticket.orderId, ticket.category, (ticket.meta?.itemIds as string[]) ?? []) : null;
     const [decorated] = await this.tickets.decorate([ticket]);
     return { ticket: decorated, messages, orderContext, suggestion };
+  }
+
+  /** Record the verdict of a "never arrived" dispute; corrects the driver strike and the customer's false-claim counter. */
+  @Post('tickets/:id/delivery-outcome')
+  @Permission(Mod.SUPPORT, Action.EDIT)
+  deliveryOutcome(@Param('id') id: string, @Body() dto: DeliveryOutcomeDto, @CurrentUser() user: AuthUser) {
+    return this.disputes.recordOutcome(id, user, dto.outcome as DisputeOutcome, dto.note);
   }
 
   @Post('tickets')

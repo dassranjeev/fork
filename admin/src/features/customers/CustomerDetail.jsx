@@ -9,6 +9,8 @@ import {
   StatCard, StatusBadge, Tabs, TagsInput, TextArea, TextInput, useConfirm,
 } from "../../ui";
 
+import CustomerRatingsCard from "../ratings/CustomerRatingsCard";
+
 const api = (id, p = "") => `/admin/customers/${id}${p}`;
 
 function OrdersTab({ id }) {
@@ -216,6 +218,7 @@ export default function CustomerDetail() {
     },
     { key: "orders", label: "Orders", badge: p.totalOrders, content: <OrdersTab id={id} /> },
     { key: "wallet", label: "Wallet", content: <WalletTab id={id} reload={reload} /> },
+    { key: "ratings", label: "Ratings received", badge: p.ratingCount || undefined, content: <CustomerRatingsCard customerId={id} /> },
     {
       key: "risk",
       label: "Flags & notes",

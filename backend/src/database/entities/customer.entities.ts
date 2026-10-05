@@ -61,6 +61,24 @@ export class CustomerProfile extends BaseEntity {
   @Column({ default: 0 })
   refundCount30d: number;
 
+  /** "Never arrived" claims that staff rejected because the delivery was proven (UPHELD_DELIVERED). Repeats flag the account for review. */
+  @Column({ default: 0 })
+  falseDeliveryClaims: number;
+
+  // ---- private ratings from drivers/restaurants (staff only, never exposed to customers/partners) ----
+  /** Bayesian-smoothed average of CustomerRating.rating; null until the first rating. */
+  @Column({ type: 'numeric', precision: 6, scale: 3, nullable: true, transformer: { to: (v?: number | null) => v, from: (v?: string | null) => (v == null ? v : parseFloat(v)) } })
+  ratingAvg: number | null;
+
+  @Column({ default: 0 })
+  ratingCount: number;
+
+  @Column({ default: 0 })
+  lowRatingCount30d: number;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  ratingUpdatedAt: Date | null;
+
   @Column({ default: 0 })
   totalOrders: number;
 
@@ -112,6 +130,14 @@ export class Address extends BaseEntity {
 
   @Column({ type: 'text', nullable: true })
   dropoffNotes: string | null;
+
+  /** Saved default handoff for this address (prefills the order when the request omits it). */
+  @Column({ type: 'varchar', default: 'HAND_TO_ME' })
+  dropoffMethod: string;
+
+  /** Buzzer / gate code, sealed with secretbox (never returned in lists). */
+  @Column({ type: 'text', nullable: true, select: false })
+  accessCode: string | null;
 
   @Column({ default: false })
   isDefault: boolean;

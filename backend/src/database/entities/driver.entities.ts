@@ -120,6 +120,23 @@ export class DriverProfile extends BaseEntity {
   @Column({ default: 0 })
   ratingCount: number;
 
+  // ---- ratings system (RatingAggregatesService; `rating` above = smoothed rolling-90-day value) ----
+  @PctColumn({ nullable: true })
+  ratingAllTime: number | null; // Bayesian-smoothed all-time average
+  @PctColumn({ nullable: true })
+  rating90d: number | null; // smoothed rolling 90 days (same value as `rating` once computed)
+  @Column({ default: 0 })
+  ratingCount90d: number;
+  @PctColumn({ nullable: true })
+  rating30d: number | null; // raw rolling-30-day average (used for alerts)
+  @Column({ default: 0 })
+  ratingCount30d: number;
+  /** { distribution:{1..5}, positiveTags:[{tag,count}], negativeTags:[...], trend..., alert } */
+  @Column({ type: 'jsonb', default: {} })
+  ratingStats: Record<string, any>;
+  @Column({ type: 'varchar', nullable: true })
+  ratingAlert: string | null; // WARN | REVIEW | null
+
   @PctColumn({ default: 100 })
   acceptanceRate: number;
 
@@ -156,6 +173,13 @@ export class DriverProfile extends BaseEntity {
 
   @Column({ default: 0 })
   cancellations: number;
+
+  /** Delivery-dispute strikes (never-arrived claims without valid proof, or staff-confirmed NOT_DELIVERED) in the last 30 days; recomputed from meta.deliveryDisputeLog. */
+  @Column({ default: 0 })
+  deliveryDisputes30d: number;
+
+  @Column({ default: 0 })
+  deliveryDisputesTotal: number;
 
   @MoneyColumn()
   lifetimeEarnings: number;

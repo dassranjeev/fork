@@ -61,6 +61,7 @@ export default () => ({
   },
   uploads: {
     dir: process.env.UPLOAD_DIR ?? 'uploads',
+    privateDir: process.env.PRIVATE_UPLOAD_DIR ?? 'private-uploads',
     maxMb: parseInt(process.env.UPLOAD_MAX_MB ?? '10', 10),
   },
   stripe: {

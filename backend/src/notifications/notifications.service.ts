@@ -47,6 +47,24 @@ export const DEFAULT_MESSAGES: Record<string, Partial<Record<Audience, { title: 
     DRIVER: { title: 'Trip complete', body: 'You earned {{earnings}} for order {{code}}.' },
     RESTAURANT: { title: 'Order {{code}} completed', body: 'Order {{code}} was handed off. Ticket closed.' },
   },
+  // ---- ratings (docs/ratings.md) ----
+  'rating.prompt': { CUSTOMER: { title: 'How was your order?', body: 'Tell us about order {{code}} from {{restaurant}}. It takes 10 seconds.' } },
+  'rating.reminder': { CUSTOMER: { title: 'Still thinking about {{restaurant}}?', body: 'Rate order {{code}} before {{closesOn}} - your feedback helps other customers.' } },
+  'rating.prompt_partner': {
+    DRIVER: { title: 'Rate your delivery', body: 'How was the handoff for order {{code}}? Your feedback about the customer is private.' },
+    RESTAURANT: { title: 'Rate the customer', body: 'Anything to share about order {{code}}? Your feedback about the customer is private.' },
+  },
+  'rating.driver_warn': {
+    DRIVER: { title: 'Your rating needs attention', body: 'Your rating over the last 30 days is {{rating}} ({{count}} ratings). {{coaching}}' },
+    ADMIN: { title: 'Driver rating below target', body: '{{subject}} is at {{rating}} over {{count}} ratings in 30 days (target {{threshold}}).' },
+  },
+  'rating.restaurant_warn': {
+    RESTAURANT: { title: 'Your rating needs attention', body: '{{subject}} is rated {{rating}} over the last 30 days ({{count}} ratings). {{coaching}}' },
+    ADMIN: { title: 'Restaurant rating below target', body: '{{subject}} is at {{rating}} over {{count}} ratings in 30 days (target {{threshold}}).' },
+  },
+  'rating.customer_safety': { ADMIN: { title: 'Customer safety flag', body: 'A {{raterType}} reported {{tags}} for customer {{customer}} (order {{code}}). Review the profile.' } },
+  'review.flagged': { ADMIN: { title: 'Review flagged', body: 'A review for {{subject}} was held back from public ratings: {{reasons}}.' } },
+  'review.reported': { ADMIN: { title: 'Review reported by a restaurant', body: '{{subject}} reported a review as abusive: {{reason}}' } },
   'incident.opened': { ADMIN: { title: '{{severity}} incident: {{title}}', body: 'Incident opened ({{severity}}): {{title}}. Update stakeholders every 30 min (SOP-10).' } },
   'incident.resolved': { ADMIN: { title: 'Incident resolved: {{title}}', body: 'Post-incident report due by {{reportDueAt}}.' } },
   'order.late': {

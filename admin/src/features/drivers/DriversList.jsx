@@ -7,6 +7,7 @@ import { act, http } from "../../lib/api";
 import { useFetch, useForm, usePagedList, useSubmit } from "../../lib/hooks";
 import { useAuth } from "../../lib/auth";
 import { num, titleCase } from "../../lib/format";
+import { RatingValue } from "../ratings/shared";
 import { fmtDay as fmtDate } from "./shared";
 import { DRIVER_STATUSES, VEHICLES, acceptanceTone, downloadText, useCities } from "./shared";
 
@@ -73,7 +74,7 @@ export default function DriversList() {
       title: "Live",
       render: (d) => (d.onTrip ? <StatusBadge status="On trip" tone="purple" /> : d.isOnline ? <StatusBadge status="Online" tone="success" /> : <StatusBadge status="Offline" tone="neutral" />),
     },
-    { key: "rating", title: "Rating", render: (d) => (d.ratingCount ? `${Number(d.rating).toFixed(2)} (${d.ratingCount})` : "—") },
+    { key: "rating", title: "Rating", sortable: true, render: (d) => <RatingValue value={d.ratingCount >= 5 ? d.rating : null} count={d.ratingCount || undefined} /> },
     {
       key: "acceptanceRate",
       title: "Acceptance (14d)",

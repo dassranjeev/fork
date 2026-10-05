@@ -1,3 +1,4 @@
+import { ratingDisplay } from '../ratings/ratings.constants';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { Brackets, DataSource, In } from 'typeorm';
@@ -37,6 +38,10 @@ export interface Loc {
   eff: ReturnType<GeoService['effective']>;
 }
 
+/** Numeric score used for sorting/filtering (kept out of the public card so "New" restaurants do not leak a number). */
+const RATING_SCORE = new WeakMap<object, number>();
+const ratingScore = (c: RestaurantCard) => RATING_SCORE.get(c) ?? c.rating ?? 0;
+
 export interface RestaurantCard {
   id: string;
   slug: string;
@@ -44,7 +49,9 @@ export interface RestaurantCard {
   logoUrl: string | null;
   coverUrl: string | null;
   cuisines: string[];
-  rating: number;
+  /** null (with ratingLabel "New") until the restaurant has ratings.minCountToShow reviews */
+  rating: number | null;
+  ratingLabel?: string | null;
   ratingCount: number;
   priceLevel: number;
   distanceKm: number | null;
@@ -184,15 +191,16 @@ export class DiscoveryService {
           const road = roadEstimate(loc.lat, loc.lng, r.lat!, r.lng!);
           eta = deliveryAvailable ? this.availability.prepTime(r) + road.minutes + buffer : this.availability.prepTime(r, true);
         }
-        return {
+        const penalty = this.settings.get<number>('ratings.restaurant.discoveryPenalty', 0);
+        const score = (r.rating ?? 0) * (penalty > 0 && penalty < 1 && r.ratingAlert === 'WARN' ? penalty : 1);
+        const card = {
           id: r.id,
           slug: r.slug,
           name: r.name,
           logoUrl: r.logoUrl,
           coverUrl: r.coverUrl,
           cuisines: (r.cuisines ?? []).map((c) => c.name),
-          rating: r.rating,
-          ratingCount: r.ratingCount,
+          ...ratingDisplay(r.rating, r.ratingCount, this.settings.get<number>('ratings.minCountToShow', 5)),
           priceLevel: r.priceLevel,
           distanceKm: km === null ? null : round2(km),
           etaMinutes: eta,
@@ -213,6 +221,8 @@ export class DiscoveryService {
           isFavorite: opts.favorites?.has(r.id) ?? false,
           promo: this.pickPromo(r, promos),
         } satisfies RestaurantCard;
+        RATING_SCORE.set(card, score);
+        return card;
       }),
     );
   }
@@ -234,7 +244,7 @@ export class DiscoveryService {
     const pickupOnlyStores = cards.filter((c) => c.serviceMode === RestaurantServiceMode.PICKUP_ONLY && c.pickupAvailable);
     const byDistance = (a: RestaurantCard, b: RestaurantCard) => (a.distanceKm ?? 99) - (b.distanceKm ?? 99);
     const openFirst = (a: RestaurantCard, b: RestaurantCard) => Number(b.isOpen) - Number(a.isOpen);
-    const score = (c: RestaurantCard) => c.rating * Math.log(c.ratingCount + 2) + (c.isFeatured ? 3 : 0);
+    const score = (c: RestaurantCard) => ratingScore(c) * Math.log(c.ratingCount + 2) + (c.isFeatured ? 3 : 0);
 
     // popular = rating x volume, boosted by real order volume in the last 30 days
     const orderCounts = await this.ds
@@ -358,7 +368,7 @@ export class DiscoveryService {
     );
     if (openNow) cards = cards.filter((c) => c.isOpen);
     if (prices.length) cards = cards.filter((c) => prices.includes(c.priceLevel));
-    if (minRating !== undefined) cards = cards.filter((c) => c.rating >= minRating);
+    if (minRating !== undefined) cards = cards.filter((c) => ratingScore(c) >= minRating);
     if (maxFee !== undefined) cards = cards.filter((c) => pickupOnly || (c.deliveryFee ?? 0) <= maxFee);
     if (maxEta !== undefined) cards = cards.filter((c) => c.etaMinutes !== null && c.etaMinutes <= maxEta);
     if (cuisineSlugs.length) cards = cards.filter((c) => byId.get(c.id)!.cuisines.some((cu) => cuisineSlugs.includes(cu.slug)));
@@ -421,12 +431,12 @@ export class DiscoveryService {
     const cmp: Record<string, (a: (typeof matched)[number], b: (typeof matched)[number]) => number> = {
       relevance: (a, b) => Number(b.c.isOpen) - Number(a.c.isOpen) || b.s + b.dishCount * 5 - (a.s + a.dishCount * 5) || (a.c.distanceKm ?? 99) - (b.c.distanceKm ?? 99),
       distance: (a, b) => (a.c.distanceKm ?? 99) - (b.c.distanceKm ?? 99),
-      rating: (a, b) => b.c.rating - a.c.rating || b.c.ratingCount - a.c.ratingCount,
+      rating: (a, b) => ratingScore(b.c) - ratingScore(a.c) || b.c.ratingCount - a.c.ratingCount,
       eta: (a, b) => (a.c.etaMinutes ?? 999) - (b.c.etaMinutes ?? 999),
       fee: (a, b) => (a.c.deliveryFee ?? 99) - (b.c.deliveryFee ?? 99),
-      price_low: (a, b) => a.c.priceLevel - b.c.priceLevel || b.c.rating - a.c.rating,
-      price_high: (a, b) => b.c.priceLevel - a.c.priceLevel || b.c.rating - a.c.rating,
-      popular: (a, b) => b.c.ratingCount * b.c.rating - a.c.ratingCount * a.c.rating,
+      price_low: (a, b) => a.c.priceLevel - b.c.priceLevel || ratingScore(b.c) - ratingScore(a.c),
+      price_high: (a, b) => b.c.priceLevel - a.c.priceLevel || ratingScore(b.c) - ratingScore(a.c),
+      popular: (a, b) => b.c.ratingCount * ratingScore(b.c) - a.c.ratingCount * ratingScore(a.c),
     };
     matched.sort(cmp[sort] ?? cmp.relevance);
     // CLOSED stores always last (stable)
@@ -587,7 +597,15 @@ export class DiscoveryService {
       promos: relevant.slice(0, 6).map((p) => ({ id: p.id, code: p.code, name: p.name, description: p.description, label: promoLabel(p), minSubtotal: p.minSubtotal, restaurantFunded: !!p.restaurantId, autoApply: p.autoApply, endsAt: p.endsAt })),
       menu,
       reviews,
+      ratings: this.ratingSummary(r),
     };
+  }
+
+  /** Public rating block: numeric rating only once ratings.minCountToShow reviews exist (else null + "New"). */
+  private ratingSummary(r: Restaurant) {
+    const d = ratingDisplay(r.rating, r.ratingCount, this.settings.get<number>('ratings.minCountToShow', 5));
+    const shown = d.rating != null;
+    return { ...d, distribution: shown ? r.ratingStats?.distribution ?? null : null, topTags: shown ? (r.ratingStats?.positiveTags ?? []).slice(0, 3) : [] };
   }
 
   async recentReviews(restaurantId: string, limit = 10) {
@@ -625,7 +643,7 @@ export class DiscoveryService {
     const users = rows.length ? await this.ds.getRepository(User).find({ where: { id: In(rows.map((v) => v.customerId)) } }) : [];
     const um = new Map(users.map((u) => [u.id, u]));
     return {
-      summary: { rating: r.rating, ratingCount: r.ratingCount },
+      summary: this.ratingSummary(r),
       data: rows.map((v) => ({ id: v.id, rating: v.restaurantRating, tags: v.restaurantTags, comment: v.comment, reply: v.reply, repliedAt: v.repliedAt, author: maskName(um.get(v.customerId)?.firstName, um.get(v.customerId)?.lastName), createdAt: v.createdAt })),
       meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
     };

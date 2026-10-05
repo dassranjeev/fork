@@ -63,7 +63,7 @@ const TEXT_PAYLOADS = [
 const URL_PAYLOADS = [`javascript:${X}`, ` jav\tascript:${X}`, `data:text/html,<script>${X}</script>`, `//evil.example/x.png`, `vbscript:${X}`];
 const COLOR_PAYLOAD = `#f00;" onmouseover="${X}" x="`;
 
-const TEXT_KEYS = /^(name|firstName|lastName|fullName|title|body|message|comment|comments|description|notes?|address\d?|street|text|label|subject|reason|content|answer|question|summary|displayName|restaurantName|customerName|driverName|brand|slug|code|businessName|city|unit|instructions|response|reply|feedback|excerpt|caption|before|after|details?|topic|tag|tags)$/i;
+const TEXT_KEYS = /^(name|firstName|lastName|fullName|title|body|message|comment|comments|description|notes?|address\d?|street|text|label|subject|reason|content|answer|question|summary|displayName|restaurantName|customerName|driverName|raterName|reportReason|brand|slug|code|businessName|city|unit|instructions|response|reply|feedback|excerpt|caption|before|after|details?|topic|tag|tags)$/i;
 const URL_KEYS = /(url|href|link|image|logo|avatar|icon|photo|banner|attachments?)$/i;
 const COLOR_KEYS = /^(color|colour)$/i;
 const SKIP_KEYS = /(token|password|secret|expires|id$|Id$|status|type|currency|^email$|phone)/i;
@@ -226,6 +226,8 @@ async function sweepAccount(browser, acc, session, mode) {
     }, [l === "/" ? "" : l, MAX_DETAIL]).catch(() => []);
     found.forEach((f) => details.add(f));
   }
+  // ratings screens that live on tabs: customer "Ratings received"
+  for (const d of [...details]) if (/^\/customers\/[0-9a-f-]{8,}$/.test(d)) details.add(`${d}?tab=ratings`);
   for (const d of [...details].slice(0, 40)) await checkPage(page, d, `${d} (detail)`, state);
   if (state.foreign.size) fail(`${mode}/${acc.name}: requests to third-party hosts: ${[...state.foreign].join(", ")}`);
   else pass(`${mode}/${acc.name}: no third-party network requests`);

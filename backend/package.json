@@ -9,6 +9,7 @@
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
     "seed": "ts-node -r tsconfig-paths/register src/database/seed.ts",
+    "seed:ratings": "ts-node -r tsconfig-paths/register src/database/seed-ratings.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

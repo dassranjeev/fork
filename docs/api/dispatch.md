@@ -103,3 +103,6 @@ Acceptance factor = `rate/100`, halved when `rate < dispatch.acceptance.lowThres
 | `POST /admin/live-map/orders/:id/unassign` `{ reason? }` | Remove driver, keep status (READY stays READY), restart automatic dispatch (removed driver excluded). `OPERATIONS:EDIT`. |
 | `GET /admin/drivers/:id/offers?days=14` | Offer history in the window (see drivers.md). |
 | `POST /admin/drivers/acceptance/recompute` | Run the rolling recompute now. |
+
+## Delivery handoff and proof (summary)
+The active trip payload (`GET /driver/trip/active`) carries the customer's handoff method, driver instructions, the proof rule that applies ("PIN required" / "Photo required") and, once the food is picked up, the access code. Completing the delivery is validated by the proof service (arrival, PIN or photo, geofence, server GPS cross-check, photo hash): see [proof-of-delivery.md](../proof-of-delivery.md). `driver.deliveryGeofenceKm` was replaced by `delivery.proof.geofenceMeters` / `delivery.proof.requireGeofence`.

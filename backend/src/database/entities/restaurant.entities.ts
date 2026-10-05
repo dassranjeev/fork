@@ -281,6 +281,22 @@ export class Restaurant extends BaseEntity {
   @Column({ default: 0 })
   ratingCount: number;
 
+  // ---- ratings system (RatingAggregatesService; `rating` above = smoothed rolling-90-day value) ----
+  @PctColumn({ nullable: true })
+  ratingAllTime: number | null;
+  @PctColumn({ nullable: true })
+  rating90d: number | null;
+  @Column({ default: 0 })
+  ratingCount90d: number;
+  @PctColumn({ nullable: true })
+  rating30d: number | null;
+  @Column({ default: 0 })
+  ratingCount30d: number;
+  @Column({ type: 'jsonb', default: {} })
+  ratingStats: Record<string, any>;
+  @Column({ type: 'varchar', nullable: true })
+  ratingAlert: string | null;
+
   /** 0..100, reduced by post-accept cancellations. */
   @PctColumn({ default: 100 })
   reliabilityScore: number;

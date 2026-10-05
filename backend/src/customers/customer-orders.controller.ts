@@ -5,7 +5,7 @@ import { CustomerController, CurrentUser } from '../common/decorators';
 import { AuthUser } from '../common/auth.types';
 import { PageQueryDto } from '../common/pagination';
 import { CheckoutService } from './checkout.service';
-import { CustomerOrdersQuery, ItemRemovalResponseDto, PlaceOrderDto, ReviewDto, TipDto } from './dto';
+import { CustomerOrdersQuery, ItemRemovalResponseDto, PlaceOrderDto, TipDto, UpdateDeliveryInstructionsDto } from './dto';
 
 class CancelOrderDto {
   @IsString() @MaxLength(500) reason: string;
@@ -47,6 +47,13 @@ export class CustomerOrdersController {
     return this.checkout.reorder(user.id, id);
   }
 
+  /** Change the handoff method / driver instructions / access code until the driver has picked the order up. */
+  @Patch(':id/delivery-instructions')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  deliveryInstructions(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateDeliveryInstructionsDto) {
+    return this.checkout.updateDeliveryInstructions(user.id, id, dto);
+  }
+
   @Patch(':id/tip')
   tip(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: TipDto) {
     return this.checkout.updateTip(user.id, id, dto.tip);
@@ -55,10 +62,5 @@ export class CustomerOrdersController {
   @Post(':id/item-removal-response')
   itemRemovalResponse(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: ItemRemovalResponseDto) {
     return this.checkout.respondToItemRemoval(user.id, id, dto.approve);
-  }
-
-  @Post(':id/review')
-  review(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: ReviewDto) {
-    return this.checkout.review(user.id, id, dto);
   }
 }

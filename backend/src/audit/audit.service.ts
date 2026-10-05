@@ -6,7 +6,7 @@ import { AuthUser } from '../common/auth.types';
 import { PageQueryDto, paginateQb } from '../common/pagination';
 import { clientIp } from '../common/security';
 
-const SENSITIVE = /password|secret|token|otp|pin|apikey|api_key|authorization|cvc|card/i;
+const SENSITIVE = /password|secret|token|otp|pin|apikey|api_key|authorization|cvc|card|accesscode|access_code/i;
 
 export function redact(obj: any, depth = 0): any {
   if (obj === null || obj === undefined) return obj;

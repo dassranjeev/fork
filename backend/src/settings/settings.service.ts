@@ -143,6 +143,38 @@ export const SETTING_DEFINITIONS: any[] = [
   { key: 'support.reviewMinRatings', group: 'support', label: 'SOP-08 detector: min ratings before low-rating trigger', value: 10, inputType: 'number' },
   { key: 'support.reviewCancellationThreshold', group: 'support', label: 'SOP-08 detector: cancellations before trigger', value: 5, inputType: 'number' },
   { key: 'support.reviewDetectorEnabled', group: 'support', label: 'SOP-08 auto-detector enabled', value: true, inputType: 'boolean' },
+  // ---- ratings (docs/ratings.md) ----
+  { key: 'ratings.windowDays', group: 'ratings', label: 'Customers can rate an order for N days after delivery', value: 7, inputType: 'number', isPublic: true },
+  { key: 'ratings.editWindowHours', group: 'ratings', label: 'A customer can edit their review once, within N hours of posting it', value: 24, inputType: 'number', isPublic: true },
+  { key: 'ratings.commentMaxLength', group: 'ratings', label: 'Maximum review comment length (characters)', value: 500, inputType: 'number', isPublic: true },
+  { key: 'ratings.requireReasonTag', group: 'ratings', label: 'Require at least one reason tag when a rating is at or below the threshold', value: true, inputType: 'boolean', isPublic: true },
+  { key: 'ratings.lowRatingMax', group: 'ratings', label: 'A rating at or below this many stars needs a reason tag', value: 2, inputType: 'number', isPublic: true },
+  { key: 'ratings.minCountToShow', group: 'ratings', label: 'Show a numeric rating only after N reviews (otherwise "New")', value: 5, inputType: 'number', isPublic: true },
+  { key: 'ratings.priorWeight', group: 'ratings', label: 'Bayesian smoothing: weight of the prior, in "virtual reviews" (higher = steadier)', value: 10, inputType: 'number' },
+  { key: 'ratings.restaurant.priorMean', group: 'ratings', label: 'Bayesian smoothing: restaurant prior mean (stars)', value: 4.3, inputType: 'number' },
+  { key: 'ratings.driver.priorMean', group: 'ratings', label: 'Bayesian smoothing: driver prior mean (stars)', value: 4.7, inputType: 'number' },
+  { key: 'ratings.rollingDays', group: 'ratings', label: 'Rolling window used for the displayed/ranking rating (days)', value: 90, inputType: 'number' },
+  { key: 'ratings.fraud.enabled', group: 'ratings', label: 'Automatic review-fraud flagging enabled (flagged reviews are excluded from aggregates until staff restore them)', value: true, inputType: 'boolean' },
+  { key: 'ratings.fraud.burstCount', group: 'ratings', label: 'Review bomb: N or more 1-star reviews on one target ...', value: 3, inputType: 'number' },
+  { key: 'ratings.fraud.burstWindowHours', group: 'ratings', label: 'Review bomb: ... within N hours ...', value: 24, inputType: 'number' },
+  { key: 'ratings.fraud.newAccountDays', group: 'ratings', label: 'Review bomb: ... from accounts younger than N days', value: 14, inputType: 'number' },
+  { key: 'ratings.fraud.duplicateMinLength', group: 'ratings', label: 'Duplicate text: ignore comments shorter than N characters', value: 15, inputType: 'number' },
+  { key: 'ratings.fraud.duplicateCount', group: 'ratings', label: 'Duplicate text: flag when the same text appears N times in 30 days', value: 2, inputType: 'number' },
+  { key: 'ratings.promptDelayMinutes', group: 'ratings', label: 'Send the customer a rating prompt N minutes after delivery', value: 10, inputType: 'number' },
+  { key: 'ratings.reminderDelayHours', group: 'ratings', label: 'Send one reminder N hours after delivery if still unrated', value: 24, inputType: 'number' },
+  { key: 'ratings.partnerPromptDelayMinutes', group: 'ratings', label: 'Prompt the driver / restaurant to rate the customer N minutes after delivery', value: 5, inputType: 'number' },
+  { key: 'ratings.partnerWindowDays', group: 'ratings', label: 'Drivers and restaurants can rate a customer for N days after delivery', value: 3, inputType: 'number' },
+  { key: 'ratings.driver.warnBelow', group: 'ratings', label: 'Driver coaching: notify when the rolling 30-day rating falls below', value: 4.5, inputType: 'number' },
+  { key: 'ratings.driver.reviewBelow', group: 'ratings', label: 'Driver: propose an SOP-08 performance review when the rolling 30-day rating falls below', value: 4.2, inputType: 'number' },
+  { key: 'ratings.driver.minRatings', group: 'ratings', label: 'Driver alerts need at least N ratings in the 30-day window', value: 20, inputType: 'number' },
+  { key: 'ratings.restaurant.warnBelow', group: 'ratings', label: 'Restaurant: notify owner and ops when the rolling 30-day rating falls below', value: 4.0, inputType: 'number' },
+  { key: 'ratings.restaurant.minRatings', group: 'ratings', label: 'Restaurant alerts need at least N ratings in the 30-day window', value: 20, inputType: 'number' },
+  { key: 'ratings.restaurant.discoveryPenalty', group: 'ratings', label: 'Discovery: de-prioritise restaurants in WARN state when sorting by rating / popularity (0 = off, e.g. 0.9 = score x 0.9)', value: 0, inputType: 'number' },
+  { key: 'ratings.restaurant.maxReportsPer30d', group: 'ratings', label: 'A restaurant can report at most N reviews as abusive per 30 days', value: 10, inputType: 'number' },
+  { key: 'ratings.customer.priorMean', group: 'ratings', label: 'Customer ratings: prior mean (stars)', value: 4.5, inputType: 'number' },
+  { key: 'ratings.customer.priorWeight', group: 'ratings', label: 'Customer ratings: prior weight (virtual ratings)', value: 3, inputType: 'number' },
+  { key: 'ratings.customer.lowRatingMax', group: 'ratings', label: 'Customer ratings: a rating at or below this counts as low', value: 2, inputType: 'number' },
+  { key: 'ratings.customer.lowCountFlag', group: 'ratings', label: 'Customer ratings: flag the profile after N low ratings in 30 days', value: 3, inputType: 'number' },
   // ---- support: live chat ----
   { key: 'support.chat.enabled', group: 'support', label: 'Live chat enabled', value: true, inputType: 'boolean', isPublic: true },
   { key: 'support.chat.hours', group: 'support', label: 'Live chat hours ({timezone, days:[0-6 Sun..Sat], start:"HH:mm", end:"HH:mm" or "24:00"})', value: { timezone: 'America/Toronto', days: [0, 1, 2, 3, 4, 5, 6], start: '00:00', end: '24:00' }, inputType: 'json', isPublic: true },
@@ -157,7 +189,18 @@ export const SETTING_DEFINITIONS: any[] = [
   // ---- driver ----
   { key: 'finance.requireDualControl', group: 'payments', label: 'Dual control: the person who approves a payout batch cannot release it, and over-limit adjustments need a Super Admin (default ON in production)', value: process.env.NODE_ENV === 'production', inputType: 'boolean' },
   { key: 'finance.maxManualAdjustment', group: 'payments', label: 'Largest manual ledger / payout adjustment a Finance Manager may post ($); above this a Super Admin is required', value: 500, inputType: 'number' },
-  { key: 'driver.deliveryGeofenceKm', group: 'driver', label: 'Delivery geofence (km): a driver must be within this distance of the drop-off to complete a delivery (0 = off; recommended 0.5-1 in production)', value: 0, inputType: 'number' },
+  // ---- delivery proof & instructions (docs/proof-of-delivery.md). Replaces the old driver.deliveryGeofenceKm. ----
+  { key: 'delivery.proof.leaveAtDoorPhotoRequired', group: 'delivery', label: 'LEAVE_AT_DOOR (contactless) deliveries require a photo of the dropped-off order taken at the drop-off', value: true, inputType: 'boolean' },
+  { key: 'delivery.proof.pinAlways', group: 'delivery', label: 'Always generate a 4-digit delivery PIN for HAND_TO_ME / MEET_OUTSIDE orders (off = only orders above orders.highValuePinThreshold)', value: true, inputType: 'boolean' },
+  { key: 'delivery.proof.geofenceMeters', group: 'delivery', label: 'Delivery geofence (m): the delivery / proof photo must be within this distance of the drop-off address', value: 150, inputType: 'number' },
+  { key: 'delivery.proof.requireGeofence', group: 'delivery', label: 'Enforce the delivery geofence (outside it the delivery is rejected; the driver may retry or use the exception path, which flags the order)', value: true, inputType: 'boolean' },
+  { key: 'delivery.proof.photoMaxAgeMinutes', group: 'delivery', label: 'A proof photo must have been captured within this many minutes of submitting the delivery', value: 10, inputType: 'number' },
+  { key: 'delivery.proof.retentionDays', group: 'delivery', label: 'Proof photo FILES are deleted after this many days (evidence record kept) unless the order has an open / recent dispute', value: 90, inputType: 'number' },
+  { key: 'delivery.proof.gpsMismatchMeters', group: 'delivery', label: "Flag GPS_MISMATCH when the claimed delivery location is farther than this from the driver's last server-side GPS fix (m)", value: 300, inputType: 'number' },
+  { key: 'delivery.proof.serverGpsMaxAgeSec', group: 'delivery', label: 'A server-side GPS fix older than this is treated as unavailable for the cross-check (sec)', value: 300, inputType: 'number' },
+  { key: 'delivery.accessCodeRetentionDays', group: 'delivery', label: 'Buzzer / gate access codes are blanked from the order this many days after delivery', value: 7, inputType: 'number' },
+  { key: 'support.falseClaimFlagThreshold', group: 'support', label: 'Flag a customer for review after this many rejected "never arrived" claims (UPHELD_DELIVERED); never auto-banned', value: 2, inputType: 'number' },
+  { key: 'support.deliveryDisputeStrikeThreshold', group: 'support', label: 'SOP-08 detector: propose a driver review after this many delivery-dispute strikes in 30 days', value: 3, inputType: 'number' },
   { key: 'driver.trainingPassMark', group: 'driver', label: 'Training pass mark (%)', value: 80, inputType: 'number' },
   { key: 'driver.welcomeBoostAmount', group: 'driver', label: 'First-week boost ($/trip)', value: 2, inputType: 'number' },
   { key: 'driver.docExpiryReminderDays', group: 'driver', label: 'Document expiry reminders (days before)', value: [30, 14, 7, 1], inputType: 'json' },
@@ -220,6 +263,15 @@ export class SettingsService implements OnModuleInit {
 
   /** Insert missing defaults without touching admin-edited values. */
   async ensureDefaults() {
+    // one-off: the old driver.deliveryGeofenceKm (km, 0 = off) is replaced by delivery.proof.geofenceMeters / requireGeofence
+    const legacy = await this.repo.findOne({ where: { key: 'driver.deliveryGeofenceKm' } });
+    if (legacy) {
+      const km = Number(legacy.value);
+      if (km > 0 && !(await this.repo.exist({ where: { key: 'delivery.proof.geofenceMeters' } }))) {
+        await this.repo.insert([{ key: 'delivery.proof.geofenceMeters', group: 'delivery', label: 'Delivery geofence (m)', value: Math.round(km * 1000), inputType: 'number' } as any]);
+      }
+      await this.repo.delete({ key: 'driver.deliveryGeofenceKm' });
+    }
     const existing = new Set((await this.repo.find({ select: ['key'] })).map((s) => s.key));
     const missing = SETTING_DEFINITIONS.filter((d) => !existing.has(d.key));
     if (missing.length) await this.repo.insert(missing);

@@ -7,6 +7,7 @@ Base: `/api/v1`. Customer routes need a CUSTOMER JWT (guest tokens from `/public
 |---|---|---|---|---|
 | GET | `/admin/customers` | customers:view | page,limit,search (name/email/phone),sortBy(createdAt,totalOrders,lifetimeSpend,lastOrderAt),sortDir,blocked=true/false,fraudFlag=true/false | list of `{id,name,email,phone,status,totalOrders,lifetimeSpend,walletBalance,isBlocked,fraudFlag,flags[],lastOrderAt,createdAt}` |
 | GET | `/admin/customers/:id` | view | - | user fields + `profile{dietaryPreferences,allergens,walletBalance,referralCode,consents,isBlocked,blockReason,fraudFlag,flags,totalOrders,lifetimeSpend,lastOrderAt,internalNotes,deletionRequestedAt}`, `addressCount`, `recentOrders[]`, `refundStats` |
+| GET | `/admin/ratings/customers/:customerId` | customers:view | - | private feedback from drivers/restaurants: `{ratingAvg (smoothed), ratingCount, lowRatingCount30d, status new/good/caution, flags[], distribution, tags[{tag,label,count,serious}], items[{orderId,orderCode,raterType,raterName,rating,tags,note,createdAt}]}`. Never exposed to customers, drivers or restaurants |
 | GET | `/admin/customers/:id/orders` | view | page,limit,status | paginated Order rows |
 | GET | `/admin/customers/:id/wallet` | view | page,limit | `{balance, transactions:{data,meta}}` |
 | POST | `/admin/customers/:id/wallet/adjust` | edit (+approve if abs(amount) > setting `customers.walletAdjustApprovalThreshold`, default 100) | `{amount (+credit/-debit), reason}` | `{balance}` (audited) |
@@ -29,7 +30,8 @@ Base: `/api/v1`. Customer routes need a CUSTOMER JWT (guest tokens from `/public
 | PATCH | `/customer/profile/notifications` | `{orderUpdates,promotions,newsletters,driverMessages}` | `{notificationPrefs}` |
 | POST | `/customer/profile/guest-upgrade` | `{password,firstName?,lastName?,phone?}` | profile |
 | POST | `/customer/profile/logout-everywhere` | - | `{ok}` |
-| GET/POST | `/customer/addresses` | POST `{label,line1,line2,city,province,postalCode,lat,lng,dropoffNotes,isDefault}` | Address[] / Address |
+| GET/POST | `/customer/addresses` | POST `{label,line1,line2,city,province,postalCode,lat,lng,dropoffNotes (max 300),dropoffMethod,accessCode (max 40),isDefault}` | Address[] / Address. `accessCode` is encrypted at rest and returned masked (`••••`, plus `accessCodeSet`) |
+| GET | `/customer/addresses/:id` | - | the address with the access code in clear (owner only) |
 | PATCH/DELETE | `/customer/addresses/:id` | partial address | Address / `{ok}` |
 | POST | `/customer/addresses/:id/default` | - | Address[] |
 | GET | `/customer/favorites` | lat,lng | `{data: RestaurantCard[]}` |
@@ -50,14 +52,23 @@ Base: `/api/v1`. Customer routes need a CUSTOMER JWT (guest tokens from `/public
 | POST | `/customer/cart/promo` | `{code|null}` | cart |
 | DELETE | `/customer/cart` | - | empty cart |
 | POST | `/customer/checkout/quote` | `{type DELIVERY/PICKUP, fulfilment?, addressId|lat+lng, tip, useWallet, promoCode, scheduledFor}` (uses current cart) | `Quote` (PricingService) |
-| POST | `/customer/orders` | quote fields + `{paymentMethod, paymentToken?, giftCardCode? (redeemed to wallet first), contactless, customerNotes}` | Order (cart cleared) |
+| POST | `/customer/orders` | quote fields + `{paymentMethod, paymentToken?, giftCardCode? (redeemed to wallet first), dropoffMethod? (HAND_TO_ME/LEAVE_AT_DOOR/MEET_OUTSIDE), dropoffNotes? (driver instructions, max 300), accessCode? (max 40, sensitive), contactless? (legacy: true = LEAVE_AT_DOOR), customerNotes (KITCHEN note)}` | Order (cart cleared). Omitted method/notes/code are prefilled from the chosen saved address. Hand-to-me / meet-outside orders always get a 4-digit `deliveryPin` (shown to the customer) |
 | GET | `/customer/orders` | page,limit,status | paginated own orders |
-| GET | `/customer/orders/:id` | - | Order with items |
+| GET | `/customer/orders/:id` | - | Order with items, `deliveryPin` (when a PIN is required), `accessCodeSet`, `kitchenNotes`, and once delivered `deliveryProof{proofType,deliveredAt,photoUrl,location,dropoff}` (photo via the authenticated `GET /orders/:id/proof/photo`) |
+| PATCH | `/customer/orders/:id/delivery-instructions` | `{dropoffMethod?, dropoffNotes?, accessCode?}` (10/min) | Order. Allowed until the driver picks the food up (400 after). Switching method updates the proof rule / PIN; the assigned driver gets a realtime `order.instructions_changed` event + notification; an OrderEvent is written (never containing the code) |
 | POST | `/customer/orders/:id/cancel` | `{reason}` | Order |
 | POST | `/customer/orders/:id/reorder` | - | `{cart, skipped[{name,reason}]}` |
 | PATCH | `/customer/orders/:id/tip` | `{tip}` | Order |
 | POST | `/customer/orders/:id/item-removal-response` | `{approve}` | Order |
-| POST | `/customer/orders/:id/review` | `{restaurantRating 1-5, driverRating, restaurantTags[], driverTags[], comment, driverComment}` (delivered orders; emits `review.created`) | Review |
+| GET | `/customer/orders/:id/review` | - | `{orderId, order{code,type,status,deliveredAt,restaurant,driver{firstName}}, rateRestaurant, rateDriver, review (own, no moderation fields) or null, canReview, canEdit, editableUntil, reviewableUntil, reason}` (404 for other customers' orders) |
+| POST | `/customer/orders/:id/review` | `CreateReviewDto{restaurantRating?, driverRating? (1-5 ints), restaurantTags[], driverTags[] (codes from /public/rating-options), comment?, driverComment? (<= ratings.commentMaxLength)}` | own review. 400: not completed / outside `ratings.windowDays` / refunded as not delivered / driver rating on pickup or own-driver order / unknown tag / low rating without a negative reason tag / over-long comment. 409: already reviewed. Rate limited 10/min. Emits `review.created` |
+| PATCH | `/customer/orders/:id/review` | same fields, all optional | edits the review **once** within `ratings.editWindowHours`; previous version kept in `history`. 400 on a second edit or after the window. Emits `review.updated` |
+| GET | `/customer/ratings/pending` | - | `{windowDays, data:[{orderId,code,type,restaurant{id,name,logoUrl},rateDriver,deliveredAt,closesAt}]}` delivered orders still in the window and unrated |
+| GET | `/public/rating-options` | - | (no auth) `{restaurant{positive[],negative[]}, driver{...}, stars, rules{windowDays,editWindowHours,commentMaxLength,requireReasonTagAtOrBelow,minCountToShow}, customerFeedback{positive[],negative[]}}`; tag items are `{code,label}` |
+
+Public: `GET /public/delivery-options` returns the methods (label, description, what proof each implies) and suggested instruction chips.
+
+"Kitchen notes" (`customerNotes`, for the restaurant) and "delivery instructions" (`dropoffNotes`, for the driver) are separate fields. Restaurant payloads never include the PIN, access code or delivery instructions, only the method (shown as a "Contactless" badge).
 
 Live tracking and chat: shared `GET /orders/:id/tracking`, `/orders/:id/messages` (Orders module).
 
@@ -66,8 +77,8 @@ Live tracking and chat: shared `GET /orders/:id/tracking`, `/orders/:id/messages
 |---|---|---|---|
 | GET | `/customer|public/home` | lat,lng | `{location,banners,cuisines,nearby,pickupOnly,popular,new,deals,fastest,favorites,promotions,counts}`. `pickupOnly` = stores currently in PICKUP_ONLY mode (not in the delivery lists). CLOSED stores that normally deliver to the location stay in the lists but are shown closed and sorted after open ones |
 | GET | `/customer|public/search` | q,lat,lng,type(restaurants/dishes/cuisines),priceLevel(csv),minRating,maxFee,maxEta,dietary(csv),excludeAllergens(csv),cuisine(slugs csv),pickupOnly,`fulfilment`(pickup/delivery),openNow,sort(relevance/distance/rating/eta/fee/price_low/price_high/popular),page,limit | `{query,restaurants,dishes,cuisines,meta}` |
-| GET | `/customer|public/restaurants/:slugOrId` | lat,lng | `{restaurant{...card,hours,schedule,fulfilment},promos,menu{categories,popular},reviews}` |
-| GET | `/customer|public/restaurants/:slug/reviews` | page,limit | `{summary,data,meta}` |
+| GET | `/customer|public/restaurants/:slugOrId` | lat,lng | `{restaurant{...card,hours,schedule,fulfilment},promos,menu{categories,popular},reviews,ratings{rating or null,ratingLabel ('New' or null),ratingCount,distribution,topTags}}`. Cards and the page return `rating: null, ratingLabel: 'New'` until `ratings.minCountToShow` (5) visible reviews; held-back (flagged/hidden) reviews never appear |
+| GET | `/customer|public/restaurants/:slug/reviews` | page,limit | `{summary{rating or null,ratingLabel,ratingCount,distribution,topTags},data,meta}` visible reviews only |
 | GET | `/customer|public/restaurants/:slug/slots` | date=YYYY-MM-DD | `{date,enabled,slotMinutes,timezone,slots[{startsAt,label,capacity,booked,available}]}` |
 | POST | `/public/guest/session` | `{email,phone?,firstName?,lastName?}` | login tokens + `guest:true` (409 `ACCOUNT_EXISTS` / `GUEST_EMAIL_IN_USE`) |
 
@@ -78,3 +89,6 @@ Every `RestaurantCard` (home, search, favorites, restaurant page) now has `servi
 * Search filter `fulfilment=pickup` returns only stores where pickup is orderable now (excludes CLOSED); `fulfilment=delivery` returns only stores where delivery is orderable now at the given lat/lng (excludes PICKUP_ONLY and CLOSED, respects delivery radius). `pickupOnly=true` is kept as an alias of `fulfilment=pickup`. Without the filter CLOSED stores are always sorted last.
 * `GET /customer/cart` → `restaurant` also has `serviceMode, serviceModeLabel, deliveryAvailable, pickupAvailable`.
 * `POST /customer/checkout/quote` response includes `availableFulfilment: {serviceMode, serviceModeLabel, pickup, delivery, platformDelivery, ownDelivery}`. Errors (400): CLOSED -> "This store is closed right now and is not taking orders"; DELIVERY at a PICKUP_ONLY store -> "This store is pickup only right now. Delivery is unavailable, but you can still order for pickup." The same rules apply to `POST /customer/orders`.
+
+## Ratings given to customers (staff only)
+`GET /admin/customers/:id` `profile` also carries `ratingAvg`, `ratingCount`, `lowRatingCount30d`; safety flags `SAFETY_CONCERN` / `LOW_RATING_PATTERN` appear in `profile.flags`. Support can read the feedback on a disputed order with `GET /admin/ratings/orders/:orderId/customer-feedback` (support:view). Policy: [../ratings.md](../ratings.md).

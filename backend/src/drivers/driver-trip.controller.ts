@@ -1,5 +1,5 @@
-import { Body, Get, Param, Post } from '@nestjs/common';
-import { CurrentUser, DriverController } from '../common/decorators';
+import { Body, Get, Headers, Param, Post } from '@nestjs/common';
+import { ClientIp, CurrentUser, DriverController } from '../common/decorators';
 import { AuthUser } from '../common/auth.types';
 import { DriverAppService } from './driver-app.service';
 import { CallDto, DeclineOfferDto, DeliverDto, PickupDto, StepDto } from './drivers.dto';
@@ -45,8 +45,8 @@ export class DriverTripController {
   }
 
   @Post(':orderId/delivered')
-  delivered(@CurrentUser() user: AuthUser, @Param('orderId') orderId: string, @Body() dto: DeliverDto) {
-    return this.app.delivered(user.driverId!, orderId, dto);
+  delivered(@CurrentUser() user: AuthUser, @Param('orderId') orderId: string, @Body() dto: DeliverDto, @ClientIp() ip: string, @Headers('user-agent') userAgent?: string) {
+    return this.app.delivered(user.driverId!, orderId, dto, { ip, userAgent });
   }
 
   @Post(':orderId/call')

@@ -79,6 +79,12 @@ export class CustomerAddressesController {
     return this.account.listAddresses(user.id);
   }
 
+  /** single address incl. the access code in clear text (owner only; lists show it masked) */
+  @Get(':id')
+  one(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.account.getAddress(user.id, id);
+  }
+
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() dto: AddressDto) {
     return this.account.createAddress(user.id, dto);

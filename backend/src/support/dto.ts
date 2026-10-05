@@ -65,6 +65,11 @@ export class AssignTicketDto {
   @IsOptional() @IsUUID() assigneeId?: string | null;
 }
 
+export class DeliveryOutcomeDto {
+  @IsIn(['UPHELD_DELIVERED', 'NOT_DELIVERED', 'INCONCLUSIVE']) outcome: 'UPHELD_DELIVERED' | 'NOT_DELIVERED' | 'INCONCLUSIVE';
+  @IsOptional() @IsString() @MaxLength(1000) note?: string;
+}
+
 export class EscalateTicketDto {
   @IsNotEmpty() @IsString() reason: string;
   @IsOptional() @IsIn(Object.values(TicketTier)) tier?: TicketTier;

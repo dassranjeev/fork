@@ -8,6 +8,8 @@ import * as finance from './finance.entities';
 import * as marketing from './marketing.entities';
 import * as support from './support.entities';
 import * as system from './system.entities';
+import * as proof from './proof.entities';
+import * as rating from './rating.entities';
 
 export * from './identity.entities';
 export * from './geo.entities';
@@ -19,10 +21,12 @@ export * from './finance.entities';
 export * from './marketing.entities';
 export * from './support.entities';
 export * from './system.entities';
+export * from './proof.entities';
+export * from './rating.entities';
 
 const isEntityClass = (v: any) => typeof v === 'function' && /^class\s/.test(Function.prototype.toString.call(v));
 
 /** Every TypeORM entity in the project (auto-collected from the entity files). */
-export const ALL_ENTITIES = [identity, geo, restaurant, driver, customer, order, finance, marketing, support, system]
+export const ALL_ENTITIES = [identity, geo, restaurant, driver, customer, order, finance, marketing, support, system, rating, proof]
   .flatMap((m) => Object.values(m))
   .filter(isEntityClass) as Function[];

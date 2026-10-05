@@ -105,12 +105,19 @@ Customers 31 to 50 and restaurants 13 to 26 include Brampton data. These are dev
 
 **Live chat support.** Customers and drivers can chat with support agents in real time (queue, auto-assign, typing and read receipts, images, transfer, rating). If no agent is online, outside support hours, or the queue times out, the same message automatically becomes a ticket in the Support queue so nothing is lost. Agents work from **Support > Live chat** in the Admin Console. Protocol reference: `docs/api/live-chat.md`.
 
+**Proof of delivery.** Every delivery leaves an evidence record that settles "the driver never delivered" claims. Hand-to-me and meet-outside orders need the customer's PIN; leave-at-door orders need a fresh photo taken at the address (about 150 m geofence, GPS cross-checked, metadata stripped, reuse of a photo is rejected). Photos are private and visible only to the order's parties and staff. Weak or exception proof is flagged for review, and disputes use the evidence automatically. Details: `docs/proof-of-delivery.md`.
+
+**Delivery instructions.** Customers choose hand to me, leave at door (contactless) or meet outside, add notes and an optional access code (stored encrypted, shown to the driver only after pickup). Defaults can be saved per address, and instructions can be changed until pickup.
+
+**Ratings.** Customers rate the restaurant and the driver after delivery (tags, one edit, review-bomb and duplicate detection, staff moderation). Drivers and restaurants privately rate customers (staff-only visibility). Scores are smoothed so one bad review does not swing a new profile, and low scores raise alerts and feed the driver review process. Details: `docs/ratings.md`.
+
 **Admin walkthrough of restaurant panels.** From **Restaurants > Open a restaurant panel** (or the restaurant list and detail pages), an admin with edit permission can open any restaurant's portal as its owner for up to 2 hours without a password. A banner shows while viewing, every start is audit-logged, and the session cannot change the owner's password or 2FA.
 
 ## API documentation
 
 - Interactive: http://localhost:4000/docs (Swagger UI)
 - Written references per module in [`docs/api/`](docs/api): analytics, customers, dispatch, drivers, finance, live-chat, marketing, platform, restaurants, support
+- Feature guides: [`docs/proof-of-delivery.md`](docs/proof-of-delivery.md), [`docs/ratings.md`](docs/ratings.md)
 - Design contract and module ownership: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
 Route prefixes: `/auth` (all apps), `/admin`, `/restaurant`, `/driver`, `/customer`, `/public`, plus `/orders/:id/tracking` and `/orders/:id/messages` shared by all parties. Real-time events use Socket.IO on the same port as the API.
@@ -131,5 +138,5 @@ Route prefixes: `/auth` (all apps), `/admin`, `/restaurant`, `/driver`, `/custom
 - **Payments are mocked in development** (a real Stripe PaymentIntent integration is implemented but untested against live Stripe; in production payments fail closed without a live key). SMS, email and push use mock or log-only adapters until provider keys are added; real delivery has not been verified.
 - Not yet built in the portal and admin: menu CSV import, document upload screens, tablet activation, editing a promotion after creation.
 - Several admin actions were exercised by hand only on the main paths (for example refund approvals, bank verification and payout release were rendered but not run end to end).
-- Scheduled-order handling and automatic switch-back timers for service mode exist but were not exercised.
+- Proof-photo and access-code purge jobs, rating prompts over real push, and mobile clients are untested. Scheduled-order handling and automatic switch-back timers for service mode exist but were not exercised.
 

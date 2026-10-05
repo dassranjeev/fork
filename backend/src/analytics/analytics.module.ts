@@ -10,6 +10,7 @@ import { DriverPerformanceService } from './driver-performance.service';
 import { FinanceAnalyticsService } from './finance-analytics.service';
 import { SupportAnalyticsService } from './support-analytics.service';
 import { PilotKpisService } from './pilot-kpis.service';
+import { RatingsAnalyticsService } from './ratings-analytics.service';
 import { ExportService } from './export.service';
 import { ScheduledReportsService } from './scheduled-reports.service';
 import { AdminDashboardController } from './dashboard.controller';
@@ -30,6 +31,7 @@ import { RestaurantReportsController } from './restaurant-reports.controller';
     FinanceAnalyticsService,
     SupportAnalyticsService,
     PilotKpisService,
+    RatingsAnalyticsService,
     ExportService,
     ScheduledReportsService,
   ],

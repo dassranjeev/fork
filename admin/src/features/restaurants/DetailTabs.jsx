@@ -10,6 +10,7 @@ import {
 } from "../../ui";
 import { DAYS, assetUrl, listOf, restaurantPost, useLookups } from "./shared";
 import ReviewsTable from "./ReviewsTable";
+import RestaurantRatingSummary from "../ratings/RestaurantRatingSummary";
 
 const api = (r, p = "") => `/admin/restaurants/${r.id}${p}`;
 
@@ -631,5 +632,11 @@ export function ReviewsTab({ r }) {
 function ReviewsList({ r, mode }) {
   const admin = mode === "admin";
   const list = usePagedList(admin ? "/admin/restaurants/reviews" : `/public/restaurants/${r.slug}/reviews`, { filters: admin ? { restaurantId: r.id, status: "", maxRating: "" } : {} });
-  return <ReviewsTable list={list} simple={!admin} />;
+  const summary = useFetch(admin ? `/admin/ratings/restaurants/${r.id}/summary` : null);
+  return (
+    <>
+      {admin && <RestaurantRatingSummary state={summary} staff />}
+      <ReviewsTable list={list} simple={!admin} />
+    </>
+  );
 }

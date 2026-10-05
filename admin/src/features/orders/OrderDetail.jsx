@@ -7,6 +7,7 @@ import { useFetch, useForm, useSubmit } from "../../lib/hooks";
 import { useAuth } from "../../lib/auth";
 import { http } from "../../lib/api";
 import { ORDER_STATUSES, fmtDateTime, fmtTime, money, timeAgo, titleCase } from "../../lib/format";
+import { DeliveryProofTab } from "./DeliveryProof";
 
 const REASONS = [
   ["MISSING_ITEM", "Missing item"], ["WRONG_ITEM", "Wrong item"], ["NEVER_ARRIVED", "Order never arrived"], ["LATE", "Very late delivery"], ["QUALITY", "Food quality"],
@@ -75,6 +76,18 @@ function ReassignModal({ order, onClose, onDone }) {
       <TextArea label="Reason" rows={2} {...f.bind("reason")} />
     </FormModal>
   );
+}
+
+/** Buzzer / gate code: never in the page payload. Shown only after an explicit, audit-logged "Reveal" (needs orders:view, only after pickup). */
+function AccessCode({ order, tracking }) {
+  const [code, setCode] = useState(null);
+  const { busy, run } = useSubmit();
+  const set = tracking?.dropoff?.accessCodeSet;
+  const pickedUp = !!order.pickedUpAt || ["PICKED_UP", "ON_THE_WAY", "DELIVERED"].includes(order.status);
+  if (!set) return <span className="text-secondary-light">None{order.accessCodePurgedAt ? " (purged after delivery)" : ""}</span>;
+  if (code !== null) return <code>{code || "(empty)"}</code>;
+  if (!pickedUp) return <span className="text-secondary-light">Set - available once the driver has picked up</span>;
+  return <Button size="sm" variant="light" loading={busy} onClick={() => run(() => http.post(`/admin/orders/${order.id}/access-code/reveal`), { onDone: (r) => setCode(r?.accessCode ?? "") })}>Reveal (audit-logged)</Button>;
 }
 
 function Items({ items }) {
@@ -234,9 +247,11 @@ export default function OrderDetail() {
             { label: "Scheduled for", value: order.isScheduled ? fmtDateTime(order.scheduledFor) : "ASAP" },
             { label: "Delivered", value: fmtDateTime(order.deliveredAt) },
             { label: "Delivery address", value: addr ? `${addr.line1}, ${addr.city} ${addr.postalCode || ""}` : "-" },
-            { label: "Contactless", value: order.contactless ? "Yes" : "No" },
+            { label: "Handoff method", value: <Badge tone={order.dropoffMethod === "LEAVE_AT_DOOR" ? "info" : "neutral"}>{titleCase(order.dropoffMethod || "HAND_TO_ME")}</Badge> },
             { label: "Requires PIN", value: order.requiresPin ? "Yes" : "No" },
-            { label: "Customer notes", value: order.customerNotes },
+            { label: "Delivery instructions (driver)", value: order.dropoffNotes || "None" },
+            { label: "Access code", value: <AccessCode order={order} tracking={t} /> },
+            { label: "Kitchen notes (restaurant)", value: order.customerNotes },
             { label: "Allergy flag", value: order.hasAllergyFlag ? <Badge tone="warning">Allergy noted</Badge> : "No" },
             { label: "Escalation level", value: order.escalationLevel },
             order.cancelReason && { label: "Cancel reason", value: `${order.cancelReason} (${titleCase(order.cancelledBy)})` },
@@ -300,6 +315,7 @@ export default function OrderDetail() {
           { key: "overview", label: "Overview", content: overview },
           { key: "timeline", label: "Timeline", badge: timeline.length, content: tl },
           { key: "payments", label: "Payments", content: <Payments order={order} /> },
+          ...(order.type === "DELIVERY" ? [{ key: "proof", label: "Delivery proof", content: <DeliveryProofTab orderId={id} status={order.status} /> }] : []),
           { key: "tracking", label: "Map & tracking", content: tracking.error ? <ErrorState error={tracking.error} onRetry={tracking.reload} /> : tracking.loading && !tracking.data ? <Loading /> : <Tracking order={order} tracking={t} /> },
           { key: "messages", label: "Messages", content: <Messages id={id} /> },
         ]}

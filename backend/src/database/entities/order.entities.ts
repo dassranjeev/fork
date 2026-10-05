@@ -2,6 +2,7 @@ import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, Relation } fro
 import { BaseEntity, GeoColumn, MoneyColumn, PctColumn } from '../../common/base.entity';
 import {
   ActorType,
+  DropoffMethod,
   FulfilmentMode,
   OrderStatus,
   OrderType,
@@ -204,8 +205,24 @@ export class Order extends BaseEntity {
   @Column({ default: false })
   requiresPin: boolean;
 
+  /** Kept in sync with dropoffMethod === LEAVE_AT_DOOR (legacy flag, still returned to the apps). */
   @Column({ default: false })
   contactless: boolean;
+
+  /** How the customer wants the handover; decides which proof of delivery is required (see docs/proof-of-delivery.md). */
+  @Column({ type: 'enum', enum: DropoffMethod, enumName: 'orders_dropoffmethod_enum', default: DropoffMethod.HAND_TO_ME })
+  dropoffMethod: DropoffMethod;
+
+  /** Delivery instructions for the DRIVER (max 300, plain text). Not the kitchen note (customerNotes). */
+  @Column({ type: 'varchar', length: 300, nullable: true })
+  dropoffNotes: string | null;
+
+  /** Buzzer / gate / door code. SENSITIVE: AES-GCM sealed (secretbox), never selected by default - load it with addSelect('o.accessCode') only where it is allowed. */
+  @Column({ type: 'text', nullable: true, select: false })
+  accessCode: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  accessCodePurgedAt: Date | null;
 
   @Column({ type: 'varchar', nullable: true })
   proofPhotoUrl: string | null;
@@ -428,6 +445,46 @@ export class Review extends BaseEntity {
   @Column({ type: 'timestamptz', nullable: true })
   repliedAt: Date | null;
 
+  /** Moderation state of the RESTAURANT part of the review (and of the review as a whole for legacy readers). */
   @Column({ default: 'VISIBLE' })
   status: 'VISIBLE' | 'HIDDEN' | 'FLAGGED';
+
+  // ---- ratings system (docs/ratings.md) ----
+  /** Moderation state of the DRIVER part (staff with drivers:approve act on this; restaurant staff act on `status`). */
+  @Column({ default: 'VISIBLE' })
+  driverStatus: 'VISIBLE' | 'HIDDEN' | 'FLAGGED';
+
+  /** How many times the customer edited the review (one edit allowed inside ratings.editWindowHours). */
+  @Column({ default: 0 })
+  editCount: number;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  editedAt: Date | null;
+
+  /** Previous versions: [{at, restaurantRating, driverRating, restaurantTags, driverTags, comment, driverComment}] */
+  @Column({ type: 'jsonb', default: [] })
+  history: Record<string, any>[];
+
+  /** Why the review is FLAGGED: automatic fraud rules (FRAUD_ACCOUNT, REVIEW_BOMB, DUPLICATE_TEXT, REFUND_RETALIATION) or REPORTED_BY_RESTAURANT / STAFF. */
+  @Column({ type: 'jsonb', default: [] })
+  flagReasons: string[];
+
+  /** Staff moderation log: [{side, action, reason, byId, byName, at}] */
+  @Column({ type: 'jsonb', default: [] })
+  moderation: Record<string, any>[];
+
+  /** Restaurant report of an abusive review (one per review). */
+  @Column({ type: 'timestamptz', nullable: true })
+  reportedAt: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  reportedById: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  reportReason: string | null;
+
+  /** md5 of the normalised comment text, used for duplicate detection. */
+  @Index()
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  commentHash: string | null;
 }

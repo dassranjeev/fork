@@ -17,6 +17,7 @@ import { ActorType, DriverStatus, OrderStatus, OrderType, PartyType } from '../c
 import * as bcrypt from 'bcryptjs';
 import { haversineKm } from '../common/geo.util';
 import { OrdersService } from '../orders/orders.service';
+import { ProofService } from '../orders/proof.service';
 import { LedgerService } from '../orders/ledger.service';
 import { DriverCoreService } from './driver-core.service';
 import { AcceptanceService } from '../dispatch/acceptance.service';
@@ -50,6 +51,7 @@ export class DriverAppService {
     private core: DriverCoreService,
     private moduleRef: ModuleRef,
     private ordersService: OrdersService,
+    private proofService: ProofService,
     private ledger: LedgerService,
     private acceptance: AcceptanceService,
     private maskedCallAdapter: MaskedCallAdapter,
@@ -308,7 +310,9 @@ export class DriverAppService {
   async activeTrip(driverId: string) {
     const o = await this.orders.findOne({ where: { driverId, status: In(ON_TRIP_STATUSES) }, order: { createdAt: 'DESC' } });
     if (!o) return null;
-    return this.ordersService.trackingView(o.id, 'DRIVER');
+    const view = await this.ordersService.trackingView(o.id, 'DRIVER');
+    // masked call: the driver never sees real numbers; POST /driver/trip/:orderId/call opens a proxy session
+    return { ...view, maskedCall: { customer: true, restaurant: true, path: `/driver/trip/${o.id}/call` } };
   }
 
   async arrivedRestaurant(driverId: string, orderId: string, dto: StepDto) {
@@ -329,22 +333,16 @@ export class DriverAppService {
     return this.ordersService.driverArrived(orderId, 'CUSTOMER', this.actor(p), { lat: dto.lat, lng: dto.lng });
   }
 
-  async delivered(driverId: string, orderId: string, dto: DeliverDto) {
+  async delivered(driverId: string, orderId: string, dto: DeliverDto, ctx: { ip?: string; userAgent?: string } = {}) {
     const p = await this.core.getProfile(driverId);
     const order = await this.myOrder(driverId, orderId);
     const to = order.type === OrderType.PICKUP ? OrderStatus.COLLECTED : OrderStatus.DELIVERED;
     if (to === OrderStatus.DELIVERED) {
-      // proof of presence: the driver must have tapped "arrived at customer" first and (when enabled) be near the drop-off pin
-      if (!order.driverArrivedCustomerAt) throw new BadRequestException('Mark "arrived at customer" before completing the delivery');
-      const fence = Number(this.core.settings.get<number>('driver.deliveryGeofenceKm', 0));
-      const dest = order.deliveryAddress;
-      const lat = dto.lat ?? p.lat;
-      const lng = dto.lng ?? p.lng;
-      if (fence > 0 && dest?.lat != null && dest?.lng != null && lat != null && lng != null && haversineKm(Number(lat), Number(lng), Number(dest.lat), Number(dest.lng)) > fence) {
-        throw new ForbiddenException('You are too far from the drop-off address to complete this delivery');
-      }
+      // layered proof of delivery (arrival, PIN or photo by handoff method, geofence, server GPS cross-check, photo hash) - see docs/proof-of-delivery.md
+      const proof = await this.proofService.prepare(order, p, dto, ctx);
+      return this.ordersService.transition(orderId, to, this.actor(p), { proof, note: dto.note, lat: dto.lat, lng: dto.lng });
     }
-    return this.ordersService.transition(orderId, to, this.actor(p), { proofPhotoUrl: dto.proofPhotoUrl, code: dto.pin, note: dto.note, lat: dto.lat, lng: dto.lng });
+    return this.ordersService.transition(orderId, to, this.actor(p), { code: dto.pin, note: dto.note, lat: dto.lat, lng: dto.lng });
   }
 
   // ------------------------------------------------------------------ earnings / trips / cash-out

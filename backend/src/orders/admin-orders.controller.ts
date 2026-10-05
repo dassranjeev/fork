@@ -12,6 +12,7 @@ import { Order, OrderEvent } from '../database/entities';
 import { PageQueryDto, like, paginateQb } from '../common/pagination';
 import { AuditService } from '../audit/audit.service';
 import { OrdersService } from './orders.service';
+import { ProofService } from './proof.service';
 import { RefundsService } from './refunds.service';
 import { actorFor } from './orders.controller';
 
@@ -32,6 +33,9 @@ class ReassignBodyDto {
   @IsUUID() driverId: string;
   @IsOptional() @IsString() @MaxLength(500) reason?: string;
 }
+class ProofReviewDto {
+  @IsOptional() @IsString() @MaxLength(1000) note?: string;
+}
 class OrdersListQuery extends PageQueryDto {
   @IsOptional() @IsEnum(OrderStatus) status?: OrderStatus;
   @IsOptional() @IsUUID() restaurantId?: string;
@@ -48,6 +52,7 @@ export class AdminOrdersController {
     private ordersService: OrdersService,
     private refunds: RefundsService,
     private audit: AuditService,
+    private proof: ProofService,
   ) {}
 
   @Get()
@@ -73,6 +78,51 @@ export class AdminOrdersController {
     if (user.scopeZoneIds?.length && !(order.zoneId && user.scopeZoneIds.includes(order.zoneId))) throw new ForbiddenException('Outside your zone scope');
     const timeline = await this.events.find({ where: { orderId: id }, order: { createdAt: 'ASC' } });
     return { order, timeline };
+  }
+
+  private async scoped(id: string, user: AuthUser) {
+    const order = await this.ordersService.getById(id, []);
+    if (user.scopeCityIds?.length && !(order.cityId && user.scopeCityIds.includes(order.cityId))) throw new ForbiddenException('Outside your city scope');
+    if (user.scopeZoneIds?.length && !(order.zoneId && user.scopeZoneIds.includes(order.zoneId))) throw new ForbiddenException('Outside your zone scope');
+    return order;
+  }
+
+  /** Full delivery evidence record (immutable), the proof rule that applied, and what the customer asked for. */
+  @Get(':id/proof')
+  @Permission(Module.ORDERS, Action.VIEW)
+  async deliveryProof(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+    const order = await this.scoped(id, user);
+    const p = await this.proof.find(id);
+    return {
+      orderId: id,
+      status: order.status,
+      requirement: this.proof.requirementFor(order),
+      instructions: { method: order.dropoffMethod, dropoffNotes: order.dropoffNotes, requiresPin: order.requiresPin },
+      dropoff: order.deliveryAddress ? { lat: order.deliveryAddress.lat, lng: order.deliveryAddress.lng, line1: order.deliveryAddress.line1, city: order.deliveryAddress.city } : null,
+      proof: this.proof.staffView(p),
+      valid: this.proof.isValid(p),
+      legacyPhoto: !p && !!order.proofPhotoUrl, // seeded / pre-evidence orders: a photo URL without an evidence record cannot be verified
+    };
+  }
+
+  @Post(':id/proof/review')
+  @Permission(Module.ORDERS, Action.EDIT)
+  async reviewProof(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser, @Body() dto: ProofReviewDto) {
+    await this.scoped(id, user);
+    const p = await this.proof.markReviewed(id, user.id, dto.note);
+    await this.audit.log({ actor: user, action: 'order.proof.review', entity: 'Order', entityId: id, after: { note: dto.note } });
+    return this.proof.staffView(p);
+  }
+
+  /** Reveal the buzzer / gate code: only after pickup, audit-logged every time. */
+  @Post(':id/access-code/reveal')
+  @Permission(Module.ORDERS, Action.VIEW)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  async revealAccessCode(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+    await this.scoped(id, user);
+    const r = await this.ordersService.revealAccessCode(id);
+    await this.audit.log({ actor: user, action: 'order.access_code.reveal', entity: 'Order', entityId: id, after: { revealed: !!r.accessCode } });
+    return r;
   }
 
   @Patch(':id/status')

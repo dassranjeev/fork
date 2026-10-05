@@ -7,7 +7,7 @@ import { AuthUser } from '../common/auth.types';
 import { Order, OrderEvent } from '../database/entities';
 import { like, paginateQb } from '../common/pagination';
 import { OrdersService } from '../orders/orders.service';
-import { resolveRestaurantId, restaurantActor } from './restaurants.util';
+import { resolveRestaurantId, restaurantActor, restaurantOrderView } from './restaurants.util';
 import { AcceptOrderDto, ExtendPrepDto, HandoffDto, OrdersQuery, RejectOrderDto, RemoveItemDto } from './dto';
 
 const OPEN_STATUSES = [OrderStatus.PLACED, OrderStatus.ACCEPTED, OrderStatus.DRIVER_ASSIGNED, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.PICKED_UP, OrderStatus.ON_THE_WAY];
@@ -32,7 +32,7 @@ export class RestaurantOrdersController {
   }
 
   @Get()
-  list(@CurrentUser() user: AuthUser, @Query() q: OrdersQuery, @Query('restaurantId') restaurantId?: string) {
+  async list(@CurrentUser() user: AuthUser, @Query() q: OrdersQuery, @Query('restaurantId') restaurantId?: string) {
     const rid = this.rid(user, restaurantId);
     const qb = this.orders.createQueryBuilder('o').where('o.restaurantId = :rid', { rid });
     if (q.search) qb.andWhere('o.code ILIKE :s', { s: like(q.search) });
@@ -41,14 +41,15 @@ export class RestaurantOrdersController {
     if (q.type) qb.andWhere('o.fulfilment = :type', { type: q.type });
     if (q.from) qb.andWhere('o.createdAt >= :from', { from: q.from });
     if (q.to) qb.andWhere('o.createdAt <= :to', { to: q.to });
-    return paginateQb(qb, q, { sortable: { createdAt: 'o.createdAt', total: 'o.total', status: 'o.status' }, defaultSort: ['o.createdAt', 'ASC'] });
+    const page = await paginateQb(qb, q, { sortable: { createdAt: 'o.createdAt', total: 'o.total', status: 'o.status' }, defaultSort: ['o.createdAt', 'ASC'] });
+    return { ...page, data: page.data.map(restaurantOrderView) };
   }
 
   @Get(':id')
   async detail(@CurrentUser() user: AuthUser, @Param('id') id: string, @Query('restaurantId') restaurantId?: string) {
     const order = await this.orderFor(this.rid(user, restaurantId), id);
     const timeline = await this.events.find({ where: { orderId: id }, order: { createdAt: 'ASC' } });
-    return { order, timeline };
+    return { order: restaurantOrderView(order), timeline };
   }
 
   @Post(':id/accept')
@@ -56,27 +57,27 @@ export class RestaurantOrdersController {
     const rid = this.rid(user, restaurantId);
     const order = await this.orderFor(rid, id);
     const prepTimeMin = dto.prepTimeMin ?? (order.prepTimeMin ?? 20) + (dto.addMinutes ?? 0);
-    return this.ordersService.transition(id, OrderStatus.ACCEPTED, restaurantActor(user), { prepTimeMin });
+    return restaurantOrderView(await this.ordersService.transition(id, OrderStatus.ACCEPTED, restaurantActor(user), { prepTimeMin }));
   }
 
   @Post(':id/reject')
   async reject(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: RejectOrderDto, @Query('restaurantId') restaurantId?: string) {
     await this.orderFor(this.rid(user, restaurantId), id);
     const reason = dto.note ? `${dto.reason}: ${dto.note}` : dto.reason;
-    return this.ordersService.transition(id, OrderStatus.REJECTED, restaurantActor(user), { reason });
+    return restaurantOrderView(await this.ordersService.transition(id, OrderStatus.REJECTED, restaurantActor(user), { reason }));
   }
 
   @Post(':id/ready')
   async ready(@CurrentUser() user: AuthUser, @Param('id') id: string, @Query('restaurantId') restaurantId?: string) {
     await this.orderFor(this.rid(user, restaurantId), id);
-    return this.ordersService.transition(id, OrderStatus.READY, restaurantActor(user));
+    return restaurantOrderView(await this.ordersService.transition(id, OrderStatus.READY, restaurantActor(user)));
   }
 
   @Post(':id/handoff')
   async handoff(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: HandoffDto, @Query('restaurantId') restaurantId?: string) {
     const order = await this.orderFor(this.rid(user, restaurantId), id);
     const to = order.fulfilment === FulfilmentMode.PICKUP ? OrderStatus.COLLECTED : OrderStatus.PICKED_UP;
-    return this.ordersService.transition(id, to, restaurantActor(user), { code: dto.code });
+    return restaurantOrderView(await this.ordersService.transition(id, to, restaurantActor(user), { code: dto.code }));
   }
 
   @Post(':id/items/:itemId/remove')
@@ -98,6 +99,6 @@ export class RestaurantOrdersController {
     const readyAt = order.estimatedReadyAt ? new Date(order.estimatedReadyAt.getTime() + addMs) : new Date(Date.now() + addMs);
     const deliveryAt = order.estimatedDeliveryAt ? new Date(order.estimatedDeliveryAt.getTime() + addMs) : undefined;
     await this.ordersService.setEta(id, readyAt, deliveryAt);
-    return this.orderFor(this.rid(user, restaurantId), id);
+    return restaurantOrderView(await this.orderFor(this.rid(user, restaurantId), id));
   }
 }

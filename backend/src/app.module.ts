@@ -38,6 +38,7 @@ import { FinanceModule } from './finance/finance.module';
 import { SupportModule } from './support/support.module';
 import { MarketingModule } from './marketing/marketing.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { RatingsModule } from './ratings/ratings.module';
 
 @Module({
   imports: [
@@ -96,6 +97,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
     SupportModule,
     MarketingModule,
     AnalyticsModule,
+    RatingsModule,
   ],
   providers: [
     // order matters: authenticate -> account type -> staff permission -> restaurant role

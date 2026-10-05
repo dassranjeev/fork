@@ -24,6 +24,7 @@ import { TicketsService } from './tickets.service';
 import { OrderContextService } from './order-context.service';
 import { RefundGateway } from './refund-gateway.service';
 import { SelfServeService } from './self-serve.service';
+import { DeliveryDisputesService } from './delivery-disputes.service';
 import { ReviewCasesService } from './review-cases.service';
 import { SupportSchedulerService } from './support-scheduler.service';
 import { AdminSupportController } from './admin-support.controller';
@@ -65,8 +66,8 @@ import { AdminChatController, CustomerChatController, DriverChatController } fro
       RestaurantMember,
     ]),
   ],
-  providers: [TicketsService, OrderContextService, RefundGateway, SelfServeService, ReviewCasesService, SupportSchedulerService, ChatService, ChatAgentService, ChatPresenceService, ChatSchedulerService],
+  providers: [TicketsService, OrderContextService, RefundGateway, SelfServeService, DeliveryDisputesService, ReviewCasesService, SupportSchedulerService, ChatService, ChatAgentService, ChatPresenceService, ChatSchedulerService],
   controllers: [AdminSupportController, CustomerSupportController, RestaurantSupportController, DriverSupportController, CustomerChatController, DriverChatController, AdminChatController],
-  exports: [ChatService, TicketsService, OrderContextService, RefundGateway, ReviewCasesService],
+  exports: [ChatService, TicketsService, OrderContextService, RefundGateway, ReviewCasesService, DeliveryDisputesService],
 })
 export class SupportModule {}

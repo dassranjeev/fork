@@ -128,9 +128,22 @@ export class ReviewCasesService {
     for (const r of lowRestaurants) {
       if (!(await this.hasOpenCase('RESTAURANT', r.id))) out.push({ subjectType: 'RESTAURANT', subjectId: r.id, trigger: CaseTrigger.LOW_RATING, details: `Rating ${r.rating} over ${r.ratingCount} ratings (below ${lowRating})`, proposed: true });
     }
+    // ratings system: rolling 30-day rating below ratings.driver.reviewBelow with enough ratings (see docs/ratings.md)
+    const rBelow = this.settings.get<number>('ratings.driver.reviewBelow', 4.2);
+    const rMin = this.settings.get<number>('ratings.driver.minRatings', 20);
+    const slump = await this.drivers.createQueryBuilder('d').where('d.ratingCount30d >= :m AND d.rating30d < :r AND d.status = :active', { m: rMin, r: rBelow, active: DriverStatus.ACTIVE }).getMany();
+    for (const d of slump) {
+      if (out.some((c) => c.subjectType === 'DRIVER' && c.subjectId === d.id && c.trigger === CaseTrigger.LOW_RATING)) continue;
+      if (!(await this.hasOpenCase('DRIVER', d.id))) out.push({ subjectType: 'DRIVER', subjectId: d.id, trigger: CaseTrigger.LOW_RATING, details: `Rolling 30-day rating ${d.rating30d} over ${d.ratingCount30d} ratings (below ${rBelow})`, proposed: true });
+    }
     const cancelDrivers = await this.drivers.createQueryBuilder('d').where('d.cancellations >= :c AND d.status = :active', { c: cancelThreshold, active: DriverStatus.ACTIVE }).getMany();
     for (const d of cancelDrivers) {
       if (!(await this.hasOpenCase('DRIVER', d.id))) out.push({ subjectType: 'DRIVER', subjectId: d.id, trigger: CaseTrigger.REPEATED_CANCELLATIONS, details: `${d.cancellations} cancellations on record (threshold ${cancelThreshold})`, proposed: true });
+    }
+    const strikeThreshold = this.settings.get<number>('support.deliveryDisputeStrikeThreshold', 3);
+    const disputeDrivers = await this.drivers.createQueryBuilder('d').where('d.deliveryDisputes30d >= :s AND d.status = :active', { s: strikeThreshold, active: DriverStatus.ACTIVE }).getMany();
+    for (const d of disputeDrivers) {
+      if (!(await this.hasOpenCase('DRIVER', d.id))) out.push({ subjectType: 'DRIVER', subjectId: d.id, trigger: CaseTrigger.DELIVERY_DISPUTES, details: `${d.deliveryDisputes30d} delivery-dispute strikes in 30 days (never-arrived claims without valid proof or confirmed not delivered; threshold ${strikeThreshold})`, proposed: true });
     }
     return out;
   }

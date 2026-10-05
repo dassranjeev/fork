@@ -9,6 +9,7 @@ import { http } from "../../lib/api";
 import { useFetch, useForm, useSubmit } from "../../lib/hooks";
 import { useAuth } from "../../lib/auth";
 import { fmtDateTime, money, num, timeAgo, titleCase } from "../../lib/format";
+import DriverRatingCard from "../ratings/DriverRatingCard";
 import { fmtDay as fmtDate } from "./shared";
 import { EXPIRY_REQUIRED, VEHICLES, acceptanceTone, fileHref, useZones } from "./shared";
 
@@ -330,12 +331,13 @@ function AcceptanceCard({ d }) {
 function Performance({ d }) {
   const p = d.performance || {};
   const tiles = [
-    ["Rating", p.ratingCount ? `${Number(p.rating).toFixed(2)} (${p.ratingCount})` : "—"],
+    ["Rating", p.ratingCount >= 5 ? `${Number(p.rating).toFixed(2)} (${p.ratingCount})` : p.ratingCount ? `New (${p.ratingCount})` : "—"],
     ["Acceptance (14d)", `${num(p.acceptanceRate)}%`],
     ["Completion", `${num(p.completionRate)}%`],
     ["On time", `${num(p.onTimeRate)}%`],
     ["Total trips", num(p.totalTrips)],
     ["Cancellations", num(p.cancellations)],
+    ["Delivery disputes (30d)", `${num(p.deliveryDisputes30d)} (total ${num(p.deliveryDisputesTotal)})`],
   ];
   return (
     <>
@@ -346,6 +348,7 @@ function Performance({ d }) {
           </div>
         ))}
       </div>
+      <DriverRatingCard driverId={d.id} />
       <AcceptanceCard d={d} />
       <Card title="Recent offers" noPadding bodyClassName="p-0">
         <DataTable
@@ -499,7 +502,7 @@ export default function DriverDetail() {
             <div className="d-flex flex-wrap align-items-center gap-2">
               <StatusBadge status={s} />
               <StatusBadge status={live[0]} tone={live[1]} />
-              {d.rating != null && d.ratingCount > 0 && <Badge tone="warning"><Icon icon="solar:star-bold" className="me-1" />{Number(d.rating).toFixed(2)}</Badge>}
+              {d.rating != null && d.ratingCount >= 5 && <Badge tone="warning"><Icon icon="solar:star-bold" className="me-1" />{Number(d.rating).toFixed(2)}</Badge>}
             </div>
             {d.statusReason && <div className="text-secondary-light text-sm mt-8">Reason: {d.statusReason}</div>}
           </div>

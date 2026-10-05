@@ -7,6 +7,7 @@ import { SettingsService } from '../settings/settings.service';
 import { TicketsService } from './tickets.service';
 import { OrderContextService, Suggestion } from './order-context.service';
 import { RefundGateway } from './refund-gateway.service';
+import { DeliveryDisputesService } from './delivery-disputes.service';
 import { AUTO_MESSAGES, CUSTOMER_ISSUE_TYPES, round2 } from './support.constants';
 
 export interface ReportIssueInput {
@@ -35,6 +36,7 @@ export class SelfServeService {
     private tickets: TicketsService,
     private orderContext: OrderContextService,
     private refundGateway: RefundGateway,
+    private disputes: DeliveryDisputesService,
     @InjectRepository(Order) private orders: Repository<Order>,
   ) {}
 
@@ -82,6 +84,16 @@ export class SelfServeService {
         deviceReasons: device?.reasons ?? [],
       },
     });
+
+    // Delivery evidence beats the claim: valid proof (PIN / clean in-geofence photo) -> NO auto-refund, Tier 2 with the evidence attached.
+    // Missing / weak / flagged proof -> refund path stays and the driver gets a delivery-dispute strike.
+    if (input.category === TicketCategory.NEVER_ARRIVED) {
+      const d = await this.disputes.onNeverArrivedClaim(order, ticket);
+      if (d.validProof) {
+        await this.tickets.addMessage(ticket.id, { type: 'SYSTEM' }, { body: AUTO_MESSAGES.en.evidenceReview(order.code) });
+        return { ticket: await this.tickets.get(ticket.id), auto: false, suggestion: await this.orderContext.suggest(order.id, input.category, [], ticket.id) };
+      }
+    }
 
     // Fraud flag / refund-frequency limit / device mismatch -> routeTier() inside create() already escalated to TIER2.
     if (ticket.tier !== TicketTier.SELF_SERVE) {

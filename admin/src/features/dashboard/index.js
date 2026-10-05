@@ -8,6 +8,7 @@ const DriverPerfPage = React.lazy(() => import("./analytics/DriverPerfPage"));
 const CustomerGrowthPage = React.lazy(() => import("./analytics/CustomerGrowthPage"));
 const FinanceAnalyticsPage = React.lazy(() => import("./analytics/FinanceAnalyticsPage"));
 const SupportAnalyticsPage = React.lazy(() => import("./analytics/SupportAnalyticsPage"));
+const RatingsPage = React.lazy(() => import("./analytics/RatingsPage"));
 const PilotKpisPage = React.lazy(() => import("./analytics/PilotKpisPage"));
 
 export const routes = [
@@ -19,6 +20,7 @@ export const routes = [
   { path: "analytics/customers", element: <CustomerGrowthPage />, perm: ["reports", "view"] },
   { path: "analytics/finance", element: <FinanceAnalyticsPage />, perm: ["reports", "view"] },
   { path: "analytics/support", element: <SupportAnalyticsPage />, perm: ["reports", "view"] },
+  { path: "analytics/ratings", element: <RatingsPage />, perm: ["reports", "view"] },
   { path: "analytics/pilot-kpis", element: <PilotKpisPage />, perm: ["reports", "view"] },
 ];
 
@@ -35,6 +37,7 @@ export const menu = [
       { label: "Executive", to: "/analytics/executive" },
       { label: "Restaurants", to: "/analytics/restaurants" },
       { label: "Drivers", to: "/analytics/drivers" },
+      { label: "Ratings", to: "/analytics/ratings" },
       { label: "Customer growth", to: "/analytics/customers" },
       { label: "Finance", to: "/analytics/finance" },
       { label: "Support", to: "/analytics/support" },

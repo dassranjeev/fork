@@ -1,4 +1,6 @@
-import { Body, Controller, ForbiddenException, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Param, ParseUUIDPipe, Post, Res } from '@nestjs/common';
+import type { Response } from 'express';
+import { createReadStream } from 'fs';
 import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -11,6 +13,7 @@ import { AuthUser } from '../common/auth.types';
 import { Order } from '../database/entities';
 import { OrdersService } from './orders.service';
 import { OrderChatService } from './order-chat.service';
+import { ProofService } from './proof.service';
 
 const ACTOR_TYPE: Record<UserType, ActorType> = {
   [UserType.SUPER_ADMIN]: ActorType.STAFF,
@@ -39,6 +42,7 @@ export class OrdersController {
   constructor(
     private orders: OrdersService,
     private chat: OrderChatService,
+    private proof: ProofService,
     @InjectRepository(Order) private orderRepo: Repository<Order>,
   ) {}
 
@@ -71,6 +75,18 @@ export class OrdersController {
   async tracking(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
     await this.assertParty(id, user);
     return this.orders.trackingView(id, this.viewerLabel(user));
+  }
+
+  /**
+   * Delivery proof photo. NOT under /uploads: only the order's customer, its assigned driver, the restaurant staff of that order and
+   * staff with orders:view get it (assertParty), bearer token required, never cached.
+   */
+  @Get(':id/proof/photo')
+  async proofPhoto(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser, @Res() res: Response) {
+    await this.assertParty(id, user);
+    const f = await this.proof.photoFileFor(id);
+    res.set({ 'Content-Type': f.mime, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Disposition': 'inline', 'Cross-Origin-Resource-Policy': 'same-site', 'Content-Security-Policy': "default-src 'none'; sandbox" });
+    createReadStream(f.path).pipe(res);
   }
 
   @Get(':id/messages')

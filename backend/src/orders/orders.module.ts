@@ -4,6 +4,8 @@ import {
   City,
   CommissionTier,
   CustomerProfile,
+  DeliveryProof,
+  DriverLocationLog,
   DriverProfile,
   Incentive,
   LedgerEntry,
@@ -20,6 +22,8 @@ import {
   Refund,
   Restaurant,
   TaxClass,
+  Ticket,
+  UploadedFile,
   WalletTransaction,
   Zone,
 } from '../database/entities';
@@ -30,9 +34,10 @@ import { LedgerService } from './ledger.service';
 import { WalletService } from './wallet.service';
 import { RefundsService } from './refunds.service';
 import { OrderChatService } from './order-chat.service';
-import { RatingAggregatesService } from './rating-aggregates.service';
+import { ProofService } from './proof.service';
 import { OrdersController } from './orders.controller';
 import { AdminOrdersController } from './admin-orders.controller';
+import { DeliveryOptionsController } from './delivery-options.controller';
 
 /**
  * @Global (ARCHITECTURE.md): every other module consumes Orders' services directly rather than
@@ -63,10 +68,14 @@ import { AdminOrdersController } from './admin-orders.controller';
       Zone,
       CommissionTier,
       Incentive,
+      DeliveryProof,
+      DriverLocationLog,
+      Ticket,
+      UploadedFile,
     ]),
   ],
-  providers: [PricingService, OrdersService, PaymentsService, LedgerService, WalletService, RefundsService, OrderChatService, RatingAggregatesService],
-  controllers: [OrdersController, AdminOrdersController],
-  exports: [PricingService, OrdersService, PaymentsService, LedgerService, WalletService, RefundsService, OrderChatService],
+  providers: [PricingService, OrdersService, PaymentsService, LedgerService, WalletService, RefundsService, OrderChatService, ProofService],
+  controllers: [OrdersController, AdminOrdersController, DeliveryOptionsController],
+  exports: [PricingService, OrdersService, PaymentsService, LedgerService, WalletService, RefundsService, OrderChatService, ProofService],
 })
 export class OrdersModule {}

@@ -19,7 +19,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
-import { DocStatus, DriverDocType, DriverStatus, VehicleType } from '../common/enums';
+import { DocStatus, DriverDocType, DriverStatus, ProofExceptionReason, VehicleType } from '../common/enums';
 import { PageQueryDto } from '../common/pagination';
 
 // ------------------------------------------------------------------ admin: drivers
@@ -320,10 +320,17 @@ export class PickupDto extends StepDto {
 }
 
 export class DeliverDto extends StepDto {
+  /** photo uploaded by THIS driver via POST /uploads (our own URL, JPEG/PNG). Needs lat, lng, accuracy and capturedAt (lat/lng come from StepDto: where the photo was taken). */
   @IsOptional() @IsString() @MaxLength(2048) proofPhotoUrl?: string;
-  /** customer PIN for high-value orders */
+  /** the customer's 4-digit delivery PIN (HAND_TO_ME / MEET_OUTSIDE) */
   @IsOptional() @IsString() @MaxLength(10) pin?: string;
   @IsOptional() @IsString() @MaxLength(500) note?: string;
+  /** GPS accuracy of the photo location in metres */
+  @IsOptional() @Type(() => Number) @IsNumber({ allowNaN: false, allowInfinity: false }) @Min(0) @Max(100000) accuracy?: number;
+  /** when the photo was taken (ISO 8601, device clock) */
+  @IsOptional() @IsDateString() capturedAt?: string;
+  /** exception path: complete with photo + reason; the delivery is marked WEAK_PROOF and reviewed */
+  @IsOptional() @IsEnum(ProofExceptionReason) exceptionReason?: ProofExceptionReason;
 }
 
 export class CallDto {

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react/offline";
+import RateCustomerPanel from "../ratings/RateCustomerPanel";
 import { Badge, Button, DataTable, ErrorState, FilterSelect, FormModal, ListToolbar, Loading, Modal, Segmented, Select, StatusBadge, TextArea, TextInput, Timeline, useConfirm } from "../../ui";
 import { fmtDateTime, fmtTime, money, ORDER_STATUSES, titleCase } from "../../lib/format";
 import { errorMessage, http } from "../../lib/api";
@@ -210,6 +211,8 @@ function OrderCard({ order, reload }) {
           {["ACCEPTED", "DRIVER_ASSIGNED", "PREPARING"].includes(s) && <Countdown target={order.estimatedReadyAt} label="Ready in" />}
           {order.isScheduled && <Badge tone="info">Scheduled {fmtDateTime(order.scheduledFor)}</Badge>}
           {order.hasAllergyFlag && <Badge tone="danger">Allergy</Badge>}
+          {order.type !== "PICKUP" && order.dropoffMethod === "LEAVE_AT_DOOR" && <Badge tone="info">Contactless</Badge>}
+          {order.type !== "PICKUP" && order.dropoffMethod === "MEET_OUTSIDE" && <Badge tone="neutral">Meet outside</Badge>}
         </div>
         <OrderItems order={order} onRemove={removeItem} removing={isBusy("rm")} />
         {order.customerNotes && <div className="alert alert-warning py-8 px-12 radius-8 text-sm mt-8 mb-0">Customer note: {order.customerNotes}</div>}
@@ -324,6 +327,7 @@ function OrderDetailModal({ id, onClose }) {
             <div className="d-flex gap-2 mb-12 flex-wrap align-items-center">
               <StatusBadge status={o.status} />
               <Badge tone="info">{ORDER_TYPE_LABEL[o.type] || o.type}</Badge>
+              {o.type !== "PICKUP" && o.dropoffMethod === "LEAVE_AT_DOOR" && <Badge tone="info">Contactless</Badge>}
               <span className="text-secondary-light text-sm">{fmtDateTime(o.createdAt)}</span>
             </div>
             <OrderItems order={o} />
@@ -333,6 +337,7 @@ function OrderDetailModal({ id, onClose }) {
               <div className="d-flex justify-content-between fw-semibold"><span>Your payout</span><span>{money(o.restaurantPayout)}</span></div>
             </div>
             {(o.cancelReason || o.rejectReason) && <div className="text-danger-600 text-sm mt-8">Reason: {o.cancelReason || o.rejectReason}</div>}
+            {["DELIVERED", "COLLECTED"].includes(o.status) && <RateCustomerPanel order={o} />}
           </div>
           <div className="col-md-5 ps-4">
             <Timeline

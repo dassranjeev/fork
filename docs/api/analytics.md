@@ -10,6 +10,7 @@ Common query filters (`AnalyticsFilterDto`) on every GET: `from`, `to` (YYYY-MM-
 | GET | /admin/analytics/executive | reports:view | range, groupBy | `{kpis{gmv,netRevenue,takeRatePct,orders,aov,activeCustomers,newCustomers,cac,ltv,ltvToCac,marginPerOrder,contributionMargin,cancellationRatePct}, marketingSpend, economics, series[], byCity[]}` |
 | GET | /admin/analytics/restaurant-performance | reports:view | range, search, sortBy(gmv,orders,rating,cancellationRatePct,reliabilityScore,avgPrepMin), page, limit | `{range, kpis, data[{id,name,status,rating,orders,completed,cancelled,rejected,late,gmv,commission,payout,avgPrepMin,aov,cancellationRatePct,lateRatePct}], meta}` |
 | GET | /admin/analytics/restaurant-performance/:id | reports:view | range | `{range, sales, topItems, peakHours, ratings}` |
+| GET | /admin/analytics/ratings | reports:view | range, cityId, zoneId | `{range, minCountToShow, restaurant{count,average,distribution[{stars,count}]}, driver{...}, trend[{date,restaurantCount,restaurantAvg,driverCount,driverAvg}], moderation{flagged,hidden,reportedPending}, restaurants{lowest[],highest[]}, drivers{lowest[],highest[]}, alerts{driversInAlert,restaurantsInAlert}, customers{rated,safetyFlags,lowPattern}}`. Leaderboards use the smoothed rolling `rating`, `ratingCount`, raw 30-day `rating30d/ratingCount30d`, `ratingAlert`; only targets with at least `ratings.minCountToShow` ratings; VISIBLE reviews only |
 | GET | /admin/analytics/driver-performance | reports:view | range, sortBy(trips,earnings,rating,onTimeRate,acceptanceRate), page, limit | `{range, fleet{active,online,avgRating,avgAcceptanceRate,avgOnTimeRate}, data[{id,name,status,vehicleType,rating,trips,onTimeTrips,earnings,avgTripMin,earningsPerTrip,...}], meta}` |
 | GET | /admin/analytics/customer-growth | reports:view | range, cohorts | `{kpis, series, retentionCohorts, repeatRate, orderFrequency, topCuisines, promoRoi, referrals, funnel}` |
 | GET | /admin/analytics/finance | reports:view | range | `{kpis, series, ledgerByType, refunds, payoutBatches, payouts, invoices}` (ledger/refund/payout/invoice sections are platform-wide; only `kpis` honour city/zone) |
@@ -31,6 +32,6 @@ Cron: daily 07:00, Mondays 07:00, 1st of month 07:00. Email goes through `Notifi
 | GET | /restaurant/reports/sales | range, groupBy, restaurantId | `{range, kpis{orders,completedOrders,gmv,payout,commission,aov,cancellationRatePct}, series[]}` |
 | GET | /restaurant/reports/top-items | range, limit | `[{menuItemId,name,lines,qty,revenue,orders,avgPrice}]` |
 | GET | /restaurant/reports/peak-hours | range | `{grid[{dow(0=Sun),hour,orders,gmv}], busiest[]}` |
-| GET | /restaurant/reports/ratings | range | `{average,total,distribution,repliedPct,recent[]}` |
+| GET | /restaurant/reports/ratings | range | `{average,total,distribution,repliedPct,recent[]}` (visible reviews only; the portal Reviews page uses `/restaurant/reviews/summary` for the smoothed figures) |
 | GET | /restaurant/reports/payouts | page, limit | `{kpis{paid,pending}, data[], meta}` |
 | GET | /restaurant/reports/promotions | range | `{range, owned[], platformImpact}` |

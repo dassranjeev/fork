@@ -318,6 +318,7 @@ export enum CaseTrigger {
   SAFETY_COMPLAINT = 'SAFETY_COMPLAINT',
   EXPIRED_DOCUMENTS = 'EXPIRED_DOCUMENTS',
   REPEATED_CANCELLATIONS = 'REPEATED_CANCELLATIONS',
+  DELIVERY_DISPUTES = 'DELIVERY_DISPUTES',
   OTHER = 'OTHER',
 }
 
@@ -327,4 +328,34 @@ export enum CaseDecision {
   WARNED = 'WARNED',
   SUSPENDED = 'SUSPENDED',
   DEACTIVATED = 'DEACTIVATED',
+}
+
+/** How the customer wants the order handed over (drives the proof-of-delivery requirement). */
+export enum DropoffMethod {
+  HAND_TO_ME = 'HAND_TO_ME',
+  LEAVE_AT_DOOR = 'LEAVE_AT_DOOR',
+  MEET_OUTSIDE = 'MEET_OUTSIDE',
+}
+
+/** Evidence kind stored on a DeliveryProof. NONE only occurs when an operator relaxed the proof settings or staff forced the delivery. */
+export enum ProofType {
+  PIN = 'PIN',
+  PHOTO = 'PHOTO',
+  PIN_AND_PHOTO = 'PIN_AND_PHOTO',
+  EXCEPTION = 'EXCEPTION',
+  NONE = 'NONE',
+}
+
+/** Reason codes a driver may give to complete a delivery without the normal proof (always flagged WEAK_PROOF and reviewed). */
+export enum ProofExceptionReason {
+  CUSTOMER_UNREACHABLE = 'CUSTOMER_UNREACHABLE',
+  PIN_NOT_AVAILABLE = 'PIN_NOT_AVAILABLE',
+  SAFETY_CONCERN = 'SAFETY_CONCERN',
+}
+
+/** Staff verdict on a "never arrived" dispute. */
+export enum DisputeOutcome {
+  UPHELD_DELIVERED = 'UPHELD_DELIVERED',
+  NOT_DELIVERED = 'NOT_DELIVERED',
+  INCONCLUSIVE = 'INCONCLUSIVE',
 }

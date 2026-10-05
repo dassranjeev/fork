@@ -49,6 +49,9 @@ import { HHMM, tempPassword } from './restaurants.util';
 
 const DOC_TYPES = Object.values(RestaurantDocType) as string[];
 
+import { RatingsAdminService } from '../ratings/ratings-admin.service';
+import { RatingAggregatesService } from '../ratings/rating-aggregates.service';
+
 @Injectable()
 export class RestaurantStoreService {
   constructor(
@@ -73,6 +76,8 @@ export class RestaurantStoreService {
     private availability: AvailabilityService,
     private auth: AuthService,
     private strategy: JwtStrategy,
+    private ratingsAdmin: RatingsAdminService,
+    private ratingAggregates: RatingAggregatesService,
   ) {}
 
   // ------------------------------------------------------------------ helpers
@@ -636,6 +641,11 @@ export class RestaurantStoreService {
         'rv.reply AS reply',
         'rv.repliedAt AS "repliedAt"',
         'rv.status AS status',
+        'rv.reportedAt AS "reportedAt"',
+        'rv.reportReason AS "reportReason"',
+        'rv.editCount AS "editCount"',
+        'rv.flagReasons AS "flagReasons"',
+        'rv.moderation AS moderation',
         'rv.createdAt AS "createdAt"',
         'o.code AS "orderCode"',
         `TRIM(COALESCE(u."firstName", '') || ' ' || COALESCE(LEFT(u."lastName", 1) || '.', '')) AS "customerName"`,
@@ -650,6 +660,7 @@ export class RestaurantStoreService {
     if (q.search) qb.andWhere('rv.comment ILIKE :s', { s: `%${q.search}%` });
     const total = await qb.getCount();
     const data = await qb.orderBy('rv.createdAt', 'DESC').offset((page - 1) * limit).limit(limit).getRawMany();
+    if (restaurantIds) for (const d of data) { delete d.flagReasons; delete d.moderation; } // internal fraud/moderation detail is staff-only
     return { data, meta: pageMeta(total, page, limit) };
   }
 
@@ -664,23 +675,14 @@ export class RestaurantStoreService {
     return rv;
   }
 
+  /** Staff moderation (restaurants:approve). Delegates to the ratings module: reason required, audit-logged, aggregates refreshed. */
   async moderate(reviewId: string, status: 'VISIBLE' | 'HIDDEN' | 'FLAGGED', reason: string | undefined, req: any) {
-    const rv = await this.reviews.findOne({ where: { id: reviewId } });
-    if (!rv) throw new NotFoundException('Review not found');
-    const before = rv.status;
-    rv.status = status;
-    await this.reviews.save(rv);
-    await this.recomputeRating(rv.restaurantId);
-    await this.audit.logReq(req, `review.${status.toLowerCase()}`, 'review', reviewId, { status: before }, { status, reason });
-    return rv;
+    const action = status === 'HIDDEN' ? 'HIDE' : status === 'FLAGGED' ? 'FLAG' : 'RESTORE';
+    return this.ratingsAdmin.moderate(reviewId, 'RESTAURANT', action, reason ?? '', req);
   }
 
   async recomputeRating(restaurantId: string) {
-    const [row] = await this.ds.query(
-      `SELECT COALESCE(AVG("restaurantRating"),0)::float AS avg, COUNT(*)::int AS n FROM reviews WHERE "restaurantId" = $1 AND "restaurantRating" IS NOT NULL AND status <> 'HIDDEN'`,
-      [restaurantId],
-    );
-    await this.restaurants.update(restaurantId, { rating: Math.round((row?.avg ?? 0) * 100) / 100, ratingCount: row?.n ?? 0 });
+    await this.ratingAggregates.refresh({ restaurantIds: [restaurantId] });
   }
 
   // ------------------------------------------------------------------ performance stats (spec 12: Restaurant Performance)

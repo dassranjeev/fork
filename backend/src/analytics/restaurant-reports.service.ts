@@ -132,14 +132,14 @@ export class RestaurantReportsService {
               COUNT(*) FILTER (WHERE rv."restaurantRating" = 3)::int r3, COUNT(*) FILTER (WHERE rv."restaurantRating" = 2)::int r2,
               COUNT(*) FILTER (WHERE rv."restaurantRating" = 1)::int r1, COUNT(*) FILTER (WHERE rv.reply IS NOT NULL)::int replied
        FROM reviews rv JOIN orders o ON o.id = rv."orderId"
-       ${WHERE([`rv."restaurantRating" IS NOT NULL`, ...rangeConds(p, 'rv."createdAt"', c.from, c.to), ...scopeConds(c, p)])}`,
+       ${WHERE([`rv."restaurantRating" IS NOT NULL`, `rv.status = 'VISIBLE'`, ...rangeConds(p, 'rv."createdAt"', c.from, c.to), ...scopeConds(c, p)])}`,
       p.v,
     );
     const p2 = new Params();
     const recent = await this.b.q(
       `SELECT rv.id, rv."restaurantRating" rating, rv.comment, rv."restaurantTags" tags, rv.reply, rv."createdAt", o.code "orderCode"
        FROM reviews rv JOIN orders o ON o.id = rv."orderId"
-       ${WHERE([`rv."restaurantRating" IS NOT NULL`, ...scopeConds(c, p2)])}
+       ${WHERE([`rv."restaurantRating" IS NOT NULL`, `rv.status = 'VISIBLE'`, ...scopeConds(c, p2)])}
        ORDER BY rv."createdAt" DESC LIMIT 25`,
       p2.v,
     );

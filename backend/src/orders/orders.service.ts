@@ -6,7 +6,7 @@ import { ModuleRef } from '@nestjs/core';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { CustomerProfile, DriverProfile, Order, OrderEvent, OrderItem, Restaurant } from '../database/entities';
-import { ActorType, FulfilmentMode, LedgerType, OrderStatus, OrderType, PaymentMethod, PaymentStatus, PartyType, RefundChargedTo, RefundType } from '../common/enums';
+import { ActorType, DropoffMethod, FulfilmentMode, LedgerType, OrderStatus, OrderType, PaymentMethod, PaymentStatus, PartyType, RefundChargedTo, RefundType } from '../common/enums';
 import {
   ActorRef,
   Events,
@@ -26,6 +26,8 @@ import { WalletService } from './wallet.service';
 import { RefundsService } from './refunds.service';
 import { PricingService } from './pricing.service';
 import { lazyProvider, round2 } from './pricing.math';
+import { ProofService } from './proof.service';
+import { cleanAccessCode, cleanNotes, maskCode, methodFromLegacy, openCode, sealCode } from './delivery-instructions';
 
 /** Which statuses a transition may originate from. Missing `to` key = no direct transition allowed. */
 const ALLOWED: Partial<Record<OrderStatus, OrderStatus[]>> = {
@@ -103,6 +105,7 @@ export class OrdersService implements IOrdersService {
     private realtime: RealtimeService,
     private audit: AuditService,
     private emitter: EventEmitter2,
+    private proof: ProofService,
   ) {}
 
   private promotions(): IPromotionsService | null {
@@ -117,8 +120,9 @@ export class OrdersService implements IOrdersService {
     if (!restaurant) throw new NotFoundException('Restaurant not found');
 
     const code = await this.codes.orderCode();
-    const highValue = this.settings.get<number>('orders.highValuePinThreshold', 100);
-    const requiresPin = quote.total >= highValue && quote.fulfilment !== FulfilmentMode.PICKUP;
+    const dropoffMethod = methodFromLegacy(input.contactless, input.dropoffMethod);
+    if (!Object.values(DropoffMethod).includes(dropoffMethod)) throw new BadRequestException('Unknown delivery method');
+    const requiresPin = this.proof.shouldHavePin(dropoffMethod, quote.total, quote.fulfilment);
     const autoRejectSec = restaurant.autoRejectSeconds || this.settings.get<number>('orders.autoRejectSeconds', 180);
 
     const itemRows = quote.lines.map((l) =>
@@ -174,7 +178,10 @@ export class OrdersService implements IOrdersService {
       pickupCode: quote.fulfilment === FulfilmentMode.OWN_DRIVER ? null : this.codes.pin(4),
       deliveryPin: requiresPin ? this.codes.pin(4) : null,
       requiresPin,
-      contactless: !!input.contactless,
+      contactless: dropoffMethod === DropoffMethod.LEAVE_AT_DOOR,
+      dropoffMethod,
+      dropoffNotes: quote.fulfilment === FulfilmentMode.PICKUP ? null : cleanNotes(input.dropoffNotes),
+      accessCode: quote.fulfilment === FulfilmentMode.PICKUP ? null : sealCode(cleanAccessCode(input.accessCode)),
       customerNotes: input.customerNotes?.slice(0, 1000) ?? null,
       hasAllergyFlag: quote.lines.some((l) => l.allergens?.length > 0),
       cancellationFee: 0,
@@ -267,7 +274,7 @@ export class OrdersService implements IOrdersService {
     if (to === OrderStatus.COLLECTED && order.pickupCode && isDriver) {
       if (!codeMatches(opts.code, order.pickupCode)) throw new ForbiddenException('Pickup code does not match');
     }
-    if (to === OrderStatus.DELIVERED && order.requiresPin && order.deliveryPin && !staffOverride) {
+    if (to === OrderStatus.DELIVERED && order.requiresPin && order.deliveryPin && !staffOverride && !opts.proof) {
       if (!codeMatches(opts.code, order.deliveryPin)) throw new ForbiddenException('Delivery PIN is required and must match');
     }
 
@@ -310,7 +317,9 @@ export class OrdersService implements IOrdersService {
       await this.settleDelivered(order);
     }
     if (to === OrderStatus.DELIVERED) {
-      if (opts.proofPhotoUrl) order.proofPhotoUrl = opts.proofPhotoUrl;
+      // evidence first: if it cannot be stored the transition fails and the status is rolled back
+      if (opts.proof) await this.proof.persist(order, opts.proof);
+      else await this.proof.recordForced(order, actor.id);
       await this.settleDelivered(order);
       if (order.driverId) await this.drivers.update(order.driverId, { onTrip: false });
     }
@@ -572,7 +581,80 @@ export class OrdersService implements IOrdersService {
     await this.orders.save(order);
     await this.addEvent(order.id, `DRIVER_ARRIVED_${stage}`, actor, undefined, opts);
     this.realtime.emitToOrder(order.id, 'order.driver_arrived', { orderId: order.id, stage });
+    if (stage === 'CUSTOMER') {
+      // heads-up for the customer, worded for the method they chose
+      const m = order.dropoffMethod;
+      const pin = order.requiresPin ? order.deliveryPin : null;
+      const body =
+        m === DropoffMethod.LEAVE_AT_DOOR
+          ? `Your driver has arrived with order ${order.code} and will leave it at your door.`
+          : m === DropoffMethod.MEET_OUTSIDE
+            ? `Your driver has arrived outside with order ${order.code}.${pin ? ` Tell them PIN ${pin}.` : ''}`
+            : `Your driver has arrived with order ${order.code}.${pin ? ` Tell them PIN ${pin}.` : ''}`;
+      await this.notifications.notify({ userId: order.customerId, audience: 'CUSTOMER', event: 'delivery.driver_arrived', title: 'Your driver has arrived', body, data: { orderId: order.id } }).catch(() => undefined);
+    }
     return order;
+  }
+
+  // ---------------------------------------------------------------------- delivery instructions
+  private static readonly BEFORE_PICKUP = [OrderStatus.PLACED, OrderStatus.ACCEPTED, OrderStatus.DRIVER_ASSIGNED, OrderStatus.PREPARING, OrderStatus.READY];
+
+  /** Customer changes the handoff method / driver instructions / access code until the driver has picked the food up. */
+  async updateDeliveryInstructions(orderId: string, customerId: string, patch: { dropoffMethod?: string; dropoffNotes?: string | null; accessCode?: string | null }): Promise<Order> {
+    const order = await this.getById(orderId, []);
+    if (order.customerId !== customerId) throw new NotFoundException('Order not found');
+    if (order.fulfilment === FulfilmentMode.PICKUP) throw new BadRequestException('Pickup orders have no delivery instructions');
+    if (!OrdersService.BEFORE_PICKUP.includes(order.status)) throw new BadRequestException('Your driver already has the order - delivery instructions can no longer be changed. Use chat to reach your driver.');
+    const set: Partial<Order> = {};
+    const before = { method: order.dropoffMethod, requiresPin: order.requiresPin };
+    let method = order.dropoffMethod;
+    if (patch.dropoffMethod !== undefined) {
+      if (!Object.values(DropoffMethod).includes(patch.dropoffMethod as DropoffMethod)) throw new BadRequestException('Unknown delivery method');
+      method = patch.dropoffMethod as DropoffMethod;
+      set.dropoffMethod = method;
+      set.contactless = method === DropoffMethod.LEAVE_AT_DOOR;
+      const needPin = this.proof.shouldHavePin(method, Number(order.total), order.fulfilment);
+      set.requiresPin = needPin;
+      if (needPin && !order.deliveryPin) set.deliveryPin = this.codes.pin(4);
+    }
+    if (patch.dropoffNotes !== undefined) set.dropoffNotes = cleanNotes(patch.dropoffNotes);
+    if (patch.accessCode !== undefined) set.accessCode = sealCode(cleanAccessCode(patch.accessCode));
+    if (!Object.keys(set).length) return order;
+    await this.orders.update(orderId, set as any);
+    const after = await this.getById(orderId, []);
+    const rule = this.proof.requirementFor(after);
+    await this.addEvent(orderId, 'DELIVERY_INSTRUCTIONS_CHANGED', { type: ActorType.CUSTOMER, id: customerId }, undefined, {
+      methodFrom: before.method,
+      methodTo: after.dropoffMethod,
+      notesChanged: patch.dropoffNotes !== undefined,
+      accessCodeChanged: patch.accessCode !== undefined, // the code itself is never logged
+      proof: rule.rule,
+    });
+    const payload = { orderId, code: after.code, dropoffMethod: after.dropoffMethod, dropoffNotes: after.dropoffNotes, proofRule: rule.rule, proofLabel: rule.label, accessCodeChanged: patch.accessCode !== undefined };
+    if (after.driverId) {
+      this.realtime.emitToDriver(after.driverId, 'order.instructions_changed', payload);
+      const dp = await this.drivers.findOne({ where: { id: after.driverId } });
+      if (dp?.userId) {
+        await this.notifications
+          .notify({ userId: dp.userId, audience: 'DRIVER', event: 'delivery.instructions_changed', title: `Delivery instructions updated - ${after.code}`, body: `The customer changed the handoff to "${after.dropoffMethod.replace(/_/g, ' ').toLowerCase()}" (${rule.label}).${after.dropoffNotes ? ' Note: ' + after.dropoffNotes : ''}`, data: { orderId } })
+          .catch(() => undefined);
+      }
+    }
+    this.realtime.emitToOrder(orderId, 'order.instructions_changed', { orderId, dropoffMethod: after.dropoffMethod, proofRule: rule.rule });
+    return after;
+  }
+
+  /** The decrypted access code, or null. Callers decide who may see it. */
+  async accessCodeOf(orderId: string): Promise<string | null> {
+    const row = await this.orders.createQueryBuilder('o').select('o.accessCode', 'ac').where('o.id = :id', { id: orderId }).getRawOne();
+    return openCode(row?.ac);
+  }
+
+  /** Staff "Reveal": only once the driver has the food, audit-logged by the caller. */
+  async revealAccessCode(orderId: string): Promise<{ accessCode: string | null; purged: boolean }> {
+    const order = await this.getById(orderId, []);
+    if (!order.pickedUpAt && ![OrderStatus.PICKED_UP, OrderStatus.ON_THE_WAY, OrderStatus.DELIVERED].includes(order.status)) throw new ForbiddenException('The access code can only be revealed after the driver has picked up the order');
+    return { accessCode: await this.accessCodeOf(orderId), purged: !!order.accessCodePurgedAt };
   }
 
   // ---------------------------------------------------------------------- tracking
@@ -583,6 +665,24 @@ export class OrdersService implements IOrdersService {
     const driver = order.driverId ? await this.drivers.findOne({ where: { id: order.driverId }, relations: ['user'] }) : null;
     const timeline = await this.events.find({ where: { orderId }, order: { createdAt: 'ASC' } });
     const full = viewer === 'STAFF' || !viewer;
+    const active = [OrderStatus.PICKED_UP, OrderStatus.ON_THE_WAY].includes(order.status);
+    const rule = this.proof.requirementFor(order);
+    const accessCode = viewer === 'DRIVER' && active && order.driverId ? await this.accessCodeOf(orderId) : null;
+    const hasCode = !!(await this.orders.createQueryBuilder('o').select('o.accessCode', 'ac').where('o.id = :id', { id: orderId }).getRawOne())?.ac;
+    const proofRow = [OrderStatus.DELIVERED, OrderStatus.COLLECTED].includes(order.status) && order.fulfilment !== FulfilmentMode.PICKUP ? await this.proof.find(orderId) : null;
+    const dropoff =
+      viewer === 'RESTAURANT'
+        ? { method: order.dropoffMethod, contactless: order.dropoffMethod === DropoffMethod.LEAVE_AT_DOOR }
+        : {
+            method: order.dropoffMethod,
+            contactless: order.dropoffMethod === DropoffMethod.LEAVE_AT_DOOR,
+            notes: viewer === 'DRIVER' && !order.pickedUpAt ? null : order.dropoffNotes, // drivers see the instructions together with the address
+            accessCode, // DRIVER only, from pickup until delivery; staff use the audited reveal action
+            accessCodeSet: viewer === 'CUSTOMER' || full ? hasCode : undefined,
+            proofRule: rule.rule,
+            proofLabel: rule.label,
+            exceptionReasons: viewer === 'DRIVER' ? rule.exceptionReasons : undefined,
+          };
 
     return {
       id: order.id,
@@ -599,8 +699,11 @@ export class OrdersService implements IOrdersService {
       items: order.items.filter((i) => !i.removed),
       total: order.total,
       pickupCode: viewer === 'DRIVER' || full ? order.pickupCode : viewer === 'CUSTOMER' ? order.pickupCode : null,
-      deliveryPin: viewer === 'CUSTOMER' || full ? order.deliveryPin : null,
-      deliveryAddress: viewer === 'DRIVER' && !order.pickedUpAt ? null : order.deliveryAddress,
+      deliveryPin: (viewer === 'CUSTOMER' || full) && order.requiresPin ? order.deliveryPin : null,
+      dropoff,
+      kitchenNotes: viewer === 'DRIVER' ? null : order.customerNotes,
+      deliveryProof: proofRow ? (viewer === 'CUSTOMER' || viewer === 'DRIVER' ? this.proof.customerView(proofRow) : viewer === 'RESTAURANT' ? { proofType: proofRow.proofType, deliveredAt: proofRow.deliveredAt } : this.proof.summary(proofRow)) : null,
+      deliveryAddress: viewer === 'DRIVER' && !order.pickedUpAt ? null : viewer === 'RESTAURANT' || !order.deliveryAddress ? (order.deliveryAddress ? { ...order.deliveryAddress, dropoffNotes: undefined } : null) : order.deliveryAddress,
       driver: driver
         ? {
             id: driver.id,
