@@ -192,8 +192,9 @@ export const SETTING_DEFINITIONS: any[] = [
   // ---- delivery proof & instructions (docs/proof-of-delivery.md). Replaces the old driver.deliveryGeofenceKm. ----
   { key: 'delivery.proof.leaveAtDoorPhotoRequired', group: 'delivery', label: 'LEAVE_AT_DOOR (contactless) deliveries require a photo of the dropped-off order taken at the drop-off', value: true, inputType: 'boolean' },
   { key: 'delivery.proof.pinAlways', group: 'delivery', label: 'Always generate a 4-digit delivery PIN for HAND_TO_ME / MEET_OUTSIDE orders (off = only orders above orders.highValuePinThreshold)', value: true, inputType: 'boolean' },
-  { key: 'delivery.proof.geofenceMeters', group: 'delivery', label: 'Delivery geofence (m): the delivery / proof photo must be within this distance of the drop-off address', value: 150, inputType: 'number' },
-  { key: 'delivery.proof.requireGeofence', group: 'delivery', label: 'Enforce the delivery geofence (outside it the delivery is rejected; the driver may retry or use the exception path, which flags the order)', value: true, inputType: 'boolean' },
+  { key: 'delivery.proof.geofenceMeters', group: 'delivery', label: 'Delivery geofence (m): the driver and the proof photo must be within this distance of the drop-off address to complete a delivery', value: 100, inputType: 'number' },
+  { key: 'delivery.proof.photoAlways', group: 'delivery', label: 'Require a delivery photo on EVERY delivery (off = photo only for contactless orders and for customers who turn the PIN off)', value: false, inputType: 'boolean' },
+  { key: 'delivery.proof.requireGeofence', group: 'delivery', label: 'Enforce the delivery geofence (outside it the delivery is rejected, including on the exception path)', value: true, inputType: 'boolean' },
   { key: 'delivery.proof.photoMaxAgeMinutes', group: 'delivery', label: 'A proof photo must have been captured within this many minutes of submitting the delivery', value: 10, inputType: 'number' },
   { key: 'delivery.proof.retentionDays', group: 'delivery', label: 'Proof photo FILES are deleted after this many days (evidence record kept) unless the order has an open / recent dispute', value: 90, inputType: 'number' },
   { key: 'delivery.proof.gpsMismatchMeters', group: 'delivery', label: "Flag GPS_MISMATCH when the claimed delivery location is farther than this from the driver's last server-side GPS fix (m)", value: 300, inputType: 'number' },
@@ -272,6 +273,8 @@ export class SettingsService implements OnModuleInit {
       }
       await this.repo.delete({ key: 'driver.deliveryGeofenceKm' });
     }
+    // one-off: the geofence default moved from 150 m to 100 m; an untouched 150 follows it, a custom value stays
+    await this.repo.createQueryBuilder().update().set({ value: 100 as any }).where("key = :k AND value::text = '150'", { k: 'delivery.proof.geofenceMeters' }).execute().catch(() => undefined);
     const existing = new Set((await this.repo.find({ select: ['key'] })).map((s) => s.key));
     const missing = SETTING_DEFINITIONS.filter((d) => !existing.has(d.key));
     if (missing.length) await this.repo.insert(missing);

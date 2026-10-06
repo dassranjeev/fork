@@ -39,6 +39,14 @@ export const DELIVERY_OPTIONS = {
     { value: DropoffMethod.LEAVE_AT_DOOR, label: 'Leave at my door', description: 'Contactless: the driver leaves the order at your door and takes a photo.', contactless: true, proof: { type: 'PHOTO', summary: 'No PIN needed. The driver takes a photo of the order at your door; you can see it in the app.' } },
   ],
   suggestedInstructions: ['Ring doorbell', "Don't ring the bell - sleeping baby", 'Call on arrival', 'Beware of dog', 'Leave with the concierge', 'Use the side door', 'Knock softly', 'Text me when you arrive'],
+  pinChoice: {
+    field: 'usePin',
+    default: true,
+    on: 'You get a private 4-digit PIN and tell it to the driver when you receive the order.',
+    off: 'No PIN. The driver must take a photo of your order at the delivery location and upload it in the app as proof of delivery.',
+    note: 'Leave-at-door orders never use a PIN: the driver always takes a photo.',
+  },
+  geofence: 'The driver must be within the delivery location radius (default 100 m) to complete a delivery.',
   limits: { dropoffNotesMax: 300, accessCodeMax: 40 },
   notes: 'Delivery instructions go to your driver only. Notes for the kitchen are separate ("kitchen notes").',
 };

@@ -135,6 +135,10 @@ export class Address extends BaseEntity {
   @Column({ type: 'varchar', default: 'HAND_TO_ME' })
   dropoffMethod: string;
 
+  /** Saved default: use a private delivery PIN at this address (false = driver photographs the delivered order). */
+  @Column({ default: true })
+  usePin: boolean;
+
   /** Buzzer / gate code, sealed with secretbox (never returned in lists). */
   @Column({ type: 'text', nullable: true, select: false })
   accessCode: string | null;

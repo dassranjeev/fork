@@ -12,8 +12,10 @@ export class DeliveryOptionsController {
   options() {
     const photo = this.settings.get<boolean>('delivery.proof.leaveAtDoorPhotoRequired', true);
     const pin = this.settings.get<boolean>('delivery.proof.pinAlways', true);
+    const geofenceMeters = this.settings.get<number>('delivery.proof.geofenceMeters', 100);
     return {
       ...DELIVERY_OPTIONS,
+      geofenceMeters,
       methods: DELIVERY_OPTIONS.methods.map((m) => ({
         ...m,
         // reflect the live settings

@@ -103,8 +103,9 @@ export class ProofService implements OnModuleInit {
 
   // ------------------------------------------------------------------ rules
   /** Should a new/changed order of this kind carry a delivery PIN? (PIN methods only, delivery only) */
-  shouldHavePin(method: DropoffMethod, total: number, fulfilment: FulfilmentMode): boolean {
-    if (fulfilment === FulfilmentMode.PICKUP || method === DropoffMethod.LEAVE_AT_DOOR) return false;
+  shouldHavePin(method: DropoffMethod, total: number, fulfilment: FulfilmentMode, usePin = true): boolean {
+    // the customer decides: usePin=false means no PIN, and the driver must photograph the delivered order instead
+    if (fulfilment === FulfilmentMode.PICKUP || method === DropoffMethod.LEAVE_AT_DOOR || !usePin) return false;
     if (this.settings.get<boolean>('delivery.proof.pinAlways', true)) return true;
     return Number(total) >= this.settings.get<number>('orders.highValuePinThreshold', 100);
   }
@@ -113,13 +114,17 @@ export class ProofService implements OnModuleInit {
     const method = order.dropoffMethod ?? DropoffMethod.HAND_TO_ME;
     const exceptionReasons = Object.values(ProofExceptionReason) as string[];
     if (order.fulfilment === FulfilmentMode.PICKUP) return { method, rule: 'NONE', pinRequired: false, photoRequired: false, label: 'No proof needed (pickup)', exceptionReasons: [] };
-    const photoRequired = method === DropoffMethod.LEAVE_AT_DOOR && this.settings.get<boolean>('delivery.proof.leaveAtDoorPhotoRequired', true);
     const pinRequired = method !== DropoffMethod.LEAVE_AT_DOOR && !!order.requiresPin;
-    return { method, rule: pinRequired ? 'PIN' : photoRequired ? 'PHOTO' : 'NONE', pinRequired, photoRequired, label: pinRequired ? 'PIN required' : photoRequired ? 'Photo required' : 'No proof required', exceptionReasons };
+    // photo: contactless always; any delivery without a PIN (customer opted out); optionally every delivery (delivery.proof.photoAlways)
+    const photoRequired =
+      method === DropoffMethod.LEAVE_AT_DOOR
+        ? this.settings.get<boolean>('delivery.proof.leaveAtDoorPhotoRequired', true)
+        : !pinRequired || this.settings.get<boolean>('delivery.proof.photoAlways', false);
+    return { method, rule: pinRequired ? 'PIN' : photoRequired ? 'PHOTO' : 'NONE', pinRequired, photoRequired, label: pinRequired && photoRequired ? 'PIN and photo required' : pinRequired ? 'PIN required' : photoRequired ? 'Photo required' : 'No proof required', exceptionReasons };
   }
 
   private geofence() {
-    return { enforce: this.settings.get<boolean>('delivery.proof.requireGeofence', true), meters: Math.max(10, Number(this.settings.get<number>('delivery.proof.geofenceMeters', 150))) };
+    return { enforce: this.settings.get<boolean>('delivery.proof.requireGeofence', true), meters: Math.max(10, Number(this.settings.get<number>('delivery.proof.geofenceMeters', 100))) };
   }
 
   // ------------------------------------------------------------------ validation (before the order is changed)
@@ -150,7 +155,7 @@ export class ProofService implements OnModuleInit {
 
     // ---- photo
     const hasPhoto = !!input.proofPhotoUrl;
-    if (req.photoRequired && !hasPhoto && !exception) throw new BadRequestException('A photo of the dropped-off order, taken at the drop-off location, is required');
+    if (req.photoRequired && !hasPhoto && !exception) throw new BadRequestException(req.pinRequired ? 'A photo of the delivered order is required as well as the PIN' : 'A photo of the delivered order, taken at the drop-off location and uploaded in the app, is required');
     if (exception && !hasPhoto) throw new BadRequestException('The exception path requires a photo');
     let photo: ProofDraft['photo'] = null;
     if (hasPhoto) {
@@ -172,13 +177,11 @@ export class ProofService implements OnModuleInit {
     } else if (claimed.lat != null && claimed.lng != null) {
       distanceMeters = Math.round(haversineKm(claimed.lat, claimed.lng, Number(dest.lat), Number(dest.lng)) * 1000);
       if (gf.enforce && distanceMeters > gf.meters) {
-        if (!exception) {
-          await this.event(order.id, 'PROOF_REJECTED', ActorType.DRIVER, driver.id, `Outside geofence (${distanceMeters} m)`, { reason: 'OUTSIDE_GEOFENCE', distanceMeters });
-          throw new ForbiddenException(`You are ${distanceMeters} m from the drop-off address; deliveries must be completed within ${gf.meters} m. Move closer and retry, or use the exception path with a reason.`);
-        }
-        flags.push('GEOFENCE_OVERRIDE');
+        // strict: the exception path does not bypass the geofence
+        await this.event(order.id, 'PROOF_REJECTED', ActorType.DRIVER, driver.id, `Outside geofence (${distanceMeters} m)`, { reason: 'OUTSIDE_GEOFENCE', distanceMeters });
+        throw new ForbiddenException(`You are ${distanceMeters} m from the drop-off address; deliveries must be completed within ${gf.meters} m of the delivery location. Move closer and retry.`);
       }
-    } else if (gf.enforce && !exception) {
+    } else if (gf.enforce) {
       throw new BadRequestException('Your location is required to complete the delivery (send lat/lng, or keep location updates on)');
     }
 

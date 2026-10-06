@@ -15,15 +15,27 @@ The customer can also give **delivery instructions** for the driver (max 300 cha
 
 Who sees what: the access code is encrypted at rest, never returned in lists, analytics, restaurant payloads or logs; the assigned driver sees it only from pickup until delivery; staff with `orders:view` see it only through an explicit, audit-logged "Reveal" after pickup; it is blanked from the order `delivery.accessCodeRetentionDays` (7) days after the order ends. Restaurants see only the method (a "Contactless" badge), never the PIN, instructions or code.
 
+## 1b. The customer chooses: private PIN on or off
+
+Delivery orders carry `usePin` (default **true**; omitted = the chosen address's saved default; also settable per address and changeable with `PATCH /customer/orders/:id/delivery-instructions` until pickup).
+
+| Customer choice | Proof the driver must give |
+|---|---|
+| PIN on (hand to me / meet outside) | the customer's 4-digit PIN |
+| **PIN off** (any method) | a **photo of the delivered order**, taken at the drop-off and uploaded in the app |
+| Leave at door (contactless) | a **photo** (no PIN is used) |
+
+Every delivery additionally needs the driver within **100 m** of the delivery location. Set `delivery.proof.photoAlways` (default off) to require a photo on every delivery, PIN or not. `GET /public/delivery-options` returns the `pinChoice` text and `geofenceMeters` for the app UI.
+
 ## 2. What the server checks when the driver taps "delivered"
 
 1. The driver tapped **arrived at customer** first.
 2. **PIN** (when required): constant-time comparison; 5 wrong attempts lock the PIN path for that order.
 3. **Photo** (when required, or on the exception path): must be a JPEG/PNG uploaded **by that driver** through `POST /uploads` (our own URL), uploaded after pickup, **captured within `delivery.proof.photoMaxAgeMinutes`** (10), with lat, lng, accuracy and capturedAt. The photo is hashed (after metadata stripping): the same image cannot serve as proof on two orders (409, audited).
-4. **Geofence**: the delivery / photo location must be within `delivery.proof.geofenceMeters` (150 m) of the drop-off address coordinates. Outside it the delivery is **rejected** (the driver can move closer and retry, or use the exception path).
+4. **Geofence**: the delivery / photo location must be within `delivery.proof.geofenceMeters` (**100 m**) of the drop-off address coordinates. Outside it the delivery is **rejected**, for every method and also on the exception path (the driver must move closer and retry).
 5. **Server GPS cross-check**: the claimed location is compared with the driver's last server-side GPS fix. If it is farther than `delivery.proof.gpsMismatchMeters` (300 m) the evidence is flagged `GPS_MISMATCH`; no fresh fix = `GPS_UNVERIFIED`.
 
-Exception path: if the customer is unreachable, the PIN is not available or there is a safety concern, the driver may complete with a **photo + reason** (`CUSTOMER_UNREACHABLE`, `PIN_NOT_AVAILABLE`, `SAFETY_CONCERN`). This is allowed even outside the geofence (flag `GEOFENCE_OVERRIDE`), is marked **WEAK_PROOF**, appears on the order timeline, is audit-logged, notifies operations and goes to review.
+Exception path: if the customer is unreachable, the PIN is not available or there is a safety concern, the driver may complete with a **photo + reason** (`CUSTOMER_UNREACHABLE`, `PIN_NOT_AVAILABLE`, `SAFETY_CONCERN`). It still has to be inside the 100 m geofence, is marked **WEAK_PROOF**, appears on the order timeline, is audit-logged, notifies operations and goes to review.
 
 ## 3. Evidence stored (one immutable record per delivery, `delivery_proofs`)
 
@@ -49,7 +61,7 @@ Photo **files** are deleted `delivery.proof.retentionDays` (90) days after deliv
 
 ## 6. Settings (Admin Console > Settings, group `delivery`)
 
-`delivery.proof.leaveAtDoorPhotoRequired` (true), `delivery.proof.pinAlways` (true; off = PIN only above `orders.highValuePinThreshold`), `delivery.proof.geofenceMeters` (150), `delivery.proof.requireGeofence` (true), `delivery.proof.photoMaxAgeMinutes` (10), `delivery.proof.retentionDays` (90), `delivery.proof.gpsMismatchMeters` (300), `delivery.proof.serverGpsMaxAgeSec` (300), `delivery.accessCodeRetentionDays` (7), `support.falseClaimFlagThreshold` (2), `support.deliveryDisputeStrikeThreshold` (3). The old `driver.deliveryGeofenceKm` was replaced (an existing non-zero value is converted to metres on boot, then removed).
+`delivery.proof.leaveAtDoorPhotoRequired` (true), `delivery.proof.pinAlways` (true; off = PIN only above `orders.highValuePinThreshold`), `delivery.proof.geofenceMeters` (100), `delivery.proof.photoAlways` (false), `delivery.proof.requireGeofence` (true), `delivery.proof.photoMaxAgeMinutes` (10), `delivery.proof.retentionDays` (90), `delivery.proof.gpsMismatchMeters` (300), `delivery.proof.serverGpsMaxAgeSec` (300), `delivery.accessCodeRetentionDays` (7), `support.falseClaimFlagThreshold` (2), `support.deliveryDisputeStrikeThreshold` (3). The old `driver.deliveryGeofenceKm` was replaced (an existing non-zero value is converted to metres on boot, then removed).
 
 ## 7. Known limits
 

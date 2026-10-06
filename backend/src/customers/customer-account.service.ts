@@ -36,6 +36,7 @@ export interface AddressInput {
   lng?: number | null;
   dropoffNotes?: string | null;
   dropoffMethod?: string;
+  usePin?: boolean;
   accessCode?: string | null;
   isDefault?: boolean;
 }
@@ -208,6 +209,7 @@ export class CustomerAccountService {
           lng: dto.lng ?? null,
           dropoffNotes: cleanNotes(dto.dropoffNotes),
           dropoffMethod: dto.dropoffMethod ?? 'HAND_TO_ME',
+          usePin: dto.usePin ?? true,
           accessCode: sealCode(cleanAccessCode(dto.accessCode)),
           isDefault: makeDefault,
         }),
@@ -233,6 +235,7 @@ export class CustomerAccountService {
     if (dto.lng !== undefined) patch.lng = dto.lng;
     if (dto.dropoffNotes !== undefined) patch.dropoffNotes = cleanNotes(dto.dropoffNotes);
     if (dto.dropoffMethod !== undefined) patch.dropoffMethod = dto.dropoffMethod;
+    if (dto.usePin !== undefined) patch.usePin = dto.usePin;
     if (dto.accessCode !== undefined) patch.accessCode = sealCode(cleanAccessCode(dto.accessCode));
     await this.ds.transaction(async (em) => {
       if (dto.isDefault) await em.update(Address, { customerId }, { isDefault: false });

@@ -122,7 +122,8 @@ export class OrdersService implements IOrdersService {
     const code = await this.codes.orderCode();
     const dropoffMethod = methodFromLegacy(input.contactless, input.dropoffMethod);
     if (!Object.values(DropoffMethod).includes(dropoffMethod)) throw new BadRequestException('Unknown delivery method');
-    const requiresPin = this.proof.shouldHavePin(dropoffMethod, quote.total, quote.fulfilment);
+    const usePin = input.usePin !== false;
+    const requiresPin = this.proof.shouldHavePin(dropoffMethod, quote.total, quote.fulfilment, usePin);
     const autoRejectSec = restaurant.autoRejectSeconds || this.settings.get<number>('orders.autoRejectSeconds', 180);
 
     const itemRows = quote.lines.map((l) =>
@@ -178,6 +179,7 @@ export class OrdersService implements IOrdersService {
       pickupCode: quote.fulfilment === FulfilmentMode.OWN_DRIVER ? null : this.codes.pin(4),
       deliveryPin: requiresPin ? this.codes.pin(4) : null,
       requiresPin,
+      usePin,
       contactless: dropoffMethod === DropoffMethod.LEAVE_AT_DOOR,
       dropoffMethod,
       dropoffNotes: quote.fulfilment === FulfilmentMode.PICKUP ? null : cleanNotes(input.dropoffNotes),
@@ -600,20 +602,24 @@ export class OrdersService implements IOrdersService {
   private static readonly BEFORE_PICKUP = [OrderStatus.PLACED, OrderStatus.ACCEPTED, OrderStatus.DRIVER_ASSIGNED, OrderStatus.PREPARING, OrderStatus.READY];
 
   /** Customer changes the handoff method / driver instructions / access code until the driver has picked the food up. */
-  async updateDeliveryInstructions(orderId: string, customerId: string, patch: { dropoffMethod?: string; dropoffNotes?: string | null; accessCode?: string | null }): Promise<Order> {
+  async updateDeliveryInstructions(orderId: string, customerId: string, patch: { dropoffMethod?: string; usePin?: boolean; dropoffNotes?: string | null; accessCode?: string | null }): Promise<Order> {
     const order = await this.getById(orderId, []);
     if (order.customerId !== customerId) throw new NotFoundException('Order not found');
     if (order.fulfilment === FulfilmentMode.PICKUP) throw new BadRequestException('Pickup orders have no delivery instructions');
     if (!OrdersService.BEFORE_PICKUP.includes(order.status)) throw new BadRequestException('Your driver already has the order - delivery instructions can no longer be changed. Use chat to reach your driver.');
     const set: Partial<Order> = {};
-    const before = { method: order.dropoffMethod, requiresPin: order.requiresPin };
+    const before = { method: order.dropoffMethod, requiresPin: order.requiresPin, usePin: order.usePin };
     let method = order.dropoffMethod;
     if (patch.dropoffMethod !== undefined) {
       if (!Object.values(DropoffMethod).includes(patch.dropoffMethod as DropoffMethod)) throw new BadRequestException('Unknown delivery method');
       method = patch.dropoffMethod as DropoffMethod;
       set.dropoffMethod = method;
       set.contactless = method === DropoffMethod.LEAVE_AT_DOOR;
-      const needPin = this.proof.shouldHavePin(method, Number(order.total), order.fulfilment);
+    }
+    if (patch.dropoffMethod !== undefined || patch.usePin !== undefined) {
+      const usePin = patch.usePin ?? order.usePin;
+      set.usePin = usePin;
+      const needPin = this.proof.shouldHavePin(method, Number(order.total), order.fulfilment, usePin);
       set.requiresPin = needPin;
       if (needPin && !order.deliveryPin) set.deliveryPin = this.codes.pin(4);
     }
@@ -626,11 +632,13 @@ export class OrdersService implements IOrdersService {
     await this.addEvent(orderId, 'DELIVERY_INSTRUCTIONS_CHANGED', { type: ActorType.CUSTOMER, id: customerId }, undefined, {
       methodFrom: before.method,
       methodTo: after.dropoffMethod,
+      usePinFrom: before.usePin,
+      usePinTo: after.usePin,
       notesChanged: patch.dropoffNotes !== undefined,
       accessCodeChanged: patch.accessCode !== undefined, // the code itself is never logged
       proof: rule.rule,
     });
-    const payload = { orderId, code: after.code, dropoffMethod: after.dropoffMethod, dropoffNotes: after.dropoffNotes, proofRule: rule.rule, proofLabel: rule.label, accessCodeChanged: patch.accessCode !== undefined };
+    const payload = { orderId, code: after.code, dropoffMethod: after.dropoffMethod, usePin: after.usePin, dropoffNotes: after.dropoffNotes, proofRule: rule.rule, proofLabel: rule.label, accessCodeChanged: patch.accessCode !== undefined };
     if (after.driverId) {
       this.realtime.emitToDriver(after.driverId, 'order.instructions_changed', payload);
       const dp = await this.drivers.findOne({ where: { id: after.driverId } });

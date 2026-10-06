@@ -30,7 +30,7 @@ Base: `/api/v1`. Customer routes need a CUSTOMER JWT (guest tokens from `/public
 | PATCH | `/customer/profile/notifications` | `{orderUpdates,promotions,newsletters,driverMessages}` | `{notificationPrefs}` |
 | POST | `/customer/profile/guest-upgrade` | `{password,firstName?,lastName?,phone?}` | profile |
 | POST | `/customer/profile/logout-everywhere` | - | `{ok}` |
-| GET/POST | `/customer/addresses` | POST `{label,line1,line2,city,province,postalCode,lat,lng,dropoffNotes (max 300),dropoffMethod,accessCode (max 40),isDefault}` | Address[] / Address. `accessCode` is encrypted at rest and returned masked (`••••`, plus `accessCodeSet`) |
+| GET/POST | `/customer/addresses` | POST `{label,line1,line2,city,province,postalCode,lat,lng,dropoffNotes (max 300),dropoffMethod,usePin,accessCode (max 40),isDefault}` | Address[] / Address. `accessCode` is encrypted at rest and returned masked (`••••`, plus `accessCodeSet`) |
 | GET | `/customer/addresses/:id` | - | the address with the access code in clear (owner only) |
 | PATCH/DELETE | `/customer/addresses/:id` | partial address | Address / `{ok}` |
 | POST | `/customer/addresses/:id/default` | - | Address[] |
@@ -52,10 +52,10 @@ Base: `/api/v1`. Customer routes need a CUSTOMER JWT (guest tokens from `/public
 | POST | `/customer/cart/promo` | `{code|null}` | cart |
 | DELETE | `/customer/cart` | - | empty cart |
 | POST | `/customer/checkout/quote` | `{type DELIVERY/PICKUP, fulfilment?, addressId|lat+lng, tip, useWallet, promoCode, scheduledFor}` (uses current cart) | `Quote` (PricingService) |
-| POST | `/customer/orders` | quote fields + `{paymentMethod, paymentToken?, giftCardCode? (redeemed to wallet first), dropoffMethod? (HAND_TO_ME/LEAVE_AT_DOOR/MEET_OUTSIDE), dropoffNotes? (driver instructions, max 300), accessCode? (max 40, sensitive), contactless? (legacy: true = LEAVE_AT_DOOR), customerNotes (KITCHEN note)}` | Order (cart cleared). Omitted method/notes/code are prefilled from the chosen saved address. Hand-to-me / meet-outside orders always get a 4-digit `deliveryPin` (shown to the customer) |
+| POST | `/customer/orders` | quote fields + `{paymentMethod, paymentToken?, giftCardCode? (redeemed to wallet first), dropoffMethod? (HAND_TO_ME/LEAVE_AT_DOOR/MEET_OUTSIDE), usePin? (default true; false = no PIN, the driver must upload a photo of the delivered order),  dropoffNotes? (driver instructions, max 300), accessCode? (max 40, sensitive), contactless? (legacy: true = LEAVE_AT_DOOR), customerNotes (KITCHEN note)}` | Order (cart cleared). Omitted method/notes/code are prefilled from the chosen saved address. Hand-to-me / meet-outside orders get a 4-digit `deliveryPin` (shown to the customer) unless `usePin` is false. Drivers must be within 100 m of the delivery location to complete |
 | GET | `/customer/orders` | page,limit,status | paginated own orders |
 | GET | `/customer/orders/:id` | - | Order with items, `deliveryPin` (when a PIN is required), `accessCodeSet`, `kitchenNotes`, and once delivered `deliveryProof{proofType,deliveredAt,photoUrl,location,dropoff}` (photo via the authenticated `GET /orders/:id/proof/photo`) |
-| PATCH | `/customer/orders/:id/delivery-instructions` | `{dropoffMethod?, dropoffNotes?, accessCode?}` (10/min) | Order. Allowed until the driver picks the food up (400 after). Switching method updates the proof rule / PIN; the assigned driver gets a realtime `order.instructions_changed` event + notification; an OrderEvent is written (never containing the code) |
+| PATCH | `/customer/orders/:id/delivery-instructions` | `{dropoffMethod?, usePin?, dropoffNotes?, accessCode?}` (10/min) | Order. Allowed until the driver picks the food up (400 after). Switching method updates the proof rule / PIN; the assigned driver gets a realtime `order.instructions_changed` event + notification; an OrderEvent is written (never containing the code) |
 | POST | `/customer/orders/:id/cancel` | `{reason}` | Order |
 | POST | `/customer/orders/:id/reorder` | - | `{cart, skipped[{name,reason}]}` |
 | PATCH | `/customer/orders/:id/tip` | `{tip}` | Order |

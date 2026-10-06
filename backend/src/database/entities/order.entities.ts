@@ -205,6 +205,10 @@ export class Order extends BaseEntity {
   @Column({ default: false })
   requiresPin: boolean;
 
+  /** The customer's choice: use a private delivery PIN (default). false = no PIN, the driver must photograph the delivered order. */
+  @Column({ default: true })
+  usePin: boolean;
+
   /** Kept in sync with dropoffMethod === LEAVE_AT_DOOR (legacy flag, still returned to the apps). */
   @Column({ default: false })
   contactless: boolean;

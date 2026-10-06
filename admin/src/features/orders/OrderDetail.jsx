@@ -248,7 +248,7 @@ export default function OrderDetail() {
             { label: "Delivered", value: fmtDateTime(order.deliveredAt) },
             { label: "Delivery address", value: addr ? `${addr.line1}, ${addr.city} ${addr.postalCode || ""}` : "-" },
             { label: "Handoff method", value: <Badge tone={order.dropoffMethod === "LEAVE_AT_DOOR" ? "info" : "neutral"}>{titleCase(order.dropoffMethod || "HAND_TO_ME")}</Badge> },
-            { label: "Requires PIN", value: order.requiresPin ? "Yes" : "No" },
+            { label: "Delivery PIN", value: order.fulfilment === "PICKUP" ? "-" : order.requiresPin ? "Yes" : order.dropoffMethod === "LEAVE_AT_DOOR" ? "No (contactless, photo)" : order.usePin === false ? <Badge tone="warning">Customer turned PIN off - photo required</Badge> : "No" },
             { label: "Delivery instructions (driver)", value: order.dropoffNotes || "None" },
             { label: "Access code", value: <AccessCode order={order} tracking={t} /> },
             { label: "Kitchen notes (restaurant)", value: order.customerNotes },

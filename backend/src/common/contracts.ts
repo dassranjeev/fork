@@ -104,6 +104,8 @@ export interface PlaceOrderInput extends QuoteInput {
   contactless?: boolean;
   /** HAND_TO_ME | LEAVE_AT_DOOR | MEET_OUTSIDE (default HAND_TO_ME; contactless=true maps to LEAVE_AT_DOOR) */
   dropoffMethod?: string;
+  /** use a private delivery PIN (default true); false = the driver must photograph the delivered order */
+  usePin?: boolean;
   /** delivery instructions for the DRIVER (max 300) */
   dropoffNotes?: string;
   /** buzzer / gate code (sensitive, max 40) */
@@ -151,7 +153,7 @@ export interface IOrdersService {
   setEta(orderId: string, estimatedReadyAt?: Date | null, estimatedDeliveryAt?: Date | null): Promise<void>;
   updateTip(orderId: string, customerId: string, tip: number): Promise<Order>;
   /** customer changes handoff method / instructions until the driver picks the food up */
-  updateDeliveryInstructions(orderId: string, customerId: string, patch: { dropoffMethod?: string; dropoffNotes?: string | null; accessCode?: string | null }): Promise<Order>;
+  updateDeliveryInstructions(orderId: string, customerId: string, patch: { dropoffMethod?: string; usePin?: boolean; dropoffNotes?: string | null; accessCode?: string | null }): Promise<Order>;
   /** manual (dispatcher) or automatic assignment; driverId is DriverProfile.id */
   assignDriver(orderId: string, driverId: string, actor: ActorRef, opts?: { boost?: number }): Promise<Order>;
   unassignDriver(orderId: string, actor: ActorRef, reason: string, opts?: { redispatch?: boolean }): Promise<Order>;

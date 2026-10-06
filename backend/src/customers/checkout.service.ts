@@ -75,6 +75,7 @@ export class CheckoutService {
     const def = dto.addressId && dto.type !== OrderType.PICKUP ? await this.addressDefaults(customerId, dto.addressId) : null;
     input.dropoffMethod = dto.dropoffMethod ?? (dto.contactless !== undefined ? (dto.contactless ? 'LEAVE_AT_DOOR' : 'HAND_TO_ME') : def?.dropoffMethod ?? 'HAND_TO_ME');
     input.contactless = input.dropoffMethod === 'LEAVE_AT_DOOR';
+    input.usePin = dto.usePin ?? def?.usePin ?? true;
     input.dropoffNotes = dto.dropoffNotes ?? def?.dropoffNotes ?? undefined;
     input.accessCode = dto.accessCode ?? def?.accessCode ?? undefined;
     input.source = 'app';
@@ -94,7 +95,7 @@ export class CheckoutService {
   private async addressDefaults(customerId: string, addressId: string) {
     const a = await this.ds.getRepository(Address).createQueryBuilder('a').addSelect('a.accessCode').where('a.id = :id AND a.customerId = :c', { id: addressId, c: customerId }).getOne();
     if (!a) return null;
-    return { dropoffMethod: a.dropoffMethod || 'HAND_TO_ME', dropoffNotes: a.dropoffNotes?.slice(0, 300) ?? null, accessCode: openCode((a as any).accessCode) };
+    return { dropoffMethod: a.dropoffMethod || 'HAND_TO_ME', usePin: a.usePin !== false, dropoffNotes: a.dropoffNotes?.slice(0, 300) ?? null, accessCode: openCode((a as any).accessCode) };
   }
 
   updateDeliveryInstructions(customerId: string, id: string, dto: UpdateDeliveryInstructionsDto) {
