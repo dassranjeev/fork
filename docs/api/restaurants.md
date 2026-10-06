@@ -227,3 +227,30 @@ Every store (restaurant or convenience store) has a `serviceMode` (`Restaurant.s
 * Orders already placed keep their original fulfilment and continue normally when the mode changes (a delivery order placed earlier is still accepted, dispatched and delivered after the store goes PICKUP_ONLY or CLOSED). Dispatch only ever happens for `fulfilment = PLATFORM_DRIVER`, so pickup orders never create driver offers.
 * Admin: `PATCH /admin/restaurants/:id/service-mode` (restaurants:edit, audited) with the same body; `GET /admin/restaurants` rows and the detail view include `serviceMode`.
 * Realtime: `store.updated` carries `serviceMode, serviceModeLabel, pickupAvailable, deliveryAvailable, serviceModeResumeAt, changedBy`.
+
+## Menu editing permission (admin controls it)
+
+Restaurants can add, update and remove menu items, categories, modifier groups/options and import a CSV **only while FORKSY staff allow it**. New restaurants start **NOT_ALLOWED**; restaurants that existed when this was introduced were granted access once.
+
+| State | Meaning |
+|---|---|
+| `ALLOWED` | the restaurant edits its own menu |
+| `NOT_ALLOWED` | read-only menu. It can still **86 / restock** items and modifier options (day-to-day operations) and export the CSV |
+| `REQUESTED` | the restaurant asked; staff decide |
+
+Restaurant (portal) routes:
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/restaurant/menu/access` | `{status, canEdit, requestedAt, requestNote, decidedAt, decisionNote}`. The same object is returned as `access` by `GET /restaurant/menu` |
+| POST | `/restaurant/menu/access/request` | `{note?}` (OWNER / LOCATION_MANAGER). 409 if a request is already waiting. Notifies staff |
+
+Every blocked write returns **403** with `code: "MENU_EDIT_NOT_ALLOWED"` and a readable message. An admin viewing the portal through "Open restaurant panel" sees exactly what the owner sees.
+
+Admin routes (permission `restaurants:approve` to decide, `restaurants:view` to read):
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/admin/restaurants/menu-access?status=REQUESTED` | queue, waiting requests first; `pending` = number waiting |
+| PATCH | `/admin/restaurants/:id/menu-access` | `{allowed: boolean, note?}` allow or disallow at any time, with or without a request. Audited (`restaurant.menu_access_allowed / _disallowed / _requested`), notifies the restaurant, realtime `menu.access_changed` |
+| GET | `/admin/restaurants?menuAccess=ALLOWED` (or NOT_ALLOWED / REQUESTED) | list filter; each restaurant carries `menuEditStatus` |

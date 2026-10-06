@@ -110,6 +110,8 @@ export const DEFAULT_MESSAGES: Record<string, Partial<Record<Audience, { title: 
   'order.item_removed': { CUSTOMER: { title: 'An item is unavailable', body: '{{restaurant}} could not make "{{item}}" for order {{code}}. Approve the change to get {{amount}} back, or cancel the order.' } },
   'order.partial_refund': { CUSTOMER: { title: 'Order updated', body: 'Order {{code}} was updated and {{amount}} will be refunded.' } },
   'order.tip_updated': { DRIVER: { title: 'Tip updated', body: 'The tip for order {{code}} is now {{tip}}.' } },
+  'menu.access_requested': { ADMIN: { title: 'Menu editing requested: {{name}}', body: '{{name}} asked to be allowed to edit its own menu. {{note}}' } },
+  'menu.access_decided': { RESTAURANT: { title: 'Menu editing {{decision}}', body: 'FORKSY has {{decision}} menu editing for {{name}}. {{note}}' } },
   'order.stuck': { ADMIN: { title: 'Order {{code}} needs attention', body: 'Order {{code}}: {{reason}}' } },
   'refund.pending_approval': { ADMIN: { title: 'Refund needs approval', body: 'A refund of {{amount}} on order {{code}} is waiting for approval ({{reason}}).' } },
   'refund.rejected': { CUSTOMER: { title: 'Refund request update', body: 'Your refund request for order {{code}} was not approved.' } },

@@ -17,7 +17,7 @@ import {
   User,
   Zone,
 } from '../database/entities';
-import { DocStatus, RestaurantDocType, RestaurantRole, RestaurantServiceMode, RestaurantStatus, UserStatus, UserType } from '../common/enums';
+import { DocStatus, MenuEditStatus, RestaurantDocType, RestaurantRole, RestaurantServiceMode, RestaurantStatus, UserStatus, UserType } from '../common/enums';
 import { SeedOptions } from '../database/seed-types';
 import { slugify } from './restaurants.util';
 import { EXTRA_DEFS, EXTRA_MENUS } from './restaurants.seed-extra';
@@ -202,6 +202,7 @@ async function seedDefs(ds: DataSource, opts: SeedOptions, defs: Def[], menus: R
           ratingCount: 0,
           isFeatured: d.featured ?? i < 3,
           isNew: extraOnly ? i >= DEFS.length + 4 : i >= DEFS.length - 2,
+          menuEditStatus: MenuEditStatus.ALLOWED,
           ...(d.mode ? { serviceMode: d.mode } : {}),
         }),
       );

@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
@@ -71,7 +71,7 @@ export class AddressDto {
   /** default handoff method at this address */
   @IsOptional() @IsIn(Object.values(DropoffMethod)) dropoffMethod?: DropoffMethod;
   /** default: use a private delivery PIN at this address */
-  @IsOptional() @IsBoolean() usePin?: boolean;
+  @IsOptional() @Transform(({ obj }) => obj.usePin) @IsBoolean() usePin?: boolean;
   /** buzzer / gate code (stored encrypted, masked in lists) */
   @IsOptional() @Matches(/^[A-Za-z0-9 #*\-_./]{1,40}$/, { message: 'accessCode: up to 40 letters, digits, space and # * - _ . /' }) accessCode?: string | null;
   @IsOptional() @IsBoolean() isDefault?: boolean;
@@ -88,7 +88,7 @@ export class UpdateAddressDto {
   @IsOptional() @IsNumber() @Min(-180) @Max(180) lng?: number | null;
   @IsOptional() @IsString() @MaxLength(300) dropoffNotes?: string | null;
   @IsOptional() @IsIn(Object.values(DropoffMethod)) dropoffMethod?: DropoffMethod;
-  @IsOptional() @IsBoolean() usePin?: boolean;
+  @IsOptional() @Transform(({ obj }) => obj.usePin) @IsBoolean() usePin?: boolean;
   /** null / empty string clears the saved code */
   @IsOptional() @ValidateIf((_o, v) => v !== null && v !== '') @Matches(/^[A-Za-z0-9 #*\-_./]{1,40}$/, { message: 'accessCode: up to 40 letters, digits, space and # * - _ . /' }) accessCode?: string | null;
   @IsOptional() @IsBoolean() isDefault?: boolean;
@@ -140,7 +140,7 @@ export class CheckoutQuoteDto {
   /** HAND_TO_ME (default) | LEAVE_AT_DOOR (contactless, photo proof) | MEET_OUTSIDE. Omitted = the chosen address's saved default. */
   @IsOptional() @IsIn(Object.values(DropoffMethod)) dropoffMethod?: DropoffMethod;
   /** Use a private 4-digit delivery PIN (default true). false = no PIN: the driver must photograph the delivered order. Omitted = the address's saved default. */
-  @IsOptional() @IsBoolean() usePin?: boolean;
+  @IsOptional() @Transform(({ obj }) => obj.usePin) @IsBoolean() usePin?: boolean;
   /** delivery instructions for the DRIVER, e.g. "Unit 5, use side door, dog in yard" (max 300). NOT the kitchen note. */
   @IsOptional() @IsString() @MaxLength(300) dropoffNotes?: string;
   /** buzzer / gate / door code (max 40, sensitive: shown only to the assigned driver after pickup) */
@@ -158,7 +158,7 @@ export class PlaceOrderDto extends CheckoutQuoteDto {
 
 export class UpdateDeliveryInstructionsDto {
   @IsOptional() @IsIn(Object.values(DropoffMethod)) dropoffMethod?: DropoffMethod;
-  @IsOptional() @IsBoolean() usePin?: boolean;
+  @IsOptional() @Transform(({ obj }) => obj.usePin) @IsBoolean() usePin?: boolean;
   @IsOptional() @IsString() @MaxLength(300) dropoffNotes?: string | null;
   @IsOptional() @ValidateIf((_o, v) => v !== null && v !== '') @Matches(/^[A-Za-z0-9 #*\-_./]{1,40}$/, { message: 'accessCode: up to 40 letters, digits, space and # * - _ . /' }) accessCode?: string | null;
 }

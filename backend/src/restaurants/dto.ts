@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -209,6 +209,21 @@ export class ServiceModeDto {
   @IsOptional() @IsDateString() resumeAt?: string | null;
 }
 
+export class MenuAccessRequestDto {
+  @IsOptional() @IsString() @MaxLength(500) note?: string;
+}
+
+export class MenuAccessDecisionDto {
+  /** true = the restaurant may edit its menu; false = read-only */
+  @Transform(({ obj }) => obj.allowed) // strict: the string "false" must not become true
+  @IsBoolean() allowed: boolean;
+  @IsOptional() @IsString() @MaxLength(500) note?: string;
+}
+
+export class MenuAccessQuery {
+  @IsOptional() @IsIn(['NOT_ALLOWED', 'REQUESTED', 'ALLOWED']) status?: string;
+}
+
 export class AcceptingDto {
   @IsBoolean() accepting: boolean;
 }
@@ -404,6 +419,8 @@ export class RestaurantsQuery extends PageQueryDto {
   @IsOptional() @IsString() minRating?: string;
   @IsOptional() @IsString() maxRating?: string;
   @IsOptional() @IsString() commissionTierId?: string;
+  /** NOT_ALLOWED | REQUESTED | ALLOWED: menu editing permission */
+  @IsOptional() @IsIn(['NOT_ALLOWED', 'REQUESTED', 'ALLOWED']) menuAccess?: string;
   /** "true": only restaurants having a document expiring within `expiringDays` (default 30) or already expired */
   @IsOptional() @IsString() hasExpiringDocs?: string;
   @IsOptional() @IsString() expiringDays?: string;

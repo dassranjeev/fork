@@ -112,6 +112,8 @@ Customers 31 to 50 and restaurants 13 to 26 include Brampton data. These are dev
 
 **Ratings.** Customers rate the restaurant and the driver after delivery (tags, one edit, review-bomb and duplicate detection, staff moderation). Drivers and restaurants privately rate customers (staff-only visibility). Scores are smoothed so one bad review does not swing a new profile, and low scores raise alerts and feed the driver review process. Details: `docs/ratings.md`.
 
+**Menu editing is admin-controlled.** A restaurant can add, update and remove its own menu items only while an administrator has allowed it (per restaurant, switchable at any time on the restaurant's Menu tab). Without permission the menu is read-only, but the restaurant can still mark items out of stock (86), and can request access from the portal; staff see the waiting requests on the Restaurants list. New restaurants start locked.
+
 **Admin walkthrough of restaurant panels.** From **Restaurants > Open a restaurant panel** (or the restaurant list and detail pages), an admin with edit permission can open any restaurant's portal as its owner for up to 2 hours without a password. A banner shows while viewing, every start is audit-logged, and the session cannot change the owner's password or 2FA.
 
 ## API documentation

@@ -115,6 +115,7 @@ export class RestaurantAdminService {
     if (q.zoneId) qb.andWhere('r.zoneId = :zoneId', { zoneId: q.zoneId });
     if (q.merchantId) qb.andWhere('r.merchantId = :merchantId', { merchantId: q.merchantId });
     if (q.commissionTierId) qb.andWhere('r.commissionTierId = :ct', { ct: q.commissionTierId });
+    if (q.menuAccess) qb.andWhere('r.menuEditStatus = :ma', { ma: q.menuAccess });
     if (q.minRating) qb.andWhere('r.rating >= :minR', { minR: +q.minRating });
     if (q.maxRating) qb.andWhere('r.rating <= :maxR', { maxR: +q.maxRating });
     if (q.cuisineId) qb.andWhere('c.id = :cid', { cid: q.cuisineId });

@@ -348,6 +348,13 @@ export enum ProofType {
   HANDED_OVER = 'HANDED_OVER',
 }
 
+/** Whether a restaurant may add / update / remove its own menu items (decided by FORKSY staff). */
+export enum MenuEditStatus {
+  NOT_ALLOWED = 'NOT_ALLOWED',
+  REQUESTED = 'REQUESTED',
+  ALLOWED = 'ALLOWED',
+}
+
 /** What the driver did at the door when the customer turned the PIN off. */
 export enum DeliveryAction {
   HANDED_TO_CUSTOMER = 'HANDED_TO_CUSTOMER',

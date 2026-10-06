@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Icon } from "@iconify/react/offline";
 import { Badge, BoolBadge, Button, Card, EmptyState, FormModal, IconButton, MultiCheck, NumberInput, MoneyInput, Select, Switch, TagsInput, Tabs, TextArea, TextInput, useConfirm } from "../../ui";
 import { fmtDateTime, money } from "../../lib/format";
-import { Async, PortalPage, useAction, useApi, usePortalFetch } from "./shared";
+import { Async, PortalPage, useAction, useApi, usePortalFetch, useRealtimeReload } from "./shared";
 import { usePortal } from "./context";
 
 // ------------------------------------------------------------------ 86 / restock
@@ -108,7 +108,8 @@ function ItemModal({ item, menu, open, onClose, onSaved, defaultCategoryId }) {
 function ItemsTab({ menu, reload }) {
   const api = useApi();
   const confirm = useConfirm();
-  const { isManager } = usePortal();
+  const { isManager: mgr } = usePortal();
+  const isManager = mgr && menu.access?.canEdit !== false;
   const { run } = useAction();
   const [edit, setEdit] = useState(null);
   const [eighty, setEighty] = useState(null);
@@ -256,6 +257,7 @@ function CategoriesTab({ menu, reload }) {
   const { run } = useAction();
   const [edit, setEdit] = useState(null);
   const cats = menu.categories;
+  const canEdit = menu.access?.canEdit !== false;
   const move = async (i, dir) => {
     const ids = cats.map((c) => c.id);
     const j = i + dir;
@@ -280,11 +282,13 @@ function CategoriesTab({ menu, reload }) {
   };
   return (
     <>
-      <div className="d-flex justify-content-end mb-20">
-        <Button icon="solar:add-circle-outline" onClick={() => setEdit({ cat: null })}>
-          Add category
-        </Button>
-      </div>
+      {canEdit && (
+        <div className="d-flex justify-content-end mb-20">
+          <Button icon="solar:add-circle-outline" onClick={() => setEdit({ cat: null })}>
+            Add category
+          </Button>
+        </div>
+      )}
       <Card noPadding>
         {cats.length === 0 ? (
           <EmptyState title="No categories" text="Categories group your items on the menu." />
@@ -298,10 +302,14 @@ function CategoriesTab({ menu, reload }) {
                 </div>
                 <div className="d-flex align-items-center gap-2">
                   <BoolBadge value={c.active !== false} yes="Visible" no="Hidden" />
-                  <IconButton icon="solar:alt-arrow-up-linear" title="Move up" disabled={i === 0} onClick={() => move(i, -1)} />
-                  <IconButton icon="solar:alt-arrow-down-linear" title="Move down" disabled={i === cats.length - 1} onClick={() => move(i, 1)} />
-                  <IconButton icon="solar:pen-outline" title="Edit" tone="primary" onClick={() => setEdit({ cat: c })} />
-                  <IconButton icon="solar:trash-bin-trash-outline" title="Delete" tone="danger" onClick={() => del(c)} />
+                  {canEdit && (
+                    <>
+                      <IconButton icon="solar:alt-arrow-up-linear" title="Move up" disabled={i === 0} onClick={() => move(i, -1)} />
+                      <IconButton icon="solar:alt-arrow-down-linear" title="Move down" disabled={i === cats.length - 1} onClick={() => move(i, 1)} />
+                      <IconButton icon="solar:pen-outline" title="Edit" tone="primary" onClick={() => setEdit({ cat: c })} />
+                      <IconButton icon="solar:trash-bin-trash-outline" title="Delete" tone="danger" onClick={() => del(c)} />
+                    </>
+                  )}
                 </div>
               </li>
             ))}
@@ -402,7 +410,8 @@ function OptionModal({ target, onClose, onSaved }) {
 function GroupsTab({ menu, reload }) {
   const api = useApi();
   const confirm = useConfirm();
-  const { isManager } = usePortal();
+  const { isManager: mgr } = usePortal();
+  const isManager = mgr && menu.access?.canEdit !== false;
   const { run } = useAction();
   const [group, setGroup] = useState(null);
   const [opt, setOpt] = useState(null);
@@ -492,10 +501,52 @@ function GroupsTab({ menu, reload }) {
 }
 
 // ------------------------------------------------------------------ page
+/** Shown while FORKSY has not allowed this restaurant to change its own menu. */
+function MenuAccessBanner({ access, reload }) {
+  const api = useApi();
+  const { isManager } = usePortal();
+  const { busy, run } = useAction();
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState("");
+  if (!access || access.canEdit) return null;
+  const waiting = access.status === "REQUESTED";
+  const submit = async () => {
+    const r = await run("access", () => api.post("/restaurant/menu/access/request", { note: note.trim() || undefined }), "Request sent to FORKSY");
+    if (r.ok) {
+      setOpen(false);
+      setNote("");
+      reload();
+    }
+  };
+  return (
+    <div className={`alert ${waiting ? "alert-info" : "alert-warning"} radius-8 mb-20 d-flex flex-wrap align-items-center justify-content-between gap-3`}>
+      <div>
+        <strong>{waiting ? "Waiting for FORKSY approval" : "Menu editing is turned off"}</strong>
+        <div className="text-sm">
+          {waiting
+            ? `You asked to edit your menu${access.requestedAt ? " on " + fmtDateTime(access.requestedAt) : ""}. You can keep marking items out of stock (86) meanwhile.`
+            : "Your menu is read-only. You can still mark items out of stock (86) and back in stock. Ask FORKSY to allow you to add, update and remove items."}
+          {!waiting && access.decisionNote ? ` FORKSY note: ${access.decisionNote}` : ""}
+        </div>
+      </div>
+      {isManager && !waiting && (
+        <Button icon="solar:lock-unlocked-outline" onClick={() => setOpen(true)}>
+          Request access
+        </Button>
+      )}
+      <FormModal open={open} onClose={() => setOpen(false)} title="Request menu editing access" onSubmit={submit} busy={!!busy} submitText="Send request" size="sm">
+        <TextArea label="Why do you need to edit the menu? (optional)" value={note} onChange={setNote} rows={3} />
+        <div className="text-secondary-light text-sm">FORKSY staff will review your request and you will be notified.</div>
+      </FormModal>
+    </div>
+  );
+}
+
 export default function Menu() {
   const state = usePortalFetch("/restaurant/menu", { includeInactive: "true" });
   const { isManager } = usePortal();
   const [tab, setTab] = useState("items");
+  useRealtimeReload(state.reload, ["menu.access_changed"]);
   const api = useApi();
   const { run, isBusy } = useAction();
   const exportCsv = async () => {
@@ -529,7 +580,14 @@ export default function Menu() {
         )
       }
     >
-      <Async state={state}>{(menu) => <Tabs tabs={tabs(menu)} active={tab} onChange={setTab} />}</Async>
+      <Async state={state}>
+        {(menu) => (
+          <>
+            <MenuAccessBanner access={menu.access} reload={state.reload} />
+            <Tabs tabs={tabs(menu)} active={tab} onChange={setTab} />
+          </>
+        )}
+      </Async>
     </PortalPage>
   );
 }

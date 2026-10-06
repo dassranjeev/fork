@@ -7,6 +7,7 @@ import { AuthService } from '../auth/auth.service';
 import { RestaurantStoreService } from './restaurant-store.service';
 import { RestaurantAdminService } from './restaurant-admin.service';
 import { MenuService } from './menu.service';
+import { MenuAccessService } from './menu-access.service';
 import {
   AgreementDto,
   ApproveDocDto,
@@ -18,6 +19,8 @@ import {
   IntegrationDto,
   LocationDto,
   MemberDto,
+  MenuAccessDecisionDto,
+  MenuAccessQuery,
   MenuReviewDto,
   MerchantDto,
   MerchantsQuery,
@@ -48,6 +51,7 @@ export class AdminRestaurantsController {
     private store: RestaurantStoreService,
     private admin: RestaurantAdminService,
     private menu: MenuService,
+    private menuAccess: MenuAccessService,
     private auth: AuthService,
   ) {}
 
@@ -80,6 +84,20 @@ export class AdminRestaurantsController {
   @Permission(Module.RESTAURANTS, Action.EDIT)
   setServiceMode(@Param('id') id: string, @Body() dto: ServiceModeDto, @CurrentUser() user: AuthUser, @Req() req: any) {
     return this.store.setServiceMode(id, dto, user, req);
+  }
+
+  // ------------------------------------------------------------------ menu editing permission
+  // declared before :id so it is not captured by the param route
+  @Get('menu-access')
+  @Permission(Module.RESTAURANTS, Action.VIEW)
+  listMenuAccess(@Query() q: MenuAccessQuery) {
+    return this.menuAccess.list(q.status);
+  }
+
+  @Patch(':id/menu-access')
+  @Permission(Module.RESTAURANTS, Action.APPROVE)
+  decideMenuAccess(@Param('id') id: string, @Body() dto: MenuAccessDecisionDto, @CurrentUser() user: AuthUser, @Req() req: any) {
+    return this.menuAccess.decide(id, dto.allowed, dto.note, user, req);
   }
 
   // ------------------------------------------------------------------ restaurants CRUD

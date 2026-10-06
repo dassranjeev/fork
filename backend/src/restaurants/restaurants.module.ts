@@ -25,6 +25,7 @@ import {
   Zone,
 } from '../database/entities';
 import { MenuService } from './menu.service';
+import { MenuAccessService } from './menu-access.service';
 import { RestaurantStoreService } from './restaurant-store.service';
 import { RestaurantAdminService } from './restaurant-admin.service';
 import { KdsService } from './kds.service';
@@ -72,7 +73,7 @@ import { RestaurantReviewsController } from './restaurant-reviews.controller';
       OrderEvent,
     ]),
   ],
-  providers: [MenuService, RestaurantStoreService, RestaurantAdminService, KdsService],
+  providers: [MenuService, MenuAccessService, RestaurantStoreService, RestaurantAdminService, KdsService],
   controllers: [
     AdminRestaurantsController,
     RestaurantDashboardController,

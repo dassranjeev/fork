@@ -1,19 +1,22 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { usePagedList } from "../../lib/hooks";
+import { useFetch, usePagedList } from "../../lib/hooks";
 import { useAuth } from "../../lib/auth";
 import { fmtDate } from "../../lib/format";
 import { ServiceModeBadge } from "../portal/ServiceMode";
 import { Card, DataTable, FilterSelect, ListToolbar, PageHeader, StatusBadge } from "../../ui";
 import OpenPanelButton from "./OpenPanelButton";
+import { MenuAccessBadge } from "./MenuAccess";
 import { RESTAURANT_STATUSES, useLookups } from "./shared";
 
 export default function RestaurantList() {
   const nav = useNavigate();
   const { can } = useAuth();
   const { cities, zones, tiers, zoneName, tierName } = useLookups();
-  const list = usePagedList("/admin/restaurants", { filters: { status: "", cityId: "", zoneId: "", commissionTierId: "", hasExpiringDocs: "", expiringDays: "" }, sortBy: "createdAt" });
+  const list = usePagedList("/admin/restaurants", { filters: { status: "", menuAccess: "", cityId: "", zoneId: "", commissionTierId: "", hasExpiringDocs: "", expiringDays: "" }, sortBy: "createdAt" });
   const f = list.filters;
+  const waiting = useFetch("/admin/restaurants/menu-access", { status: "REQUESTED" });
+  const pending = waiting.data?.pending || 0;
 
   const columns = [
     {
@@ -36,6 +39,7 @@ export default function RestaurantList() {
       title: "Service mode",
       render: (r) => (r.status === "LIVE" ? <ServiceModeBadge mode={r.serviceMode} /> : <span className="text-secondary-light">—</span>),
     },
+    { key: "menuEditStatus", title: "Menu editing", render: (r) => <MenuAccessBadge status={r.menuEditStatus} /> },
     { key: "rating", title: "Rating", sortable: true, render: (r) => (r.ratingCount ? `${Number(r.rating).toFixed(1)} (${r.ratingCount})` : "—") },
     { key: "commissionTierId", title: "Commission", render: (r) => tierName(r.commissionTierId) || "—" },
     { key: "reliabilityScore", title: "Reliability", render: (r) => (r.reliabilityScore != null ? `${Math.round(r.reliabilityScore)}` : "—") },
@@ -57,6 +61,16 @@ export default function RestaurantList() {
           )
         }
       />
+      {pending > 0 && (
+        <div className="alert alert-warning radius-8 mb-16 d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <span>
+            <strong>{pending}</strong> restaurant{pending === 1 ? " is" : "s are"} waiting for approval to edit their menu.
+          </span>
+          <button type="button" className="btn btn-warning-600 btn-sm radius-8" onClick={() => list.setFilter("menuAccess", "REQUESTED")}>
+            Review requests
+          </button>
+        </div>
+      )}
       <Card>
         <ListToolbar
           list={list}
@@ -75,6 +89,16 @@ export default function RestaurantList() {
                 onChange={(v) => list.setFilter("zoneId", v)}
                 options={zones.filter((z) => !f.cityId || z.cityId === f.cityId).map((z) => ({ value: z.id, label: z.name }))}
                 placeholder="All zones"
+              />
+              <FilterSelect
+                value={f.menuAccess}
+                onChange={(v) => list.setFilter("menuAccess", v)}
+                options={[
+                  { value: "REQUESTED", label: "Menu access requested" },
+                  { value: "ALLOWED", label: "Can edit menu" },
+                  { value: "NOT_ALLOWED", label: "Menu locked" },
+                ]}
+                placeholder="Menu editing: any"
               />
               <FilterSelect value={f.commissionTierId} onChange={(v) => list.setFilter("commissionTierId", v)} options={tiers.map((t) => ({ value: t.id, label: t.name }))} placeholder="Any tier" />
               <FilterSelect

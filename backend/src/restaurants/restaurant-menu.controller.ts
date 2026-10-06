@@ -3,11 +3,13 @@ import { CurrentUser, RestaurantController, RestaurantRoles } from '../common/de
 import { RestaurantRole } from '../common/enums';
 import { AuthUser } from '../common/auth.types';
 import { MenuService } from './menu.service';
+import { MenuAccessService } from './menu-access.service';
 import { resolveRestaurantId } from './restaurants.util';
 import {
   CategoryDto,
   CsvImportDto,
   EightySixDto,
+  MenuAccessRequestDto,
   ItemDto,
   ModifierGroupDto,
   ModifierOptionDto,
@@ -25,53 +27,75 @@ const MANAGERS = [RestaurantRole.OWNER, RestaurantRole.LOCATION_MANAGER];
 /** Full menu management (spec §4.3): categories, items, modifier groups/options, combos, dayparts, 86/restock, CSV import/export. */
 @RestaurantController('menu')
 export class RestaurantMenuController {
-  constructor(private menu: MenuService) {}
+  constructor(private menu: MenuService, private access: MenuAccessService) {}
 
   private rid(user: AuthUser, restaurantId?: string) {
     return resolveRestaurantId(user, restaurantId);
   }
 
+  /** the resolved restaurant, after checking that FORKSY allows this restaurant to change its menu */
+  private async edit(user: AuthUser, restaurantId?: string) {
+    const id = this.rid(user, restaurantId);
+    await this.access.assertCanEdit(id, user);
+    return id;
+  }
+
   @Get()
-  tree(@CurrentUser() user: AuthUser, @Query('restaurantId') restaurantId?: string, @Query('includeInactive') includeInactive?: string) {
-    return this.menu.tree(this.rid(user, restaurantId), includeInactive !== 'false');
+  async tree(@CurrentUser() user: AuthUser, @Query('restaurantId') restaurantId?: string, @Query('includeInactive') includeInactive?: string) {
+    const id = this.rid(user, restaurantId);
+    const [tree, access] = await Promise.all([this.menu.tree(id, includeInactive !== 'false'), this.access.access(id)]);
+    return { ...tree, access };
+  }
+
+  /** Can this restaurant add / update / remove menu items? (decided by FORKSY staff) */
+  @Get('access')
+  menuAccess(@CurrentUser() user: AuthUser, @Query('restaurantId') restaurantId?: string) {
+    return this.access.access(this.rid(user, restaurantId));
+  }
+
+  /** Ask FORKSY staff for permission to edit the menu. */
+  @Post('access/request')
+  @RestaurantRoles(...MANAGERS)
+  requestAccess(@CurrentUser() user: AuthUser, @Body() dto: MenuAccessRequestDto, @Query('restaurantId') restaurantId?: string) {
+    return this.access.request(this.rid(user, restaurantId), dto.note, user);
   }
 
   // ---- categories ----
   @Post('categories')
   @RestaurantRoles(...MANAGERS)
-  createCategory(@CurrentUser() user: AuthUser, @Body() dto: CategoryDto, @Query('restaurantId') restaurantId?: string) {
-    return this.menu.createCategory(this.rid(user, restaurantId), dto);
+  async createCategory(@CurrentUser() user: AuthUser, @Body() dto: CategoryDto, @Query('restaurantId') restaurantId?: string) {
+    return this.menu.createCategory(await this.edit(user, restaurantId), dto);
   }
 
   @Patch('categories/reorder')
   @RestaurantRoles(...MANAGERS)
-  reorderCategories(@CurrentUser() user: AuthUser, @Body() dto: ReorderDto, @Query('restaurantId') restaurantId?: string) {
-    return this.menu.reorderCategories(this.rid(user, restaurantId), dto.ids);
+  async reorderCategories(@CurrentUser() user: AuthUser, @Body() dto: ReorderDto, @Query('restaurantId') restaurantId?: string) {
+    return this.menu.reorderCategories(await this.edit(user, restaurantId), dto.ids);
   }
 
   @Patch('categories/:id')
   @RestaurantRoles(...MANAGERS)
-  updateCategory(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateCategoryDto, @Query('restaurantId') restaurantId?: string) {
-    return this.menu.updateCategory(this.rid(user, restaurantId), id, dto);
+  async updateCategory(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateCategoryDto, @Query('restaurantId') restaurantId?: string) {
+    return this.menu.updateCategory(await this.edit(user, restaurantId), id, dto);
   }
 
   @Delete('categories/:id')
   @RestaurantRoles(...MANAGERS)
-  deleteCategory(@CurrentUser() user: AuthUser, @Param('id') id: string, @Query('restaurantId') restaurantId?: string, @Query('moveItemsTo') moveItemsTo?: string) {
-    return this.menu.deleteCategory(this.rid(user, restaurantId), id, moveItemsTo);
+  async deleteCategory(@CurrentUser() user: AuthUser, @Param('id') id: string, @Query('restaurantId') restaurantId?: string, @Query('moveItemsTo') moveItemsTo?: string) {
+    return this.menu.deleteCategory(await this.edit(user, restaurantId), id, moveItemsTo);
   }
 
   // ---- items ----
   @Post('items')
   @RestaurantRoles(...MANAGERS)
-  createItem(@CurrentUser() user: AuthUser, @Body() dto: ItemDto, @Query('restaurantId') restaurantId?: string) {
-    return this.menu.createItem(this.rid(user, restaurantId), dto);
+  async createItem(@CurrentUser() user: AuthUser, @Body() dto: ItemDto, @Query('restaurantId') restaurantId?: string) {
+    return this.menu.createItem(await this.edit(user, restaurantId), dto);
   }
 
   @Patch('items/reorder')
   @RestaurantRoles(...MANAGERS)
-  reorderItems(@CurrentUser() user: AuthUser, @Body() dto: ReorderDto, @Query('restaurantId') restaurantId?: string) {
-    return this.menu.reorderItems(this.rid(user, restaurantId), dto.ids);
+  async reorderItems(@CurrentUser() user: AuthUser, @Body() dto: ReorderDto, @Query('restaurantId') restaurantId?: string) {
+    return this.menu.reorderItems(await this.edit(user, restaurantId), dto.ids);
   }
 
   @Get('items/:id')
@@ -81,20 +105,20 @@ export class RestaurantMenuController {
 
   @Patch('items/:id')
   @RestaurantRoles(...MANAGERS)
-  updateItem(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateItemDto, @Query('restaurantId') restaurantId?: string) {
-    return this.menu.updateItem(this.rid(user, restaurantId), id, dto);
+  async updateItem(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateItemDto, @Query('restaurantId') restaurantId?: string) {
+    return this.menu.updateItem(await this.edit(user, restaurantId), id, dto);
   }
 
   @Delete('items/:id')
   @RestaurantRoles(...MANAGERS)
-  deleteItem(@CurrentUser() user: AuthUser, @Param('id') id: string, @Query('restaurantId') restaurantId?: string) {
-    return this.menu.deleteItem(this.rid(user, restaurantId), id);
+  async deleteItem(@CurrentUser() user: AuthUser, @Param('id') id: string, @Query('restaurantId') restaurantId?: string) {
+    return this.menu.deleteItem(await this.edit(user, restaurantId), id);
   }
 
   @Post('items/:id/groups')
   @RestaurantRoles(...MANAGERS)
-  setItemGroups(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: SetGroupsDto, @Query('restaurantId') restaurantId?: string) {
-    return this.menu.setItemGroups(this.rid(user, restaurantId), id, dto.groupIds);
+  async setItemGroups(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: SetGroupsDto, @Query('restaurantId') restaurantId?: string) {
+    return this.menu.setItemGroups(await this.edit(user, restaurantId), id, dto.groupIds);
   }
 
   @Post('items/:id/86')
@@ -112,8 +136,8 @@ export class RestaurantMenuController {
   // ---- modifier groups & options ----
   @Post('groups')
   @RestaurantRoles(...MANAGERS)
-  createGroup(@CurrentUser() user: AuthUser, @Body() dto: ModifierGroupDto, @Query('restaurantId') restaurantId?: string) {
-    return this.menu.createGroup(this.rid(user, restaurantId), dto);
+  async createGroup(@CurrentUser() user: AuthUser, @Body() dto: ModifierGroupDto, @Query('restaurantId') restaurantId?: string) {
+    return this.menu.createGroup(await this.edit(user, restaurantId), dto);
   }
 
   @Get('groups/:id')
@@ -123,44 +147,44 @@ export class RestaurantMenuController {
 
   @Patch('groups/:id')
   @RestaurantRoles(...MANAGERS)
-  updateGroup(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateGroupDto, @Query('restaurantId') restaurantId?: string) {
-    return this.menu.updateGroup(this.rid(user, restaurantId), id, dto);
+  async updateGroup(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateGroupDto, @Query('restaurantId') restaurantId?: string) {
+    return this.menu.updateGroup(await this.edit(user, restaurantId), id, dto);
   }
 
   @Delete('groups/:id')
   @RestaurantRoles(...MANAGERS)
-  deleteGroup(@CurrentUser() user: AuthUser, @Param('id') id: string, @Query('restaurantId') restaurantId?: string) {
-    return this.menu.deleteGroup(this.rid(user, restaurantId), id);
+  async deleteGroup(@CurrentUser() user: AuthUser, @Param('id') id: string, @Query('restaurantId') restaurantId?: string) {
+    return this.menu.deleteGroup(await this.edit(user, restaurantId), id);
   }
 
   @Post('groups/:id/items/:itemId')
   @RestaurantRoles(...MANAGERS)
-  attachGroup(@CurrentUser() user: AuthUser, @Param('id') id: string, @Param('itemId') itemId: string, @Query('restaurantId') restaurantId?: string) {
-    return this.menu.attachGroup(this.rid(user, restaurantId), itemId, id);
+  async attachGroup(@CurrentUser() user: AuthUser, @Param('id') id: string, @Param('itemId') itemId: string, @Query('restaurantId') restaurantId?: string) {
+    return this.menu.attachGroup(await this.edit(user, restaurantId), itemId, id);
   }
 
   @Delete('groups/:id/items/:itemId')
   @RestaurantRoles(...MANAGERS)
-  detachGroup(@CurrentUser() user: AuthUser, @Param('id') id: string, @Param('itemId') itemId: string, @Query('restaurantId') restaurantId?: string) {
-    return this.menu.detachGroup(this.rid(user, restaurantId), itemId, id);
+  async detachGroup(@CurrentUser() user: AuthUser, @Param('id') id: string, @Param('itemId') itemId: string, @Query('restaurantId') restaurantId?: string) {
+    return this.menu.detachGroup(await this.edit(user, restaurantId), itemId, id);
   }
 
   @Post('groups/:id/options')
   @RestaurantRoles(...MANAGERS)
-  createOption(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: ModifierOptionDto, @Query('restaurantId') restaurantId?: string) {
-    return this.menu.createOption(this.rid(user, restaurantId), id, dto);
+  async createOption(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: ModifierOptionDto, @Query('restaurantId') restaurantId?: string) {
+    return this.menu.createOption(await this.edit(user, restaurantId), id, dto);
   }
 
   @Patch('options/:id')
   @RestaurantRoles(...MANAGERS)
-  updateOption(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateOptionDto, @Query('restaurantId') restaurantId?: string) {
-    return this.menu.updateOption(this.rid(user, restaurantId), id, dto);
+  async updateOption(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateOptionDto, @Query('restaurantId') restaurantId?: string) {
+    return this.menu.updateOption(await this.edit(user, restaurantId), id, dto);
   }
 
   @Delete('options/:id')
   @RestaurantRoles(...MANAGERS)
-  deleteOption(@CurrentUser() user: AuthUser, @Param('id') id: string, @Query('restaurantId') restaurantId?: string) {
-    return this.menu.deleteOption(this.rid(user, restaurantId), id);
+  async deleteOption(@CurrentUser() user: AuthUser, @Param('id') id: string, @Query('restaurantId') restaurantId?: string) {
+    return this.menu.deleteOption(await this.edit(user, restaurantId), id);
   }
 
   @Post('options/:id/86')
@@ -195,7 +219,7 @@ export class RestaurantMenuController {
 
   @Post('csv')
   @RestaurantRoles(...MANAGERS)
-  importCsv(@CurrentUser() user: AuthUser, @Body() dto: CsvImportDto, @Query('restaurantId') restaurantId?: string) {
-    return this.menu.importCsv(this.rid(user, restaurantId), dto.csv, dto.mode);
+  async importCsv(@CurrentUser() user: AuthUser, @Body() dto: CsvImportDto, @Query('restaurantId') restaurantId?: string) {
+    return this.menu.importCsv(await this.edit(user, restaurantId), dto.csv, dto.mode);
   }
 }

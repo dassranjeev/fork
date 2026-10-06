@@ -4,6 +4,7 @@ import { useFetch } from "../../lib/hooks";
 import { ServiceModeBadge } from "../portal/ServiceMode";
 import { Avatar, Badge, ErrorState, Loading, PageHeader, StatusBadge, Tabs } from "../../ui";
 import OpenPanelButton from "./OpenPanelButton";
+import { MenuAccessCard, MenuAccessBadge } from "./MenuAccess";
 import { RestaurantActions, PRE_LIVE } from "./shared";
 import { CommissionTab, DocumentsTab, HoursTab, LocationTab, MembersTab, MenuTab, OverviewTab, PerformanceTab, ReviewsTab } from "./DetailTabs";
 
@@ -26,7 +27,13 @@ export default function RestaurantDetail() {
   const tabs = [
     { key: "overview", label: "Overview", content: <OverviewTab r={r} reload={reload} /> },
     { key: "hours", label: "Hours", content: <HoursTab r={r} reload={reload} /> },
-    { key: "menu", label: "Menu", content: <MenuTab r={r} /> },
+    { key: "menu", label: "Menu", content: (
+        <>
+          <MenuAccessCard r={r} reload={reload} />
+          <MenuTab r={r} />
+        </>
+      ),
+    },
     { key: "members", label: "Members", content: <MembersTab r={r} /> },
     { key: "documents", label: "Documents", content: <DocumentsTab r={r} reload={reload} /> },
     { key: "commission", label: "Commission", content: <CommissionTab r={r} reload={reload} /> },
@@ -43,6 +50,7 @@ export default function RestaurantDetail() {
           <span className="d-inline-flex align-items-center gap-3 flex-wrap">
             <Avatar name={r.name} src={r.logoUrl} size={40} /> {r.name} <StatusBadge status={r.status} />
             {r.status === "LIVE" && <ServiceModeBadge mode={r.serviceMode} />}
+            {r.menuEditStatus === "REQUESTED" && <MenuAccessBadge status="REQUESTED" />}
             {r.openStatus && r.status === "LIVE" && <Badge tone={r.openStatus.open ? "info" : "neutral"}>{r.openStatus.open ? "Open now" : "Closed now"}</Badge>}
           </span>
         }

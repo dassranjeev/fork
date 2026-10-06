@@ -1,6 +1,6 @@
 import { Column, Entity, Index, JoinColumn, ManyToMany, ManyToOne, JoinTable, Relation } from 'typeorm';
 import { BaseEntity, GeoColumn, MoneyColumn, PctColumn } from '../../common/base.entity';
-import { DayPart, DocStatus, RestaurantDocType, RestaurantRole, RestaurantServiceMode, RestaurantStatus } from '../../common/enums';
+import { DayPart, DocStatus, MenuEditStatus, RestaurantDocType, RestaurantRole, RestaurantServiceMode, RestaurantStatus } from '../../common/enums';
 import { User } from './identity.entities';
 import { City, CommissionTier, Zone } from './geo.entities';
 
@@ -184,6 +184,26 @@ export class Restaurant extends BaseEntity {
   /** Optional auto-switch-back time: when reached the store returns to PICKUP_AND_DELIVERY. */
   @Column({ type: 'timestamptz', nullable: true })
   serviceModeResumeAt: Date | null;
+
+  /** May the restaurant add / update / remove its own menu items? Decided by FORKSY staff (see MenuAccessService). */
+  @Index()
+  @Column({ type: 'enum', enum: MenuEditStatus, enumName: 'restaurants_menueditstatus_enum', default: MenuEditStatus.NOT_ALLOWED })
+  menuEditStatus: MenuEditStatus;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  menuEditRequestedAt: Date | null;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  menuEditRequestNote: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  menuEditDecidedAt: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  menuEditDecidedById: string | null;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  menuEditDecisionNote: string | null;
 
   /** "Busy mode": extra prep minutes added to every order */
   @Column({ default: 0 })
