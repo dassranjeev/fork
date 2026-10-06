@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self' blob: http://localhost:4000; connect-src 'self' http://localhost:4000; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<script src="/frame-guard.js"></script>
+<title>FORKSY driver - delivery confirmation demo</title>
+<style>
+  :root { --bg:#0f1420; --card:#171d2c; --line:#2a3350; --text:#e6e9f2; --muted:#8c96b2; --accent:#f95a16; --ok:#22c55e; --bad:#ef4444; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  header { padding:12px 16px; border-bottom:1px solid var(--line); }
+  header h1 { font-size:16px; margin:0 0 2px; } header p { margin:0; color:var(--muted); font-size:12px; }
+  main { max-width:520px; margin:0 auto; padding:12px; display:grid; gap:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .card h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 8px; }
+  label { display:block; font-size:12px; color:var(--muted); margin:8px 0 3px; }
+  input, select { width:100%; background:#0d1220; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:9px; font:inherit; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:10px; padding:11px 16px; font:inherit; cursor:pointer; }
+  button.alt { background:#27304d; } button.alt.on { background:#14532d; outline:2px solid var(--ok); } button:disabled { opacity:.45; cursor:not-allowed; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; } .row > * { flex:1; }
+  .muted { color:var(--muted); } .hide { display:none !important; }
+  .pin { display:flex; gap:10px; justify-content:center; margin:12px 0; }
+  .pin input { width:58px; height:68px; text-align:center; font-size:30px; font-weight:600; padding:0; letter-spacing:0; }
+  .pill { display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px; border:1px solid var(--line); }
+  .msg { padding:9px 11px; border-radius:8px; margin-top:10px; border:1px solid; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .msg.ok { background:#123b24; border-color:#14532d; } .msg.err { background:#3b1a1a; border-color:#7f1d1d; }
+  #preview { max-width:100%; max-height:220px; border-radius:8px; margin-top:8px; }
+  .kv { display:grid; grid-template-columns:110px 1fr; gap:3px 10px; font-size:14px; } .kv dt { color:var(--muted); } .kv dd { margin:0; overflow-wrap:anywhere; }
+</style>
+</head>
+<body>
+<header>
+  <h1>FORKSY driver app - delivery confirmation (demo)</h1>
+  <p>Test harness for what the driver app shows when completing a delivery. Not a product UI. See docs/proof-of-delivery.md.</p>
+</header>
+<main>
+  <section class="card" id="loginCard">
+    <h2>1. Log in as a driver</h2>
+    <label>Email</label><input id="email" value="driver6@demo.forksy.ca" autocomplete="off">
+    <label>Password</label><input id="password" type="password" value="Demo@12345">
+    <label>API base URL</label><input id="api" value="http://localhost:4000/api/v1">
+    <div class="row" style="margin-top:10px"><button id="btnLogin">Log in</button></div>
+    <div id="who" class="muted" style="margin-top:6px"></div>
+  </section>
+
+  <section class="card hide" id="tripCard">
+    <h2>2. Active trip</h2>
+    <dl class="kv" id="tripInfo"></dl>
+    <div class="row" style="margin-top:10px"><button class="alt" id="btnReload">Refresh</button><button id="btnArrived">I have arrived at the customer</button></div>
+  </section>
+
+  <section class="card hide" id="deliverCard">
+    <h2>3. Complete the delivery</h2>
+    <div id="rule" class="muted"></div>
+
+    <div id="pinBox" class="hide">
+      <div class="muted" style="margin-top:8px">Ask the customer for their 4-digit PIN and enter it:</div>
+      <div class="pin" id="pinBoxes"></div>
+    </div>
+
+    <div id="choiceBox" class="hide">
+      <div class="muted" style="margin-top:8px">The customer turned the PIN off. How was it delivered?</div>
+      <div class="row" style="margin-top:8px">
+        <button class="alt" id="optHanded">Handed to the customer</button>
+        <button class="alt" id="optLeft">Delivered (left at the location)</button>
+      </div>
+    </div>
+
+    <div id="photoBox" class="hide">
+      <label id="photoLabel">Photo of the delivered order (compulsory)</label>
+      <input id="photo" type="file" accept="image/jpeg,image/png" capture="environment">
+      <img id="preview" class="hide" alt="Photo preview">
+    </div>
+
+    <label>Your location</label>
+    <div class="row"><button class="alt" id="btnGps">Use my GPS</button><button class="alt" id="btnDrop">Use the drop-off point (testing)</button></div>
+    <div id="loc" class="muted" style="margin-top:4px"></div>
+    <div class="muted" style="font-size:12px">You must be within <span id="fence">100</span> m of the delivery location to complete the delivery.</div>
+
+    <div class="row" style="margin-top:12px"><button id="btnDeliver">Complete delivery</button></div>
+    <div id="result" class="msg hide"></div>
+  </section>
+</main>
+<script src="/driver-demo.js"></script>
+</body>
+</html>

@@ -62,6 +62,7 @@ Useful URLs once running:
 | http://localhost:3000 | Admin Console (sign in as admin) |
 | http://localhost:3000/portal | Restaurant Portal (sign in as a restaurant user, or open it from the admin) |
 | http://localhost:3000/chat-demo.html | Test page for the customer/driver side of live chat |
+| http://localhost:3000/driver-demo.html | Test page for the driver delivery confirmation (PIN boxes, hand-over / photo) |
 | http://localhost:4000/docs | Swagger API docs (also linked in the admin sidebar under SYSTEM) |
 
 ## Configuration
@@ -107,7 +108,7 @@ Customers 31 to 50 and restaurants 13 to 26 include Brampton data. These are dev
 
 **Proof of delivery.** Every delivery leaves an evidence record that settles "the driver never delivered" claims. Hand-to-me and meet-outside orders need the customer's PIN; leave-at-door orders need a fresh photo taken at the address (about 150 m geofence, GPS cross-checked, metadata stripped, reuse of a photo is rejected). Photos are private and visible only to the order's parties and staff. Weak or exception proof is flagged for review, and disputes use the evidence automatically. Details: `docs/proof-of-delivery.md`.
 
-**Delivery instructions.** Customers choose hand to me, leave at door (contactless) or meet outside, and whether to use a private delivery PIN (if they turn it off, the driver must photograph the delivered order in the app; the driver must always be within 100 m of the delivery location), add notes and an optional access code (stored encrypted, shown to the driver only after pickup). Defaults can be saved per address, and instructions can be changed until pickup.
+**Delivery instructions.** Customers choose hand to me, leave at door (contactless) or meet outside, and whether to use a private delivery PIN (if they turn it off, the driver chooses "handed to the customer" or "delivered / left", and leaving the order requires a photo uploaded in the app; the driver must always be within 100 m of the delivery location), add notes and an optional access code (stored encrypted, shown to the driver only after pickup). Defaults can be saved per address, and instructions can be changed until pickup.
 
 **Ratings.** Customers rate the restaurant and the driver after delivery (tags, one edit, review-bomb and duplicate detection, staff moderation). Drivers and restaurants privately rate customers (staff-only visibility). Scores are smoothed so one bad review does not swing a new profile, and low scores raise alerts and feed the driver review process. Details: `docs/ratings.md`.
 

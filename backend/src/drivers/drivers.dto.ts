@@ -19,7 +19,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
-import { DocStatus, DriverDocType, DriverStatus, ProofExceptionReason, VehicleType } from '../common/enums';
+import { DeliveryAction, DocStatus, DriverDocType, DriverStatus, ProofExceptionReason, VehicleType } from '../common/enums';
 import { PageQueryDto } from '../common/pagination';
 
 // ------------------------------------------------------------------ admin: drivers
@@ -322,6 +322,8 @@ export class PickupDto extends StepDto {
 export class DeliverDto extends StepDto {
   /** photo uploaded by THIS driver via POST /uploads (our own URL, JPEG/PNG). Needs lat, lng, accuracy and capturedAt (lat/lng come from StepDto: where the photo was taken). */
   @IsOptional() @IsString() @MaxLength(2048) proofPhotoUrl?: string;
+  /** PIN-off orders only: HANDED_TO_CUSTOMER (in person, photo optional) or LEFT_AT_LOCATION (photo compulsory). Omitted = LEFT_AT_LOCATION. */
+  @IsOptional() @IsEnum(DeliveryAction) deliveryAction?: DeliveryAction;
   /** the customer's 4-digit delivery PIN (HAND_TO_ME / MEET_OUTSIDE) */
   @IsOptional() @IsString() @MaxLength(10) pin?: string;
   @IsOptional() @IsString() @MaxLength(500) note?: string;

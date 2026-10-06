@@ -20,6 +20,7 @@ const FLAG_TEXT = {
 export function ProofBadge({ proof, valid }) {
   if (!proof) return <Badge tone="danger">No proof on file</Badge>;
   if (proof.proofType === "NONE") return <Badge tone="danger">No proof</Badge>;
+  if (proof.proofType === "HANDED_OVER") return <Badge tone="info">Handed over in person · no PIN or photo (customer chose no PIN)</Badge>;
   const label = titleCase(String(proof.proofType).replace("_AND_", " + "));
   return <Badge tone={valid ?? proof.strength === "STRONG" ? "success" : "warning"}>{label} · {proof.strength === "STRONG" ? "strong" : "weak"}</Badge>;
 }

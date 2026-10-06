@@ -8,7 +8,7 @@ import { readFile, unlink, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { Between, In, IsNull, LessThan, Not, Repository } from 'typeorm';
 import { DeliveryProof, DriverLocationLog, DriverProfile, Order, OrderEvent, Ticket, UploadedFile } from '../database/entities';
-import { ActorType, DropoffMethod, FulfilmentMode, OrderStatus, ProofExceptionReason, ProofType, TicketStatus } from '../common/enums';
+import { ActorType, DeliveryAction, DropoffMethod, FulfilmentMode, OrderStatus, ProofExceptionReason, ProofType, TicketStatus } from '../common/enums';
 import { haversineKm } from '../common/geo.util';
 import { stripImageMetadata } from '../common/image-meta';
 import { SettingsService } from '../settings/settings.service';
@@ -28,11 +28,14 @@ export interface ProofRequirement {
   photoRequired: boolean;
   label: string;
   exceptionReasons: string[];
+  /** PIN off + not contactless: the driver chooses between these (HANDED_TO_CUSTOMER needs no photo, LEFT_AT_LOCATION needs one) */
+  deliveryActions?: { value: string; label: string; photoRequired: boolean }[];
 }
 
 export interface ProofInput {
   pin?: string;
   proofPhotoUrl?: string;
+  deliveryAction?: string;
   lat?: number;
   lng?: number;
   accuracy?: number;
@@ -57,6 +60,7 @@ export interface ProofDraft {
   flags: string[];
   breadcrumb: Record<string, any> | null;
   device: Record<string, any>;
+  deliveryAction?: string | null;
   actorUserId?: string;
 }
 
@@ -102,15 +106,14 @@ export class ProofService implements OnModuleInit {
   ) {}
 
   // ------------------------------------------------------------------ rules
-  /** Should a new/changed order of this kind carry a delivery PIN? (PIN methods only, delivery only) */
+  /** Should a new/changed order of this kind carry a delivery PIN? Only the customer's usePin choice decides (PIN methods, delivery only). */
   shouldHavePin(method: DropoffMethod, total: number, fulfilment: FulfilmentMode, usePin = true): boolean {
     // the customer decides: usePin=false means no PIN, and the driver must photograph the delivered order instead
     if (fulfilment === FulfilmentMode.PICKUP || method === DropoffMethod.LEAVE_AT_DOOR || !usePin) return false;
-    if (this.settings.get<boolean>('delivery.proof.pinAlways', true)) return true;
-    return Number(total) >= this.settings.get<number>('orders.highValuePinThreshold', 100);
+    return true; // the customer's choice is final: not overridden by order value or any setting
   }
 
-  requirementFor(order: Pick<Order, 'fulfilment' | 'dropoffMethod' | 'requiresPin'>): ProofRequirement {
+  requirementFor(order: Pick<Order, 'fulfilment' | 'dropoffMethod' | 'requiresPin'>, action?: string | null): ProofRequirement {
     const method = order.dropoffMethod ?? DropoffMethod.HAND_TO_ME;
     const exceptionReasons = Object.values(ProofExceptionReason) as string[];
     if (order.fulfilment === FulfilmentMode.PICKUP) return { method, rule: 'NONE', pinRequired: false, photoRequired: false, label: 'No proof needed (pickup)', exceptionReasons: [] };
@@ -119,8 +122,16 @@ export class ProofService implements OnModuleInit {
     const photoRequired =
       method === DropoffMethod.LEAVE_AT_DOOR
         ? this.settings.get<boolean>('delivery.proof.leaveAtDoorPhotoRequired', true)
-        : !pinRequired || this.settings.get<boolean>('delivery.proof.photoAlways', false);
-    return { method, rule: pinRequired ? 'PIN' : photoRequired ? 'PHOTO' : 'NONE', pinRequired, photoRequired, label: pinRequired && photoRequired ? 'PIN and photo required' : pinRequired ? 'PIN required' : photoRequired ? 'Photo required' : 'No proof required', exceptionReasons };
+        : // PIN off: leaving the order needs a photo; handing it to the customer in person does not (photo then optional)
+          this.settings.get<boolean>('delivery.proof.photoAlways', false) || (!pinRequired && action !== DeliveryAction.HANDED_TO_CUSTOMER);
+    const choose = !pinRequired && method !== DropoffMethod.LEAVE_AT_DOOR && !this.settings.get<boolean>('delivery.proof.photoAlways', false);
+    const deliveryActions = choose
+      ? [
+          { value: DeliveryAction.HANDED_TO_CUSTOMER, label: 'Handed to the customer', photoRequired: false },
+          { value: DeliveryAction.LEFT_AT_LOCATION, label: 'Delivered (left at the location) - photo required', photoRequired: true },
+        ]
+      : undefined;
+    return { method, deliveryActions, rule: pinRequired ? 'PIN' : photoRequired ? 'PHOTO' : 'NONE', pinRequired, photoRequired, label: pinRequired && photoRequired ? 'PIN and photo required' : pinRequired ? 'PIN required' : photoRequired ? 'Photo required' : 'No proof required', exceptionReasons };
   }
 
   private geofence() {
@@ -130,7 +141,10 @@ export class ProofService implements OnModuleInit {
   // ------------------------------------------------------------------ validation (before the order is changed)
   async prepare(order: Order, driver: DriverProfile, input: ProofInput, ctx: { ip?: string; userAgent?: string } = {}): Promise<ProofDraft> {
     if (!order.driverArrivedCustomerAt) throw new BadRequestException('Mark "arrived at customer" before completing the delivery');
-    const req = this.requirementFor(order);
+    const action = input.deliveryAction ?? null;
+    if (action && !(Object.values(DeliveryAction) as string[]).includes(action)) throw new BadRequestException('Unknown delivery action');
+    if (action && (order.requiresPin || order.dropoffMethod === DropoffMethod.LEAVE_AT_DOOR)) throw new BadRequestException('deliveryAction only applies to orders where the customer turned the PIN off');
+    const req = this.requirementFor(order, action);
     const gf = this.geofence();
     const flags: string[] = [];
     const exception = input.exceptionReason ?? null;
@@ -200,10 +214,12 @@ export class ProofService implements OnModuleInit {
     else if (pinVerified && photo) proofType = ProofType.PIN_AND_PHOTO;
     else if (pinVerified) proofType = ProofType.PIN;
     else if (photo) proofType = ProofType.PHOTO;
+    else if (action === DeliveryAction.HANDED_TO_CUSTOMER && !req.pinRequired && !req.photoRequired) proofType = ProofType.HANDED_OVER;
     else proofType = ProofType.NONE;
+    if (proofType === ProofType.HANDED_OVER) flags.push('HANDED_OVER_NO_PHOTO');
     // the PIN is customer-confirmed: GPS flags do not weaken it. A photo / nothing is only strong when clean.
-    const weak = proofType === ProofType.EXCEPTION || proofType === ProofType.NONE || (!pinVerified && flags.some((f) => FLAGS_THAT_WEAKEN.includes(f)));
-    if (weak) flags.unshift('WEAK_PROOF');
+    const weak = proofType === ProofType.EXCEPTION || proofType === ProofType.NONE || proofType === ProofType.HANDED_OVER || (!pinVerified && flags.some((f) => FLAGS_THAT_WEAKEN.includes(f)));
+    if (weak && proofType !== ProofType.HANDED_OVER) flags.unshift('WEAK_PROOF'); // a hand-over the customer made possible by turning the PIN off is "no evidence", not suspicious
 
     return {
       method: req.method,
@@ -220,6 +236,7 @@ export class ProofService implements OnModuleInit {
       flags,
       breadcrumb: await this.breadcrumb(driver.id, dest?.lat != null ? { lat: Number(dest.lat), lng: Number(dest.lng) } : null),
       device: { ip: ctx.ip ?? null, userAgent: (ctx.userAgent ?? '').slice(0, 200) || null },
+      deliveryAction: action,
       actorUserId: driver.userId,
     };
   }
@@ -293,7 +310,7 @@ export class ProofService implements OnModuleInit {
       photoFile = `${order.id}-${draft.photo.sha256.slice(0, 12)}.${draft.photo.mime === 'image/png' ? 'png' : 'jpg'}`;
       await writeFile(join(this.uploads.privateDir, 'proofs', photoFile), draft.photo.buf, { mode: 0o600 });
     }
-    const instructions = { method: order.dropoffMethod, dropoffNotes: order.dropoffNotes ?? null, requiresPin: order.requiresPin, deliveryAddressLabel: order.deliveryAddress?.label ?? null };
+    const instructions = { method: order.dropoffMethod, dropoffNotes: order.dropoffNotes ?? null, requiresPin: order.requiresPin, usePin: order.usePin, deliveryAction: draft.deliveryAction ?? null, deliveryAddressLabel: order.deliveryAddress?.label ?? null };
     let saved: DeliveryProof;
     try {
       saved = await this.proofs.save(
@@ -329,7 +346,7 @@ export class ProofService implements OnModuleInit {
           device: draft.device,
           instructions,
           flags: draft.flags,
-          reviewStatus: draft.strength === 'WEAK' ? 'NEEDS_REVIEW' : 'NONE',
+          reviewStatus: draft.strength === 'WEAK' && draft.proofType !== ProofType.HANDED_OVER ? 'NEEDS_REVIEW' : 'NONE',
         }),
       );
     } catch (e: any) {
@@ -348,7 +365,7 @@ export class ProofService implements OnModuleInit {
       flags: draft.flags,
       distanceMeters: draft.distanceMeters,
     });
-    if (draft.strength === 'WEAK' || draft.flags.length) {
+    if ((draft.strength === 'WEAK' && draft.proofType !== ProofType.HANDED_OVER) || draft.flags.some((f) => f !== 'HANDED_OVER_NO_PHOTO')) {
       this.rt.emitToOps('delivery.proof_flagged', { orderId: order.id, code: order.code, flags: draft.flags, proofType: draft.proofType });
     }
     if (draft.exceptionReason) {
@@ -436,7 +453,7 @@ export class ProofService implements OnModuleInit {
 
   /** valid proof = customer PIN verified, or a clean photo inside the geofence. Legacy orders without an evidence record never count. */
   isValid(p: DeliveryProof | null): boolean {
-    if (!p || p.strength !== 'STRONG' || p.proofType === ProofType.EXCEPTION || p.proofType === ProofType.NONE) return false;
+    if (!p || p.strength !== 'STRONG' || p.proofType === ProofType.EXCEPTION || p.proofType === ProofType.NONE || p.proofType === ProofType.HANDED_OVER) return false;
     return p.pinVerified || (!!p.photoSha256 && !p.flags.some((f) => FLAGS_THAT_WEAKEN.includes(f)));
   }
 

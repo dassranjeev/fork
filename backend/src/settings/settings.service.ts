@@ -46,7 +46,6 @@ export const SETTING_DEFINITIONS: any[] = [
   { key: 'orders.cancellationFeeMaxPctOfFood', group: 'orders', label: 'Max late-cancellation fee (% of food cost)', value: 100, inputType: 'number' },
   { key: 'orders.tipEditableMinutes', group: 'orders', label: 'Tip editable after delivery (min)', value: 60, inputType: 'number', isPublic: true },
   { key: 'orders.tipPresets', group: 'orders', label: 'Tip presets (%)', value: [10, 15, 20], inputType: 'json', isPublic: true },
-  { key: 'orders.highValuePinThreshold', group: 'orders', label: 'Require delivery PIN above ($)', value: 100, inputType: 'number' },
   { key: 'orders.maxScheduleDays', group: 'orders', label: 'Max days ahead for scheduled orders', value: 3, inputType: 'number', isPublic: true },
   { key: 'orders.quotedEtaBufferMin', group: 'orders', label: 'ETA buffer added to quotes (min)', value: 5, inputType: 'number' },
   { key: 'orders.acceptCashPayments', group: 'orders', label: 'Allow cash payments', value: false, inputType: 'boolean' },
@@ -191,7 +190,6 @@ export const SETTING_DEFINITIONS: any[] = [
   { key: 'finance.maxManualAdjustment', group: 'payments', label: 'Largest manual ledger / payout adjustment a Finance Manager may post ($); above this a Super Admin is required', value: 500, inputType: 'number' },
   // ---- delivery proof & instructions (docs/proof-of-delivery.md). Replaces the old driver.deliveryGeofenceKm. ----
   { key: 'delivery.proof.leaveAtDoorPhotoRequired', group: 'delivery', label: 'LEAVE_AT_DOOR (contactless) deliveries require a photo of the dropped-off order taken at the drop-off', value: true, inputType: 'boolean' },
-  { key: 'delivery.proof.pinAlways', group: 'delivery', label: 'Always generate a 4-digit delivery PIN for HAND_TO_ME / MEET_OUTSIDE orders (off = only orders above orders.highValuePinThreshold)', value: true, inputType: 'boolean' },
   { key: 'delivery.proof.geofenceMeters', group: 'delivery', label: 'Delivery geofence (m): the driver and the proof photo must be within this distance of the drop-off address to complete a delivery', value: 100, inputType: 'number' },
   { key: 'delivery.proof.photoAlways', group: 'delivery', label: 'Require a delivery photo on EVERY delivery (off = photo only for contactless orders and for customers who turn the PIN off)', value: false, inputType: 'boolean' },
   { key: 'delivery.proof.requireGeofence', group: 'delivery', label: 'Enforce the delivery geofence (outside it the delivery is rejected, including on the exception path)', value: true, inputType: 'boolean' },

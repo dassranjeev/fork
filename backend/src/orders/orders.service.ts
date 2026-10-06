@@ -689,6 +689,12 @@ export class OrdersService implements IOrdersService {
             accessCodeSet: viewer === 'CUSTOMER' || full ? hasCode : undefined,
             proofRule: rule.rule,
             proofLabel: rule.label,
+            // driver app contract: pinInput.required => show 4 digit boxes (send them as "pin"); photoRequired => camera + upload (proofPhotoUrl, lat, lng, accuracy, capturedAt)
+            pinInput: viewer === 'DRIVER' ? { required: rule.pinRequired, length: 4 } : undefined,
+            photoRequired: viewer === 'DRIVER' ? rule.photoRequired : undefined,
+            // PIN off: the driver chooses "handed to the customer" (no photo needed) or "delivered / left" (photo compulsory)
+            deliveryActions: viewer === 'DRIVER' ? rule.deliveryActions : undefined,
+            usePin: viewer === 'CUSTOMER' || full ? order.usePin : undefined,
             exceptionReasons: viewer === 'DRIVER' ? rule.exceptionReasons : undefined,
           };
 

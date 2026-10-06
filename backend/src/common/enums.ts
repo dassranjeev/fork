@@ -344,6 +344,14 @@ export enum ProofType {
   PIN_AND_PHOTO = 'PIN_AND_PHOTO',
   EXCEPTION = 'EXCEPTION',
   NONE = 'NONE',
+  /** PIN switched off by the customer and the driver handed the order over in person (no photo). */
+  HANDED_OVER = 'HANDED_OVER',
+}
+
+/** What the driver did at the door when the customer turned the PIN off. */
+export enum DeliveryAction {
+  HANDED_TO_CUSTOMER = 'HANDED_TO_CUSTOMER',
+  LEFT_AT_LOCATION = 'LEFT_AT_LOCATION',
 }
 
 /** Reason codes a driver may give to complete a delivery without the normal proof (always flagged WEAK_PROOF and reviewed). */

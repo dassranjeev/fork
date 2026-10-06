@@ -45,6 +45,14 @@ export class DeliveryDisputesService {
     const done = order.status === OrderStatus.DELIVERED || order.status === OrderStatus.COLLECTED;
     if (!done || !order.driverId) return { validProof: false, strike: false };
     const p = await this.proof.find(order.id);
+    if (p?.proofType === 'HANDED_OVER') {
+      // the customer turned the PIN off and the driver reported handing it over in person: nothing to verify, but not the driver's fault either
+      await this.proof.patchReview(p.id, { disputeTicketId: ticket.id });
+      if (ticket.tier !== TicketTier.TIER2 && ticket.tier !== TicketTier.FINANCE) await this.tickets.escalate(ticket.id, { type: 'SYSTEM' }, { tier: TicketTier.TIER2, reason: 'Hand-over without PIN or photo - review required' });
+      await this.tickets.sysNote(ticket.id, `The customer turned the delivery PIN off and the driver reported handing the order to the customer in person (${p.distanceMeters ?? '?'} m from the drop-off pin, delivered ${p.deliveredAt.toISOString()}). There is no PIN or photo to verify. No automatic refund and no driver strike - review with both parties.`);
+      await this.ticketRepo.update(ticket.id, { meta: { ...(ticket.meta ?? {}), proofOnFile: false, handedOver: true, proofType: p.proofType } } as any);
+      return { validProof: true, strike: false };
+    }
     if (this.proof.isValid(p)) {
       if (p!.reviewStatus !== 'REVIEWED') await this.proof.patchReview(p!.id, { reviewStatus: 'NEEDS_REVIEW', disputeTicketId: ticket.id });
       else await this.proof.patchReview(p!.id, { disputeTicketId: ticket.id });
