@@ -189,7 +189,6 @@ export const SETTING_DEFINITIONS: any[] = [
   { key: 'finance.requireDualControl', group: 'payments', label: 'Dual control: the person who approves a payout batch cannot release it, and over-limit adjustments need a Super Admin (default ON in production)', value: process.env.NODE_ENV === 'production', inputType: 'boolean' },
   { key: 'finance.maxManualAdjustment', group: 'payments', label: 'Largest manual ledger / payout adjustment a Finance Manager may post ($); above this a Super Admin is required', value: 500, inputType: 'number' },
   // ---- delivery proof & instructions (docs/proof-of-delivery.md). Replaces the old driver.deliveryGeofenceKm. ----
-  { key: 'delivery.proof.leaveAtDoorPhotoRequired', group: 'delivery', label: 'LEAVE_AT_DOOR (contactless) deliveries require a photo of the dropped-off order taken at the drop-off', value: true, inputType: 'boolean' },
   { key: 'delivery.proof.geofenceMeters', group: 'delivery', label: 'Delivery geofence (m): the driver and the proof photo must be within this distance of the drop-off address to complete a delivery', value: 100, inputType: 'number' },
   { key: 'delivery.proof.photoAlways', group: 'delivery', label: 'Require a delivery photo on EVERY delivery (off = photo only for contactless orders and for customers who turn the PIN off)', value: false, inputType: 'boolean' },
   { key: 'delivery.proof.requireGeofence', group: 'delivery', label: 'Enforce the delivery geofence (outside it the delivery is rejected, including on the exception path)', value: true, inputType: 'boolean' },

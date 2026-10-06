@@ -121,7 +121,7 @@ export class ProofService implements OnModuleInit {
     // photo: contactless always; any delivery without a PIN (customer opted out); optionally every delivery (delivery.proof.photoAlways)
     const photoRequired =
       method === DropoffMethod.LEAVE_AT_DOOR
-        ? this.settings.get<boolean>('delivery.proof.leaveAtDoorPhotoRequired', true)
+        ? true // contactless ALWAYS needs a photo taken in the app at the drop-off location (no setting can switch this off)
         : // PIN off: leaving the order needs a photo; handing it to the customer in person does not (photo then optional)
           this.settings.get<boolean>('delivery.proof.photoAlways', false) || (!pinRequired && action !== DeliveryAction.HANDED_TO_CUSTOMER);
     const choose = !pinRequired && method !== DropoffMethod.LEAVE_AT_DOOR && !this.settings.get<boolean>('delivery.proof.photoAlways', false);
@@ -264,6 +264,7 @@ export class ProofService implements OnModuleInit {
     if (Date.now() - captured.getTime() > maxAge) throw new BadRequestException(`The photo is too old - it must be taken within ${Math.round(maxAge / 60000)} minutes of completing the delivery`);
     if (captured.getTime() - Date.now() > 120_000) throw new BadRequestException('capturedAt is in the future');
     if (order.pickedUpAt && captured.getTime() < order.pickedUpAt.getTime() - 60_000) throw new BadRequestException('The photo was taken before you picked up this order');
+    if (order.driverArrivedCustomerAt && captured.getTime() < order.driverArrivedCustomerAt.getTime() - 60_000) throw new BadRequestException('The photo must be taken at the drop-off location, after you tap "arrived at customer"');
 
     const path = join(this.uploads.dir, filename);
     if (!existsSync(path)) throw new BadRequestException('The uploaded photo could not be found - upload it again');

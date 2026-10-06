@@ -10,7 +10,6 @@ export class DeliveryOptionsController {
 
   @Get()
   options() {
-    const photo = this.settings.get<boolean>('delivery.proof.leaveAtDoorPhotoRequired', true);
     const geofenceMeters = this.settings.get<number>('delivery.proof.geofenceMeters', 100);
     return {
       ...DELIVERY_OPTIONS,
@@ -18,7 +17,7 @@ export class DeliveryOptionsController {
       methods: DELIVERY_OPTIONS.methods.map((m) => ({
         ...m,
         // reflect the live settings
-        proof: m.value === 'LEAVE_AT_DOOR' ? { ...m.proof, required: photo } : { ...m.proof, required: true, optional: 'The customer can turn the PIN off (usePin=false); the driver then uploads a photo instead.' },
+        proof: m.value === 'LEAVE_AT_DOOR' ? { ...m.proof, required: true } : { ...m.proof, required: true, optional: 'The customer can turn the PIN off (usePin=false); the driver then uploads a photo instead.' },
       })),
     };
   }

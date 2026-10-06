@@ -23,7 +23,7 @@ Delivery orders carry `usePin` (default **true**; only the customer can change i
 |---|---|
 | PIN on (hand to me / meet outside) | the customer's 4-digit PIN |
 | **PIN off** (hand to me / meet outside) | the driver chooses **Handed to the customer** (in person; no photo needed, one can be added) or **Delivered / left at the location** (**photo compulsory**, taken at the drop-off and uploaded in the app) |
-| Leave at door (contactless) | a **photo** (no PIN is used) |
+| Leave at door (contactless) | a **photo, always** (no setting can turn this off): taken in the FORKSY app at the drop-off, after the driver taps "arrived at customer", within 100 m of the address, fresh and not reused; no PIN is used |
 
 **Driver app contract** (`GET /driver/trip/active` -> `dropoff`): `pinInput: {required, length: 4}` = show 4 PIN boxes and send `pin`; `photoRequired` = camera + upload (`proofPhotoUrl`, `lat`, `lng`, `accuracy`, `capturedAt`); `deliveryActions` (PIN off only) = the two choices, sent as `deliveryAction` = `HANDED_TO_CUSTOMER` | `LEFT_AT_LOCATION` (omitted = left, so a photo is needed). A hand-over without photo is stored as proof type `HANDED_OVER` (inside the geofence, time and GPS recorded, not flagged as suspicious, but with no PIN or photo to verify): a "never delivered" claim on it goes to a Tier-2 human review, with no automatic refund and no driver strike. A runnable test page is at `/driver-demo.html` on the admin dev server.
 
@@ -65,7 +65,7 @@ Photo **files** are deleted `delivery.proof.retentionDays` (90) days after deliv
 
 ## 6. Settings (Admin Console > Settings, group `delivery`)
 
-`delivery.proof.leaveAtDoorPhotoRequired` (true), `delivery.proof.geofenceMeters` (100), `delivery.proof.photoAlways` (false), `delivery.proof.requireGeofence` (true), `delivery.proof.photoMaxAgeMinutes` (10), `delivery.proof.retentionDays` (90), `delivery.proof.gpsMismatchMeters` (300), `delivery.proof.serverGpsMaxAgeSec` (300), `delivery.accessCodeRetentionDays` (7), `support.falseClaimFlagThreshold` (2), `support.deliveryDisputeStrikeThreshold` (3). The old `driver.deliveryGeofenceKm` was replaced (an existing non-zero value is converted to metres on boot, then removed).
+`delivery.proof.geofenceMeters` (100), `delivery.proof.photoAlways` (false), `delivery.proof.requireGeofence` (true), `delivery.proof.photoMaxAgeMinutes` (10), `delivery.proof.retentionDays` (90), `delivery.proof.gpsMismatchMeters` (300), `delivery.proof.serverGpsMaxAgeSec` (300), `delivery.accessCodeRetentionDays` (7), `support.falseClaimFlagThreshold` (2), `support.deliveryDisputeStrikeThreshold` (3). The old `driver.deliveryGeofenceKm` was replaced (an existing non-zero value is converted to metres on boot, then removed).
 
 ## 7. Known limits
 
