@@ -5,12 +5,18 @@ import { ServiceModeBadge } from "../portal/ServiceMode";
 import { Avatar, Badge, ErrorState, Loading, PageHeader, StatusBadge, Tabs } from "../../ui";
 import OpenPanelButton from "./OpenPanelButton";
 import { MenuAccessCard, MenuAccessBadge } from "./MenuAccess";
+import OrderAutomationCard from "../portal/Automation";
+import { http } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
+
+const adminHttp = { get: (u) => http.get(u), patch: (u, b) => http.patch(u, b) };
 import { RestaurantActions, PRE_LIVE } from "./shared";
 import { CommissionTab, DocumentsTab, HoursTab, LocationTab, MembersTab, MenuTab, OverviewTab, PerformanceTab, ReviewsTab } from "./DetailTabs";
 
 export default function RestaurantDetail() {
   const { id } = useParams();
   const [sp, setSp] = useSearchParams();
+  const { can } = useAuth();
   const { data: r, loading, error, reload } = useFetch(`/admin/restaurants/${id}`);
 
   if (loading && !r) return <Loading />;
@@ -25,7 +31,13 @@ export default function RestaurantDetail() {
 
   const tab = sp.get("tab") || "overview";
   const tabs = [
-    { key: "overview", label: "Overview", content: <OverviewTab r={r} reload={reload} /> },
+    { key: "overview", label: "Overview", content: (
+        <>
+          <OverviewTab r={r} reload={reload} />
+          <OrderAutomationCard api={adminHttp} path={`/admin/restaurants/${r.id}/automation`} canEdit={can("restaurants", "edit")} className="mt-24" />
+        </>
+      ),
+    },
     { key: "hours", label: "Hours", content: <HoursTab r={r} reload={reload} /> },
     { key: "menu", label: "Menu", content: (
         <>

@@ -35,6 +35,8 @@ import { WalletService } from './wallet.service';
 import { RefundsService } from './refunds.service';
 import { OrderChatService } from './order-chat.service';
 import { ProofService } from './proof.service';
+import { OrderAutomationService } from './order-automation.service';
+import { AdminAutomationController, RestaurantAutomationController } from './order-automation.controller';
 import { OrdersController } from './orders.controller';
 import { AdminOrdersController } from './admin-orders.controller';
 import { DeliveryOptionsController } from './delivery-options.controller';
@@ -74,8 +76,8 @@ import { DeliveryOptionsController } from './delivery-options.controller';
       UploadedFile,
     ]),
   ],
-  providers: [PricingService, OrdersService, PaymentsService, LedgerService, WalletService, RefundsService, OrderChatService, ProofService],
-  controllers: [OrdersController, AdminOrdersController, DeliveryOptionsController],
-  exports: [PricingService, OrdersService, PaymentsService, LedgerService, WalletService, RefundsService, OrderChatService, ProofService],
+  providers: [PricingService, OrdersService, PaymentsService, LedgerService, WalletService, RefundsService, OrderChatService, ProofService, OrderAutomationService],
+  controllers: [OrdersController, AdminOrdersController, DeliveryOptionsController, RestaurantAutomationController, AdminAutomationController],
+  exports: [PricingService, OrdersService, PaymentsService, LedgerService, WalletService, RefundsService, OrderChatService, ProofService, OrderAutomationService],
 })
 export class OrdersModule {}

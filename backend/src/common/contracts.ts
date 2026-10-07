@@ -280,6 +280,8 @@ export const Events = {
   REVIEW_CREATED: 'review.created',
   REFUND_ISSUED: 'refund.issued',
   DRIVER_STATUS_CHANGED: 'driver.status_changed',
+  /** payload: { driverId, lat, lng, active: Order[] } - every recorded GPS ping of a driver (used for automatic arrival detection) */
+  DRIVER_LOCATION: 'driver.location_recorded',
   RESTAURANT_STATUS_CHANGED: 'restaurant.status_changed',
   /** payload: { id, from, to, resumeAt, actor } where from/to are RestaurantServiceMode values */
   RESTAURANT_SERVICE_MODE_CHANGED: 'restaurant.service_mode_changed',

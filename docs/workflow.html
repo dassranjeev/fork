@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FORKSY - Complete workflow</title>
+<style>
+  :root {
+    --bg: #f6f7fb; --card: #ffffff; --ink: #1c2233; --muted: #667089; --line: #e3e7f1; --brand: #f95a16; --brand-ink: #ffffff;
+    --auto: #0f9d58; --auto-bg: #e6f6ed; --manual: #c2410c; --manual-bg: #fff1e6; --info: #2563eb; --info-bg: #e8f0ff; --warn: #a16207; --warn-bg: #fff7d6; --bad: #b91c1c; --bad-bg: #fde8e8;
+    --code: #eef1f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420; --card: #171d2c; --ink: #e6e9f2; --muted: #9aa5c0; --line: #2a3350; --brand: #ff7a3d; --brand-ink: #111;
+      --auto: #4ade80; --auto-bg: #12301f; --manual: #fdba74; --manual-bg: #3a2312; --info: #93c5fd; --info-bg: #14264a; --warn: #fde047; --warn-bg: #3a3212; --bad: #fca5a5; --bad-bg: #3b1a1a;
+      --code: #0d1220;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  a { color: var(--info); }
+  header.top { background: linear-gradient(135deg, #f95a16, #c2410c); color: #fff; padding: 36px 20px 30px; }
+  header.top .wrap { max-width: 1100px; margin: 0 auto; }
+  header.top h1 { margin: 0 0 6px; font-size: clamp(26px, 5vw, 40px); letter-spacing: .01em; }
+  header.top p { margin: 0; max-width: 780px; opacity: .95; }
+  .layout { max-width: 1100px; margin: 0 auto; padding: 0 16px 60px; display: grid; grid-template-columns: 230px 1fr; gap: 28px; }
+  nav.toc { position: sticky; top: 12px; align-self: start; margin-top: 24px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 8px; font-size: 14px; max-height: calc(100vh - 24px); overflow: auto; }
+  nav.toc strong { display: block; padding: 4px 10px 8px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  nav.toc a { display: block; padding: 5px 10px; border-radius: 8px; color: var(--ink); text-decoration: none; }
+  nav.toc a:hover { background: var(--code); }
+  main { min-width: 0; }
+  section { margin-top: 34px; }
+  h2 { font-size: 26px; margin: 0 0 6px; scroll-margin-top: 14px; }
+  h3 { font-size: 18px; margin: 26px 0 8px; }
+  p.lead { color: var(--muted); margin: 0 0 14px; max-width: 820px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; margin: 12px 0; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .grid .card { margin: 0; }
+  .tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .t-auto { background: var(--auto-bg); color: var(--auto); }
+  .t-manual { background: var(--manual-bg); color: var(--manual); }
+  .t-info { background: var(--info-bg); color: var(--info); }
+  .t-warn { background: var(--warn-bg); color: var(--warn); }
+  .t-bad { background: var(--bad-bg); color: var(--bad); }
+  code { background: var(--code); padding: 1px 6px; border-radius: 6px; font: 13px ui-monospace, Consolas, monospace; }
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  .scroll { overflow-x: auto; }
+  ol.steps { list-style: none; counter-reset: s; padding: 0; margin: 0; }
+  ol.steps > li { counter-increment: s; position: relative; margin: 0 0 10px; padding: 12px 14px 12px 56px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+  ol.steps > li::before { content: counter(s); position: absolute; left: 14px; top: 12px; width: 30px; height: 30px; border-radius: 50%; background: var(--brand); color: var(--brand-ink); display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+  ol.steps .who { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+  ol.steps h4 { margin: 0 0 3px; font-size: 16px; }
+  ol.steps p { margin: 0; color: var(--muted); font-size: 14.5px; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  .flow .n { background: var(--code); border: 1px solid var(--line); padding: 5px 11px; border-radius: 10px; font-size: 13.5px; font-weight: 600; }
+  .flow .n.ok { background: var(--auto-bg); color: var(--auto); border-color: transparent; }
+  .flow .n.end { background: var(--bad-bg); color: var(--bad); border-color: transparent; }
+  .flow .arr { color: var(--muted); }
+  .legend { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 0; }
+  svg { max-width: 100%; height: auto; display: block; }
+  svg text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; fill: var(--ink); }
+  svg .box { fill: var(--card); stroke: var(--line); stroke-width: 1.5; }
+  svg .box.brand { fill: var(--brand); stroke: var(--brand); }
+  svg .box.brand text { fill: var(--brand-ink); }
+  svg .box.auto { fill: var(--auto-bg); stroke: var(--auto); }
+  svg .box.manual { fill: var(--manual-bg); stroke: var(--manual); }
+  svg .box.end { fill: var(--bad-bg); stroke: var(--bad); }
+  svg .box.dash { stroke-dasharray: 5 4; }
+  svg .ln { stroke: var(--muted); stroke-width: 1.6; fill: none; }
+  svg text.w { fill: #fff; }
+  svg .sm { font-size: 11.5px; fill: var(--muted); }
+  .note { border-left: 4px solid var(--info); background: var(--info-bg); padding: 10px 14px; border-radius: 0 10px 10px 0; margin: 12px 0; font-size: 14.5px; }
+  .note.warn { border-color: var(--warn); background: var(--warn-bg); }
+  footer { max-width: 1100px; margin: 0 auto; padding: 0 16px 50px; color: var(--muted); font-size: 13.5px; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } nav.toc { position: static; max-height: none; } }
+  @media print { nav.toc { display: none; } .layout { display: block; } header.top { background: none; color: #000; } body { background: #fff; } .card, ol.steps > li { break-inside: avoid; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <h1>FORKSY - Complete workflow</h1>
+    <p>How the food-delivery marketplace for Mississauga and Brampton works end to end: who does what, what the system does by itself, and where a person still has to step in. Written from the current code of this repository.</p>
+  </div>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="Contents">
+  <strong>Contents</strong>
+  <a href="#overview">1. The big picture</a>
+  <a href="#automation">2. Automation at a glance</a>
+  <a href="#order">3. The order, step by step</a>
+  <a href="#states">4. Order statuses</a>
+  <a href="#dispatch">5. Driver dispatch</a>
+  <a href="#delivery">6. Delivery and proof</a>
+  <a href="#money">7. Money</a>
+  <a href="#exceptions">8. When things go wrong</a>
+  <a href="#restaurants">9. Restaurants and stores</a>
+  <a href="#drivers">10. Drivers</a>
+  <a href="#customers">11. Customers</a>
+  <a href="#support">12. Support and disputes</a>
+  <a href="#ratings">13. Ratings</a>
+  <a href="#admin">14. Admin and operations</a>
+  <a href="#jobs">15. Scheduled jobs</a>
+  <a href="#security">16. Security</a>
+  <a href="#status">17. What is and is not built</a>
+  <a href="#where">18. Where to find things</a>
+</nav>
+
+<main>
+
+<!-- ============================================================ 1 -->
+<section id="overview">
+  <h2>1. The big picture</h2>
+  <p class="lead">Three groups use the platform, and a fourth group (FORKSY staff) runs it. Everything goes through one API; the screens and apps are thin.</p>
+
+  <div class="card">
+    <svg viewBox="0 0 900 360" role="img" aria-label="System overview diagram">
+      <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/></marker></defs>
+      <rect class="box dash" x="10" y="20" width="190" height="64" rx="12"/><text x="105" y="48" text-anchor="middle" font-weight="700">Customer app</text><text class="sm" x="105" y="68" text-anchor="middle">API ready, app not built</text>
+      <rect class="box dash" x="10" y="110" width="190" height="64" rx="12"/><text x="105" y="138" text-anchor="middle" font-weight="700">Driver app</text><text class="sm" x="105" y="158" text-anchor="middle">API ready, demo page only</text>
+      <rect class="box" x="10" y="200" width="190" height="64" rx="12"/><text x="105" y="228" text-anchor="middle" font-weight="700">Restaurant Portal</text><text class="sm" x="105" y="248" text-anchor="middle">web, /portal</text>
+      <rect class="box" x="10" y="290" width="190" height="64" rx="12"/><text x="105" y="318" text-anchor="middle" font-weight="700">Admin Console</text><text class="sm" x="105" y="338" text-anchor="middle">web, /</text>
+
+      <rect class="box brand" x="320" y="70" width="250" height="220" rx="14"/>
+      <text class="w" x="445" y="104" text-anchor="middle" font-weight="700" font-size="18">FORKSY API</text>
+      <text class="w" x="445" y="126" text-anchor="middle" font-size="13">NestJS, one codebase</text>
+      <text class="w" x="445" y="158" text-anchor="middle" font-size="13">Orders - Dispatch - Restaurants</text>
+      <text class="w" x="445" y="178" text-anchor="middle" font-size="13">Drivers - Customers - Finance</text>
+      <text class="w" x="445" y="198" text-anchor="middle" font-size="13">Support - Ratings - Marketing</text>
+      <text class="w" x="445" y="218" text-anchor="middle" font-size="13">Platform settings - Analytics</text>
+      <text class="w" x="445" y="252" text-anchor="middle" font-size="13">Automation + scheduled jobs</text>
+      <text class="w" x="445" y="272" text-anchor="middle" font-size="13">Realtime (Socket.IO)</text>
+
+      <rect class="box" x="690" y="30" width="200" height="70" rx="12"/><text x="790" y="58" text-anchor="middle" font-weight="700">PostgreSQL</text><text class="sm" x="790" y="80" text-anchor="middle">all records and history</text>
+      <rect class="box dash" x="690" y="125" width="200" height="70" rx="12"/><text x="790" y="153" text-anchor="middle" font-weight="700">Payments</text><text class="sm" x="790" y="175" text-anchor="middle">Stripe (mock until keys)</text>
+      <rect class="box dash" x="690" y="220" width="200" height="70" rx="12"/><text x="790" y="248" text-anchor="middle" font-weight="700">SMS / email / push</text><text class="sm" x="790" y="270" text-anchor="middle">mock until keys</text>
+      <rect class="box dash" x="690" y="315" width="200" height="40" rx="12"/><text x="790" y="340" text-anchor="middle" font-weight="700">Maps, background checks</text>
+
+      <path class="ln" d="M200 52 L320 130" marker-end="url(#a)"/><path class="ln" d="M200 142 L320 160" marker-end="url(#a)"/>
+      <path class="ln" d="M200 232 L320 200" marker-end="url(#a)"/><path class="ln" d="M200 322 L320 250" marker-end="url(#a)"/>
+      <path class="ln" d="M570 110 L690 65" marker-end="url(#a)"/><path class="ln" d="M570 160 L690 160" marker-end="url(#a)"/>
+      <path class="ln" d="M570 220 L690 255" marker-end="url(#a)"/><path class="ln" d="M570 270 L690 330" marker-end="url(#a)"/>
+    </svg>
+    <div class="legend"><span class="tag t-info">solid = built and working</span><span class="tag t-warn">dashed = not built yet, or mock until provider keys are added</span></div>
+  </div>
+
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0">Customers</h3><p>Browse open restaurants and stores, order for delivery or pickup, pay, track, tip, rate, get support. Uses the customer API.</p></div>
+    <div class="card"><h3 style="margin-top:0">Restaurants and stores</h3><p>Receive orders, run the kitchen, manage the menu (if allowed), choose their service mode, see money and reviews. Uses the Restaurant Portal.</p></div>
+    <div class="card"><h3 style="margin-top:0">Drivers</h3><p>Go online, receive one offer at a time, pick up, deliver with proof, get paid. Uses the driver API.</p></div>
+    <div class="card"><h3 style="margin-top:0">FORKSY staff</h3><p>Onboard restaurants and drivers, watch the live map, handle exceptions, support, finance and settings. Uses the Admin Console.</p></div>
+  </div>
+</section>
+
+<!-- ============================================================ 2 -->
+<section id="automation">
+  <h2>2. Automation at a glance</h2>
+  <p class="lead">The aim is as little manual work as possible. Once a customer places an order, nobody has to touch it for it to be accepted, cooked, offered to a driver and picked up. People step in only for physical actions and for exceptions.</p>
+
+  <div class="scroll"><table>
+    <thead><tr><th>Step</th><th>Who does it</th><th>How</th><th>Switch</th></tr></thead>
+    <tbody>
+      <tr><td>Order placement and payment hold</td><td><span class="tag t-auto">Automatic</span></td><td>Instant. The order is PLACED the moment the card hold succeeds.</td><td>-</td></tr>
+      <tr><td>Order acceptance</td><td><span class="tag t-auto">Automatic</span></td><td>Accepted at once with a prep estimate that includes the kitchen load. Waits for the restaurant only if the kitchen is overloaded, the store is paused or closed, or the restaurant turned it off.</td><td><code>automation.orders.autoAccept</code> + per restaurant</td></tr>
+      <tr><td>Start of preparation</td><td><span class="tag t-auto">Automatic</span></td><td>Moves to PREPARING and starts the kitchen ticket. Scheduled orders start in time to be ready.</td><td><code>automation.orders.autoStartPrep</code> + per restaurant</td></tr>
+      <tr><td>Order ready</td><td><span class="tag t-auto">Automatic</span> <span class="tag t-manual">Kitchen can override</span></td><td>When the prep time has elapsed the order is marked READY. The kitchen may mark it ready earlier, or extend the prep time.</td><td><code>automation.orders.autoReady</code> + per restaurant</td></tr>
+      <tr><td>Finding a driver</td><td><span class="tag t-auto">Automatic</span></td><td>Starts the instant the order is READY: best nearby driver first, next driver on decline or timeout, wider search, then alert to operations.</td><td><code>dispatch.autoAssign</code></td></tr>
+      <tr><td>Driver says yes or no</td><td><span class="tag t-manual">Driver</span></td><td>One tap. Drivers may decline; that is recorded in their acceptance rate.</td><td>-</td></tr>
+      <tr><td>Driver arrives at the restaurant / customer</td><td><span class="tag t-auto">Automatic</span></td><td>Detected from GPS within 80 m. The driver does not need to tap "arrived".</td><td><code>automation.driver.autoArrive</code></td></tr>
+      <tr><td>Pickup handoff</td><td><span class="tag t-manual">Driver</span></td><td>The driver enters the pickup code from the restaurant (a physical handover).</td><td>-</td></tr>
+      <tr><td>Delivery confirmation</td><td><span class="tag t-manual">Driver</span></td><td>Customer PIN, or a photo, or a recorded hand-over. Needed as proof. See section 6.</td><td>customer's choice</td></tr>
+      <tr><td>Payment capture, ledger, driver earnings</td><td><span class="tag t-auto">Automatic</span></td><td>On delivery.</td><td>-</td></tr>
+      <tr><td>Rating prompts, late alerts, stuck-order alerts, payouts, reports</td><td><span class="tag t-auto">Automatic</span></td><td>Scheduled jobs (section 15).</td><td>settings</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">Restaurants can choose, per switch, to follow the FORKSY default or force a step always on or always off. Staff can do the same for any restaurant. Defaults live in the Admin Console under System, Platform Settings, group "automation".</div>
+</section>
+
+<!-- ============================================================ 3 -->
+<section id="order">
+  <h2>3. The order, step by step</h2>
+  <p class="lead">The normal case, from the first tap to the money being settled. Tags show who acts at each step.</p>
+
+  <ol class="steps">
+    <li><div class="who"><span class="tag t-manual">Customer</span></div><h4>Browse and build a cart</h4><p>Discovery shows only restaurants that are open and offer what the customer wants (delivery or pickup, based on the store's service mode). Items that are out of stock (86'd) cannot be added.</p></li>
+    <li><div class="who"><span class="tag t-manual">Customer</span> <span class="tag t-auto">System</span></div><h4>Checkout quote</h4><p>The system prices the order: items, delivery fee (zone and distance), service fee, tax, promo code, wallet or gift card, tip. The customer picks an address, the handoff (hand to me, leave at door, meet outside), whether to use a private delivery PIN, notes for the driver, and notes for the kitchen.</p></li>
+    <li><div class="who"><span class="tag t-auto">System</span></div><h4>Place the order and hold the money</h4><p>Checks hours, service mode, delivery zone and minimum order; reserves the promo; authorises the card (a hold, not a charge); debits the wallet portion. The order becomes <code>PLACED</code> instantly. The restaurant and operations are notified.</p></li>
+    <li><div class="who"><span class="tag t-auto">System</span></div><h4>Accept automatically</h4><p>The order is accepted straight away with a prep time based on the restaurant's usual time plus kitchen load (a minute per order beyond three, up to 15 extra minutes). The customer gets "accepted, ready in about N minutes". If auto-accept is off or blocked, the restaurant accepts by hand; an order nobody acts on within 180 seconds is rejected and the hold released.</p></li>
+    <li><div class="who"><span class="tag t-auto">System</span></div><h4>Start preparing</h4><p>Status moves to <code>PREPARING</code> and the ticket appears on the kitchen display. Scheduled orders wait until it is time to start.</p></li>
+    <li><div class="who"><span class="tag t-manual">Kitchen (optional)</span></div><h4>Cook</h4><p>The kitchen cooks. It can bump items, mark an item out of stock, extend the prep time (the automatic "ready" then waits), or mark the order ready early.</p></li>
+    <li><div class="who"><span class="tag t-auto">System</span></div><h4>Mark ready</h4><p>When the prep time has elapsed the order becomes <code>READY</code>. This is the moment the driver search starts.</p></li>
+    <li><div class="who"><span class="tag t-auto">System</span> <span class="tag t-manual">Driver</span></div><h4>Offer to the best nearby driver</h4><p>One driver at a time gets a 30-second offer. Accept: the order is assigned to that driver and the record is updated. Decline or no answer: the next best driver is offered it, and the search area widens. Details in section 5.</p></li>
+    <li><div class="who"><span class="tag t-auto">System</span></div><h4>Driver heads to the restaurant</h4><p>The customer sees the driver and a live ETA. When the driver is within 80 m of the restaurant, arrival is recorded automatically.</p></li>
+    <li><div class="who"><span class="tag t-manual">Restaurant</span> <span class="tag t-manual">Driver</span></div><h4>Pickup</h4><p>The restaurant hands the bag over; the driver enters the pickup code. Status becomes <code>PICKED_UP</code>, then <code>ON_THE_WAY</code>. The customer is notified.</p></li>
+    <li><div class="who"><span class="tag t-auto">System</span></div><h4>Arrival at the customer</h4><p>Within 80 m of the address, arrival is recorded and the customer is told the driver is outside, with wording for the handoff they chose.</p></li>
+    <li><div class="who"><span class="tag t-manual">Driver</span></div><h4>Confirm the delivery with proof</h4><p>PIN, photo, or recorded hand-over, and the driver must be within 100 m of the address. Rules in section 6. Status becomes <code>DELIVERED</code>.</p></li>
+    <li><div class="who"><span class="tag t-auto">System</span></div><h4>Settle</h4><p>The card hold is captured. The ledger records the restaurant's share, the driver's earnings, tip, tax and the platform's share. Referral rewards are processed.</p></li>
+    <li><div class="who"><span class="tag t-auto">System</span> <span class="tag t-manual">Customer</span></div><h4>Rate</h4><p>The customer is prompted to rate the restaurant and the driver; the driver and restaurant privately rate the customer. Section 13.</p></li>
+  </ol>
+
+  <h3>The same flow by person</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Customer</th><th>System</th><th>Restaurant</th><th>Driver</th><th>Admin</th></tr></thead>
+    <tbody>
+      <tr><td>Orders and pays</td><td>Holds payment, accepts, starts prep, marks ready, runs dispatch, detects arrivals, settles</td><td>Cooks. Optionally: extend, mark ready early, mark items out of stock, accept by hand</td><td>Accepts the offer, picks up with the code, delivers with proof</td><td>Watches the live map. Steps in only when an order is flagged</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============================================================ 4 -->
+<section id="states">
+  <h2>4. Order statuses</h2>
+  <p class="lead">Every change is a controlled transition, written to the order's timeline with who or what caused it. System steps are labelled "Auto: ...".</p>
+  <div class="card">
+    <svg viewBox="0 0 900 250" role="img" aria-label="Order status diagram">
+      <defs><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/></marker></defs>
+      <g>
+        <rect class="box auto" x="5" y="40" width="100" height="44" rx="10"/><text x="55" y="67" text-anchor="middle" font-weight="700" font-size="13">PLACED</text>
+        <rect class="box auto" x="125" y="40" width="110" height="44" rx="10"/><text x="180" y="67" text-anchor="middle" font-weight="700" font-size="13">ACCEPTED</text>
+        <rect class="box auto" x="255" y="40" width="120" height="44" rx="10"/><text x="315" y="67" text-anchor="middle" font-weight="700" font-size="13">PREPARING</text>
+        <rect class="box auto" x="395" y="40" width="100" height="44" rx="10"/><text x="445" y="67" text-anchor="middle" font-weight="700" font-size="13">READY</text>
+        <rect class="box manual" x="515" y="40" width="120" height="44" rx="10"/><text x="575" y="67" text-anchor="middle" font-weight="700" font-size="13">PICKED_UP</text>
+        <rect class="box manual" x="655" y="40" width="120" height="44" rx="10"/><text x="715" y="67" text-anchor="middle" font-weight="700" font-size="13">ON_THE_WAY</text>
+        <rect class="box manual" x="795" y="40" width="100" height="44" rx="10"/><text x="845" y="67" text-anchor="middle" font-weight="700" font-size="13">DELIVERED</text>
+      </g>
+      <path class="ln" d="M105 62 L125 62" marker-end="url(#b)"/><path class="ln" d="M235 62 L255 62" marker-end="url(#b)"/><path class="ln" d="M375 62 L395 62" marker-end="url(#b)"/>
+      <path class="ln" d="M495 62 L515 62" marker-end="url(#b)"/><path class="ln" d="M635 62 L655 62" marker-end="url(#b)"/><path class="ln" d="M775 62 L795 62" marker-end="url(#b)"/>
+      <text class="sm" x="445" y="108" text-anchor="middle">driver assigned here (offer accepted)</text>
+      <rect class="box manual" x="515" y="150" width="130" height="40" rx="10"/><text x="580" y="175" text-anchor="middle" font-weight="700" font-size="13">COLLECTED</text>
+      <text class="sm" x="580" y="208" text-anchor="middle">pickup orders end here</text>
+      <path class="ln" d="M445 84 L580 150" marker-end="url(#b)"/>
+      <rect class="box end" x="130" y="150" width="120" height="40" rx="10"/><text x="190" y="175" text-anchor="middle" font-weight="700" font-size="13">REJECTED</text>
+      <rect class="box end" x="270" y="150" width="120" height="40" rx="10"/><text x="330" y="175" text-anchor="middle" font-weight="700" font-size="13">CANCELLED</text>
+      <path class="ln" d="M55 84 L170 150" marker-end="url(#b)"/><path class="ln" d="M315 84 L330 150" marker-end="url(#b)"/>
+      <text class="sm" x="190" y="208" text-anchor="middle">hold released / refunded</text>
+    </svg>
+    <div class="legend"><span class="tag t-auto">green = driven by the system</span><span class="tag t-manual">orange = needs a person (driver / restaurant)</span><span class="tag t-bad">red = ends the order</span></div>
+  </div>
+</section>
+
+<!-- ============================================================ 5 -->
+<section id="dispatch">
+  <h2>5. Driver dispatch</h2>
+  <p class="lead">Dispatch starts automatically when the kitchen's order is READY and finds a driver without anyone choosing one. Staff can still assign by hand from the live map.</p>
+
+  <div class="flow">
+    <span class="n ok">Order READY</span><span class="arr">&rarr;</span>
+    <span class="n">Find eligible drivers</span><span class="arr">&rarr;</span>
+    <span class="n">Rank them</span><span class="arr">&rarr;</span>
+    <span class="n">Offer to #1 (30 s)</span><span class="arr">&rarr;</span>
+    <span class="n ok">Accepted: assigned</span>
+  </div>
+  <div class="flow">
+    <span class="n">Declined or no answer</span><span class="arr">&rarr;</span>
+    <span class="n">Record in acceptance rate</span><span class="arr">&rarr;</span>
+    <span class="n">Offer to next driver</span><span class="arr">&rarr;</span>
+    <span class="n">Everyone tried: widen the radius (4 &rarr; 6 &rarr; 8 km)</span><span class="arr">&rarr;</span>
+    <span class="n end">Still nobody: alert operations</span>
+  </div>
+
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0">Who is eligible</h3><ul><li>Online and approved, in the right zone</li><li>Recent GPS (within 2 minutes)</li><li>Not already busy with another trip</li><li>Right vehicle: bikes only for trips of about 3 km or less</li></ul></div>
+    <div class="card"><h3 style="margin-top:0">How they are ranked</h3><ul><li>Distance to the restaurant</li><li>Acceptance rate over the last 14 days (20% weight)</li><li>Other driver quality signals</li></ul><p style="margin:6px 0 0;color:var(--muted)">Drivers who accept more get offers first.</p></div>
+    <div class="card"><h3 style="margin-top:0">Acceptance rate</h3><p>accepted &divide; (accepted + declined + expired) over a rolling 14 days, shown on the driver's profile and in the admin. Drivers with fewer than 5 offers are smoothed toward a neutral value so one decline does not wreck a new account. Updated on every response and hourly.</p></div>
+  </div>
+</section>
+
+<!-- ============================================================ 6 -->
+<section id="delivery">
+  <h2>6. Delivery and proof of delivery</h2>
+  <p class="lead">Every delivery leaves evidence, so "the driver never delivered it" can be settled with facts. The customer decides how the order is received.</p>
+
+  <div class="scroll"><table>
+    <thead><tr><th>Customer's choice</th><th>What the driver must do</th><th>What is stored</th></tr></thead>
+    <tbody>
+      <tr><td>Hand to me / meet outside, <strong>PIN on</strong> (default)</td><td>The app shows four PIN boxes. The customer reads out their private 4-digit PIN; the driver types it.</td><td>PIN verified, time, GPS distance. Strong proof.</td></tr>
+      <tr><td>Hand to me / meet outside, <strong>PIN off</strong></td><td>The driver chooses <strong>Handed to the customer</strong> (no photo needed) or <strong>Delivered / left at the location</strong> (photo compulsory).</td><td>Hand-over: time, location, flagged "no PIN or photo". Left: private photo plus location. </td></tr>
+      <tr><td><strong>Leave at door (contactless)</strong></td><td>Always a photo, taken in the FORKSY app at the door, after arriving. No setting can waive it.</td><td>Private photo, location, time. Strong proof when clean.</td></tr>
+      <tr><td>Pickup order</td><td>Pickup code only.</td><td>No delivery proof.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Rules that always apply</h3>
+  <ul>
+    <li>The driver must be within <strong>100 m</strong> of the delivery address to confirm. Not even the "customer unreachable" exception bypasses this.</li>
+    <li>Photos must be taken in the app and uploaded by that driver, after arrival, within the last 10 minutes. The same photo cannot be used on two orders. Metadata is stripped.</li>
+    <li>Photos are private. Only that order's customer, driver and restaurant, and staff, can open them. They are deleted after a retention period unless a dispute is open.</li>
+    <li>The 4-digit PIN is created once when the order is placed and does not change unless the customer chooses to change it. Wrong guesses are limited to five.</li>
+    <li>Customers can change the handoff method, notes, access code and PIN choice until the driver picks the food up. The access code is encrypted and shown to the driver only after pickup.</li>
+  </ul>
+  <div class="note">If a customer later says "never delivered": valid proof (PIN or clean photo) means no automatic refund and a senior agent reviews it with the evidence. Weak or missing proof keeps the refund path open and records a strike against the driver. A hand-over without PIN or photo goes to human review with no automatic refund and no strike, because the customer chose to turn the PIN off.</div>
+</section>
+
+<!-- ============================================================ 7 -->
+<section id="money">
+  <h2>7. Money</h2>
+  <div class="flow">
+    <span class="n">Place order</span><span class="arr">&rarr;</span><span class="n">Card hold (authorise)</span><span class="arr">&rarr;</span><span class="n">Delivered</span><span class="arr">&rarr;</span>
+    <span class="n ok">Capture the payment</span><span class="arr">&rarr;</span><span class="n">Ledger entries</span><span class="arr">&rarr;</span><span class="n ok">Payouts</span>
+  </div>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0">At placement</h3><p>Only a hold on the card. Wallet balance and gift cards are debited. If the order is rejected or cancelled early, the hold is released and the wallet portion returned.</p></div>
+    <div class="card"><h3 style="margin-top:0">At delivery</h3><p>The hold is captured and the ledger splits the money: the restaurant's share (less commission), the driver's earnings and tip, tax, and the platform's share. Everything is double-entry and traceable per order.</p></div>
+    <div class="card"><h3 style="margin-top:0">Payouts</h3><p>Restaurants and drivers are paid from the ledger on a schedule; drivers can also cash out early. Finance staff review holds, adjustments and payout batches in the Admin Console.</p></div>
+    <div class="card"><h3 style="margin-top:0">Refunds</h3><p>Issued from support tickets with approval limits per role. Refunds update the ledger and the customer's payment or wallet.</p></div>
+  </div>
+  <div class="note warn">Payments, SMS, email and push use built-in mock adapters until real provider keys are added. In production mode the API refuses to start without live payment configuration.</div>
+</section>
+
+<!-- ============================================================ 8 -->
+<section id="exceptions">
+  <h2>8. When things go wrong</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Situation</th><th>What happens by itself</th><th>Who steps in</th></tr></thead>
+    <tbody>
+      <tr><td>Restaurant does not respond (auto-accept off)</td><td>After 180 s the order is rejected, the hold released, the customer told. Ops get an amber then red flag first.</td><td>Optional: ops call the restaurant</td></tr>
+      <tr><td>Restaurant rejects</td><td>Order REJECTED, payment released, wallet portion returned.</td><td>-</td></tr>
+      <tr><td>Kitchen is overloaded</td><td>Auto-accept pauses for that restaurant; orders wait for manual acceptance.</td><td>Restaurant</td></tr>
+      <tr><td>Driver declines or ignores an offer</td><td>Counts against their acceptance rate; next driver is offered the order; radius widens.</td><td>-</td></tr>
+      <tr><td>No driver found</td><td>Escalation alert to operations.</td><td>Ops assign manually from the live map, or offer an alternative</td></tr>
+      <tr><td>Driver goes missing mid-trip</td><td>Order is flagged on the live map.</td><td>Ops unassign and re-dispatch (needs support approval after pickup)</td></tr>
+      <tr><td>Order running late</td><td>Flagged as late; customer can be notified.</td><td>Support if the customer contacts them</td></tr>
+      <tr><td>Customer cancels</td><td>Payment released or refunded according to how far the order got.</td><td>-</td></tr>
+      <tr><td>Wrong or missing item</td><td>Self-serve help flow offers a refund or credit within limits.</td><td>Support tier 1 / 2 for larger cases</td></tr>
+      <tr><td>"Never delivered"</td><td>Decided from the delivery proof (section 6).</td><td>Tier 2 if proof exists</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============================================================ 9 -->
+<section id="restaurants">
+  <h2>9. Restaurants and stores</h2>
+  <h3>Becoming live (onboarding pipeline)</h3>
+  <div class="flow">
+    <span class="n">APPLIED</span><span class="arr">&rarr;</span><span class="n">DOCS_REVIEW</span><span class="arr">&rarr;</span><span class="n">MENU_SETUP</span><span class="arr">&rarr;</span><span class="n">TEST_ORDER</span><span class="arr">&rarr;</span><span class="n ok">LIVE</span>
+  </div>
+  <p>Staff check documents (licence, health certificate, void cheque, HST), review the menu, set commission and zone, run a test order, then take the restaurant live. A live restaurant can be paused or suspended; an applicant can be rejected.</p>
+
+  <h3>Running the store</h3>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0">Service mode</h3><p>Closed, Pickup only, or Pickup and delivery. Customers and drivers see and obey it at once. Orders already placed carry on. An optional auto switch-back time brings the store back.</p></div>
+    <div class="card"><h3 style="margin-top:0">Order automation</h3><p>Accept, start prep and ready can each follow the FORKSY default or be forced on or off per restaurant (Store Settings in the portal). The portal also has live orders and a kitchen display.</p></div>
+    <div class="card"><h3 style="margin-top:0">Menu editing (admin controlled)</h3><p>A restaurant edits its own items, categories and modifiers only while an administrator has allowed it. Otherwise the menu is read-only (out-of-stock marking still works) and the restaurant can request access; staff approve or decline, any time. New restaurants start locked.</p></div>
+    <div class="card"><h3 style="margin-top:0">Everything else</h3><p>Opening hours and closures, staff accounts and roles, prep times and radius, promotions, finance and payouts, reviews and replies, reports.</p></div>
+  </div>
+  <p>Admins can walk through any restaurant's portal at any time with "Open restaurant panel". It is audited, time limited, and shows exactly what the owner sees.</p>
+</section>
+
+<!-- ============================================================ 10 -->
+<section id="drivers">
+  <h2>10. Drivers</h2>
+  <div class="flow">
+    <span class="n">APPLIED</span><span class="arr">&rarr;</span><span class="n">DOCS_REVIEW</span><span class="arr">&rarr;</span><span class="n">BACKGROUND_CHECK</span><span class="arr">&rarr;</span><span class="n">TRAINING</span><span class="arr">&rarr;</span><span class="n">APPROVED</span><span class="arr">&rarr;</span><span class="n ok">ACTIVE</span>
+  </div>
+  <p>A driver applies, uploads documents, passes a background check and training, is approved, then activated for a zone. Staff can suspend or deactivate a driver at any time.</p>
+  <h3>A shift</h3>
+  <ol>
+    <li>Go online. The app sends GPS every few seconds.</li>
+    <li>An offer arrives (restaurant, drop-off area, pay, distance). Accept or decline within 30 seconds.</li>
+    <li>Drive to the restaurant. Arrival is detected automatically. Enter the pickup code.</li>
+    <li>Drive to the customer. Arrival is detected automatically. Confirm with PIN or photo or hand-over.</li>
+    <li>Earnings are recorded right away. Cash out early or wait for the scheduled payout. Safety button (SOS) and support chat are always available.</li>
+  </ol>
+</section>
+
+<!-- ============================================================ 11 -->
+<section id="customers">
+  <h2>11. Customers</h2>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0">Ordering</h3><p>Search and filters (open now, pickup, delivery), restaurant pages, cart, quote, promo codes, wallet and gift cards, scheduled orders, tips.</p></div>
+    <div class="card"><h3 style="margin-top:0">Delivery choices</h3><p>Saved addresses with default instructions, hand-over method, private PIN on or off, buzzer or access code, notes for the driver.</p></div>
+    <div class="card"><h3 style="margin-top:0">Tracking</h3><p>Live status, driver position, ETA, proof of delivery with photo, order chat with the driver.</p></div>
+    <div class="card"><h3 style="margin-top:0">Account</h3><p>Wallet, referrals, privacy requests (export and delete), notification preferences, support chat and tickets.</p></div>
+  </div>
+</section>
+
+<!-- ============================================================ 12 -->
+<section id="support">
+  <h2>12. Support and disputes</h2>
+  <div class="flow">
+    <span class="n">Customer or driver asks for help</span><span class="arr">&rarr;</span>
+    <span class="n ok">Self-serve engine (rules)</span><span class="arr">&rarr;</span>
+    <span class="n">Tier 1</span><span class="arr">&rarr;</span><span class="n">Tier 2</span><span class="arr">&rarr;</span><span class="n">Finance</span>
+  </div>
+  <ul>
+    <li><strong>Live chat:</strong> customers and drivers chat with agents in real time (queue, auto-assignment, typing, images, transfer, rating).</li>
+    <li><strong>Nobody online?</strong> If no agent is available, it is outside support hours, or the wait times out, the same message becomes a ticket automatically, so nothing is lost.</li>
+    <li><strong>Tickets:</strong> categories, priority and response-time targets, escalation, internal notes, refunds within each role's approval limit.</li>
+    <li><strong>Delivery disputes:</strong> decided from the proof record. Repeated disputes against a driver propose a review case; repeated false claims by a customer are flagged for review, never blocked automatically.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ 13 -->
+<section id="ratings">
+  <h2>13. Ratings</h2>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0">Customer rates</h3><p>The restaurant and the driver, after delivery, within 7 days, one edit allowed for 24 hours. A reason tag is required for 2 stars or below.</p></div>
+    <div class="card"><h3 style="margin-top:0">Partners rate the customer</h3><p>Drivers and restaurants rate customers privately. Only staff see it. A low rating with "unsafe" or "abusive" raises a safety flag; nothing is blocked automatically.</p></div>
+    <div class="card"><h3 style="margin-top:0">Fair scores</h3><p>Scores are smoothed so one bad review does not swing a new profile. A new restaurant shows "New" until it has 5 reviews. Review-bombing and duplicate text are held for staff.</p></div>
+    <div class="card"><h3 style="margin-top:0">Consequences</h3><p>Low driver ratings feed the driver review process and dispatch ranking. Low restaurant ratings raise alerts. Staff can hide or restore reviews with a reason, all audited.</p></div>
+  </div>
+</section>
+
+<!-- ============================================================ 14 -->
+<section id="admin">
+  <h2>14. Admin and operations</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Area</th><th>What staff do there</th></tr></thead>
+    <tbody>
+      <tr><td>Dashboard and live map</td><td>Watch orders and drivers in real time, with flags for late, stuck or unassigned orders. Assign, reassign or unassign drivers when automation needs help.</td></tr>
+      <tr><td>Orders</td><td>Search, view the timeline and proof, change or cancel with a reason, refund.</td></tr>
+      <tr><td>Restaurants</td><td>Onboarding pipeline, documents, commission, hours, members, service mode, automation switches, menu-editing permission, open any portal.</td></tr>
+      <tr><td>Drivers</td><td>Applications, documents, checks, status, performance, acceptance rate, delivery-dispute strikes.</td></tr>
+      <tr><td>Customers</td><td>Profiles, orders, wallet, flags, ratings received, privacy requests.</td></tr>
+      <tr><td>Cities and zones, pricing and tax</td><td>Where service runs, fees, surge, commission tiers, tax classes.</td></tr>
+      <tr><td>Finance</td><td>Payouts, ledger, holds, adjustments, reconciliation.</td></tr>
+      <tr><td>Support</td><td>Live chat console, tickets, review cases, disputes.</td></tr>
+      <tr><td>Marketing and content</td><td>Promotions, campaigns, referrals, banners.</td></tr>
+      <tr><td>Analytics</td><td>Sales, restaurant and driver performance, ratings, scheduled reports.</td></tr>
+      <tr><td>System</td><td>Staff and roles with fine-grained permissions, audit log, platform settings (almost every number in this document), API documentation.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">Staff permissions are per area and action (view, create, edit, approve...), and every sensitive action is written to the audit log with before and after values.</div>
+</section>
+
+<!-- ============================================================ 15 -->
+<section id="jobs">
+  <h2>15. Scheduled jobs</h2>
+  <p class="lead">These run without anyone starting them.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>How often</th><th>What</th></tr></thead>
+    <tbody>
+      <tr><td>Every 15 seconds</td><td>Order automation: start scheduled preparations, mark orders ready when their prep time has elapsed.</td></tr>
+      <tr><td>Every 30 seconds</td><td>Reject orders nobody acted on; flag orders needing attention.</td></tr>
+      <tr><td>Every minute</td><td>Late-order checks, restock timers for out-of-stock items, service-mode switch-back, marketing campaign sends, support timers and chat queue, rating prompts.</td></tr>
+      <tr><td>Every hour</td><td>Driver acceptance rates, support escalations.</td></tr>
+      <tr><td>Nightly</td><td>Payouts, rating aggregates, delivery-proof photo retention, dispute checks, document-expiry reminders, driver checks.</td></tr>
+      <tr><td>Daily, weekly, monthly</td><td>Scheduled reports by email.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============================================================ 16 -->
+<section id="security">
+  <h2>16. Security</h2>
+  <ul>
+    <li>Every request is validated; unknown fields are rejected. Inputs are sanitised and rate limited per IP and per account; repeated bad logins lock the account.</li>
+    <li>Passwords are hashed, tokens are short-lived with refresh, two-factor sign-in is supported and can be enforced.</li>
+    <li>The web apps run under a strict content security policy, never insert untrusted HTML, and sign out when idle.</li>
+    <li>Sensitive data (access codes, proof photos) is encrypted or private and every sensitive read is audited.</li>
+    <li>In production mode the API refuses to start with weak configuration. See <code>docs/SECURITY.md</code> for the full list and the production checklist.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ 17 -->
+<section id="status">
+  <h2>17. What is and is not built</h2>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0"><span class="tag t-auto">Working</span></h3><ul><li>Full order lifecycle with automation</li><li>Automatic dispatch with acceptance rates</li><li>Proof of delivery and instructions</li><li>Ratings in all directions</li><li>Restaurant Portal and Admin Console</li><li>Live chat with ticket fallback</li><li>Service mode, menu-editing permission</li><li>Security hardening</li></ul></div>
+    <div class="card"><h3 style="margin-top:0"><span class="tag t-warn">Not built yet</span></h3><ul><li>Customer mobile app</li><li>Driver mobile app (a demo page shows the delivery screen)</li><li>Browser-based customer ordering</li><li>Menu CSV import screen, document upload screens, tablet activation, editing a promotion after creation</li></ul></div>
+    <div class="card"><h3 style="margin-top:0"><span class="tag t-warn">Mock until keys are added</span></h3><ul><li>Stripe payments</li><li>SMS, email and push</li><li>Maps and background checks</li></ul><p style="margin:6px 0 0;color:var(--muted)">The code paths exist and are structured for the real providers, but have not been verified against them.</p></div>
+  </div>
+</section>
+
+<!-- ============================================================ 18 -->
+<section id="where">
+  <h2>18. Where to find things</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>What</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr><td>Admin Console</td><td><code>http://localhost:3000</code></td></tr>
+      <tr><td>Restaurant Portal</td><td><code>http://localhost:3000/portal</code></td></tr>
+      <tr><td>Driver delivery screen demo</td><td><code>http://localhost:3000/driver-demo.html</code></td></tr>
+      <tr><td>Live chat demo (customer / driver side)</td><td><code>http://localhost:3000/chat-demo.html</code></td></tr>
+      <tr><td>API documentation (Swagger)</td><td><code>http://localhost:4000/docs</code></td></tr>
+      <tr><td>Written API references</td><td><code>docs/api/</code></td></tr>
+      <tr><td>Proof of delivery details</td><td><code>docs/proof-of-delivery.md</code></td></tr>
+      <tr><td>Ratings details</td><td><code>docs/ratings.md</code></td></tr>
+      <tr><td>Security</td><td><code>docs/SECURITY.md</code></td></tr>
+      <tr><td>All tunable numbers</td><td>Admin Console, System, Platform Settings</td></tr>
+      <tr><td>Demo logins</td><td>See the README (all demo passwords are for development only)</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+</main>
+</div>
+<footer>FORKSY workflow document. Generated from the repository code on 2026-10-07. The behaviour described here is configurable; defaults are shown. If a setting was changed in Platform Settings, the live system follows the setting.</footer>
+</body>
+</html>

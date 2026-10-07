@@ -4,6 +4,7 @@ import { fmtDate } from "../../lib/format";
 import { Async, DAYS, PortalPage, useAction, useApi, usePortalFetch, useRealtimeReload } from "./shared";
 import { usePortal } from "./context";
 import ServiceModeControl from "./ServiceMode";
+import OrderAutomationCard from "./Automation";
 
 function SaveBar({ busy, onSave, dirtyHint }) {
   return (
@@ -100,6 +101,9 @@ function FulfilmentTab({ store, reload }) {
         <Card title="Service mode" subtitle="What customers can order from this location right now. The order types below are an upper limit.">
           <ServiceModeControl mode={store.serviceMode} resumeAt={store.serviceModeResumeAt} disabled={role === "KITCHEN"} onChanged={reload} />
         </Card>
+      </div>
+      <div className="col-12">
+        <OrderAutomationCard api={api} path="/restaurant/automation" canEdit={role === "OWNER" || role === "LOCATION_MANAGER"} />
       </div>
       <div className="col-lg-6">
         <Card title="Order types" className="h-100">

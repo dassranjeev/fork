@@ -96,6 +96,8 @@ Customers 31 to 50 and restaurants 13 to 26 include Brampton data. These are dev
 
 ## How the key flows work
 
+**Automation (minimal manual work).** After an order is placed nobody has to touch it: it is accepted automatically (the prep time includes the kitchen load), preparation starts automatically, it is marked ready when the prep time has elapsed, and that starts the automatic driver search. Driver arrival at the restaurant and at the customer is detected from GPS (within 80 m). People step in only for physical actions (the driver's accept, pickup code and delivery proof) and for exceptions. Each restaurant can follow the platform default or force accept / start prep / ready on or off (portal Store Settings, or the admin restaurant page); platform defaults are under System, Platform Settings, group "automation". Every automatic step appears on the order timeline as "Auto: ...".
+
 **Order lifecycle.** `PLACED` (instant) > `ACCEPTED` > `PREPARING` > `READY` > `PICKED_UP` > `ON_THE_WAY` > `DELIVERED` (pickup orders end in `COLLECTED`). Cancelled and rejected orders release or refund the payment. Payment is authorised at placement and captured on delivery; the ledger settles restaurant, driver and platform shares at that point.
 
 **Store service mode.** Every restaurant or convenience store can switch between `CLOSED`, `PICKUP_ONLY` and `PICKUP_AND_DELIVERY` from the portal dashboard or Store Settings. Closed stores refuse all orders; pickup-only stores refuse delivery orders and never create driver offers; orders already placed carry on unchanged. Customer discovery returns the mode and which options are available, and search supports a pickup/delivery filter.
@@ -120,6 +122,7 @@ Customers 31 to 50 and restaurants 13 to 26 include Brampton data. These are dev
 
 - Interactive: http://localhost:4000/docs (Swagger UI)
 - Written references per module in [`docs/api/`](docs/api): analytics, customers, dispatch, drivers, finance, live-chat, marketing, platform, restaurants, support
+- Complete workflow (diagrams, who does what, what is automatic): [`docs/workflow.html`](docs/workflow.html) (open in a browser)
 - Feature guides: [`docs/proof-of-delivery.md`](docs/proof-of-delivery.md), [`docs/ratings.md`](docs/ratings.md)
 - Design contract and module ownership: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 

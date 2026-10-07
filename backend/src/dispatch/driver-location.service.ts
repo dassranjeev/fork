@@ -1,5 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Events } from '../common/contracts';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { DriverLocationLog, DriverProfile, Order } from '../database/entities';
@@ -44,6 +46,7 @@ export class DriverLocationService implements OnModuleInit {
     @InjectRepository(DriverLocationLog) private logs: Repository<DriverLocationLog>,
     @InjectRepository(Order) private orders: Repository<Order>,
     private rt: RealtimeService,
+    private emitter: EventEmitter2,
     moduleRef: ModuleRef,
   ) {
     this.lazy = new LazyServices(moduleRef);
@@ -95,6 +98,9 @@ export class DriverLocationService implements OnModuleInit {
       const orderId = p.orderId ?? active[0]?.id ?? null;
       await this.logs.insert({ driverId: p.driverId, orderId, lat: p.lat, lng: p.lng, speed: p.speed ?? null });
     }
+
+    // automatic arrival detection (restaurant / customer) listens here
+    if (onTrip) this.emitter.emit(Events.DRIVER_LOCATION, { driverId: p.driverId, lat: p.lat, lng: p.lng, active });
 
     // 3. realtime fan-out (REST path only)
     if (p.emit !== false) {
