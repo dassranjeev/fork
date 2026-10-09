@@ -9,11 +9,11 @@ import OrderAutomationCard from "../portal/Automation";
 import AssistantCard from "./AssistantCard";
 import { http } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-
-const adminHttp = { get: (u) => http.get(u), patch: (u, b) => http.patch(u, b) };
 import { RestaurantActions, PRE_LIVE } from "./shared";
 import PayoutAccountBadge from "../finance/PayoutAccountBadge";
 import { CommissionTab, DocumentsTab, HoursTab, LocationTab, MembersTab, MenuTab, OverviewTab, PerformanceTab, ReviewsTab } from "./DetailTabs";
+
+const adminHttp = { get: (u) => http.get(u), patch: (u, b) => http.patch(u, b) };
 
 export default function RestaurantDetail() {
   const { id } = useParams();
