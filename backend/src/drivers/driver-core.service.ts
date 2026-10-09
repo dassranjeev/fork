@@ -257,9 +257,8 @@ export class DriverCoreService {
 
   /** Literal in-app message to all staff + realtime ops event (for events without a built-in template). */
   async opsNotify(event: string, title: string, body: string, data: Record<string, any> = {}) {
-    this.rt.emitToOps(event, { ...data, title, body });
-    const staff = await this.users.find({ where: { type: In([UserType.STAFF, UserType.SUPER_ADMIN]), status: UserStatus.ACTIVE }, select: ['id'] });
-    await Promise.all(staff.map((u) => this.notifications.notify({ userId: u.id, audience: 'ADMIN', event, title, body, data, channels: [NotificationChannel.IN_APP] })));
+    // staff with access to the module of the event, through the notification matrix (SOS also reaches their phones)
+    await this.notifications.notifyOps(event, {}, data, { title, body });
   }
 
   requireReason(reason?: string) {

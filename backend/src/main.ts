@@ -7,10 +7,13 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { json } from 'express';
+import { json, raw } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
-import { KNOWN_DEFAULT_PASSWORDS, corsOriginCheck, productionProblems, trustProxySetting } from './common/security';
+import { AssistantConfigService } from './assistant/assistant-config.service';
+import { assistantCors } from './assistant/assistant.cors';
+import { KNOWN_DEFAULT_PASSWORDS, corsOriginCheck, productionProblems, stripeProductionProblems, trustProxySetting } from './common/security';
+import { StripeClientService } from './integrations/stripe-client.service';
 
 /** Refuse to boot a production deployment that is configured insecurely. There is deliberately no override flag. */
 function productionGate() {
@@ -22,8 +25,8 @@ function productionGate() {
     exposeOtp: process.env.EXPOSE_OTP === 'true',
     corsOrigins: (process.env.CORS_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     publicUrl: process.env.PUBLIC_URL ?? '',
-    stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? '',
-    stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? '',
+    allowMockPayments: !!process.env.ALLOW_MOCK_PAYMENTS,
+    fakeProviderBases: !!(process.env.STRIPE_API_BASE || process.env.MAPBOX_API_BASE),
     enforce2fa: process.env.ENFORCE_2FA === 'true',
     seedSuperAdminPassword: process.env.SEED_SUPERADMIN_PASSWORD ?? '',
     dbPassword: process.env.DB_PASSWORD ?? '',
@@ -38,7 +41,7 @@ function productionGate() {
 }
 
 /** DB-level production checks: no demo accounts / no known default admin password may exist. */
-async function productionDbGate(ds: DataSource) {
+async function productionDbGate(ds: DataSource, app: NestExpressApplication) {
   if (process.env.NODE_ENV !== 'production') return;
   const problems: string[] = [];
   const demo = await ds.query(`SELECT COUNT(*)::int AS n FROM users WHERE email ILIKE '%@demo.forksy.ca' OR email ILIKE '%@demo-restaurant.ca'`);
@@ -49,6 +52,8 @@ async function productionDbGate(ds: DataSource) {
       if (await bcrypt.compare(pw, a.passwordHash)) problems.push(`super admin ${a.email} still has a known default password - change it first`);
     }
   }
+  // Stripe: keys can live in System > Integrations (database) or the environment
+  problems.push(...stripeProductionProblems(app.get(StripeClientService).config()));
   if (problems.length) {
     // eslint-disable-next-line no-console
     console.error(['', '=== FORKSY refuses to start: insecure production DATA ===', ...problems.map((p) => `  - ${p}`), ''].join('\n'));
@@ -58,11 +63,12 @@ async function productionDbGate(ds: DataSource) {
 
 async function bootstrap() {
   productionGate();
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: false, bodyParser: true, rawBody: true });
+  // rawBody stays OFF globally: the raw bytes are captured only for the two webhook routes that verify a signature (below)
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: false, bodyParser: true });
   const config = app.get(ConfigService);
   const log = new Logger('Bootstrap');
   const isProd = config.get('env') === 'production';
-  await productionDbGate(app.get(DataSource));
+  await productionDbGate(app.get(DataSource), app);
 
   // ---- network edge ---------------------------------------------------------------------------------
   app.disable('x-powered-by');
@@ -86,6 +92,8 @@ async function bootstrap() {
     if (req.path.startsWith('/api/') && !(req.method === 'GET' && req.path.startsWith('/api/v1/public/'))) res.setHeader('Cache-Control', 'no-store');
     next();
   });
+  // dynamic CORS for the embeddable assistant (public endpoints only); must come before the static CORS policy below
+  app.use(assistantCors(app.get(AssistantConfigService)));
   app.enableCors({
     origin: corsOriginCheck,
     credentials: true,
@@ -94,12 +102,18 @@ async function bootstrap() {
     exposedHeaders: ['Retry-After', 'X-RateLimit-Limit', 'X-RateLimit-Remaining'],
     maxAge: 600,
   });
-  app.setGlobalPrefix('api/v1', { exclude: [{ path: 'uploads/(.*)', method: RequestMethod.GET }] });
+  app.setGlobalPrefix('api/v1', { exclude: [{ path: 'uploads/(.*)', method: RequestMethod.GET }, { path: 'assistant/widget.js', method: RequestMethod.GET }, { path: 'assistant/forksy-icon.png', method: RequestMethod.GET }] });
 
   // ---- request size limits: 100 kb by default; only the menu CSV import may send more ---------------
   const small = config.get<string>('limits.jsonBody')!;
   const large = config.get<string>('limits.jsonBodyLarge')!;
   app.use(/^\/api\/v1\/restaurant\/menu\/csv$/, json({ limit: large })); // first parser wins; the default one below skips already-parsed bodies
+  // Stripe webhook: the signature is computed over the EXACT raw bytes, so this one route gets the raw body (a Buffer) instead of parsed JSON
+  app.use('/api/v1/webhooks/stripe', raw({ type: '*/*', limit: '1mb' }));
+  // Certn webhook: parsed as JSON as usual, but its HMAC is also computed over the raw bytes (req.rawBody)
+  app.use(/^\/api\/v1\/public\/webhooks\/certn$/, json({ limit: small, verify: (req: any, _res: any, buf: Buffer) => { req.rawBody = buf; } }));
+  // bot training: importing a whole knowledge base (up to 500 answers) can be larger than the default 100 kb
+  app.use(/^\/api\/v1\/(?:restaurant|admin)\/assistant\/training\/(?:restaurants\/[0-9a-fA-F-]{36}\/|central\/)?import(?:-csv)?$/, json({ limit: large }));
   app.useBodyParser('json', { limit: small });
   app.useBodyParser('urlencoded', { limit: small, extended: false, parameterLimit: 200 });
 
@@ -145,9 +159,13 @@ async function bootstrap() {
   const port = config.get<number>('port')!;
   await app.listen(port);
 
-  if (isProd && !config.get('stripe.secretKey')) log.error('STRIPE_SECRET_KEY missing - card payments will be refused');
+  const stripeSvc = app.get(StripeClientService);
+  const pay = stripeSvc.provider();
+  if (pay === 'mock') log.warn('MOCK PAYMENTS ARE ACTIVE (no Stripe key + ALLOW_MOCK_PAYMENTS=true): no real money moves. Add the Stripe test keys under System > Integrations.');
+  else if (pay === 'none') log.error('Payments are NOT configured: no Stripe key (System > Integrations) and mock payments are not allowed - customers cannot pay.');
+  else log.log(`Payments: Stripe (${stripeSvc.config().mode.toUpperCase()} mode)${stripeSvc.apiBase() ? ' via STRIPE_API_BASE (fake server)' : ''}`);
   if (!isProd) {
-    log.warn('Development mode: mock payment provider, OTP codes in responses and demo accounts are active. NEVER run this configuration in production.');
+    log.warn('Development mode: OTP codes in responses and demo accounts are active. NEVER run this configuration in production.');
   }
   log.log(`FORKSY API running on http://localhost:${port}/api/v1${config.get('security.swaggerEnabled') ? '  (docs: /docs)' : ''}`);
 }

@@ -195,4 +195,11 @@ export class DeviceToken extends BaseEntity {
   /** Device fingerprint used for fraud controls. */
   @Column({ type: 'varchar', nullable: true })
   fingerprint: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  lastSeenAt: Date | null;
+
+  /** consecutive failed FCM deliveries (reset on success) */
+  @Column({ type: 'int', default: 0 })
+  failures: number;
 }

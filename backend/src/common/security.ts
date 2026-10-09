@@ -82,8 +82,10 @@ export interface SafetyInput {
   exposeOtp: boolean;
   corsOrigins: string[];
   publicUrl: string;
-  stripeSecretKey: string;
-  stripeWebhookSecret: string;
+  /** ALLOW_MOCK_PAYMENTS is set (development mock payments) */
+  allowMockPayments: boolean;
+  /** STRIPE_API_BASE / MAPBOX_API_BASE (fake servers for tests) are set */
+  fakeProviderBases: boolean;
   enforce2fa: boolean;
   seedSuperAdminPassword: string;
   dbPassword: string;
@@ -105,13 +107,24 @@ export function productionProblems(i: SafetyInput): string[] {
     else if (!/^https:\/\//i.test(o)) p.push(`CORS_ORIGINS contains a non-HTTPS origin: ${o}`);
   }
   if (!/^https:\/\//i.test(i.publicUrl) || /localhost|127\.0\.0\.1/i.test(i.publicUrl)) p.push('PUBLIC_URL must be the public https URL (not localhost / http)');
-  if (!i.stripeSecretKey) p.push('STRIPE_SECRET_KEY is not set (payments would silently use the mock provider)');
-  else if (!/^(sk|rk)_live_/.test(i.stripeSecretKey)) p.push('STRIPE_SECRET_KEY is not a live key (sk_live_... / rk_live_...)');
-  if (!i.stripeWebhookSecret) p.push('STRIPE_WEBHOOK_SECRET is not set');
+  if (i.allowMockPayments) p.push('ALLOW_MOCK_PAYMENTS is set (the mock payment provider is a development tool and must not exist in production)');
+  if (i.fakeProviderBases) p.push('STRIPE_API_BASE / MAPBOX_API_BASE are set (they point the API at fake servers; remove them in production)');
+  // Stripe keys may live in the environment OR in System > Integrations (database): they are checked after the database is up, see stripeProductionProblems()
   if (!i.enforce2fa) p.push('ENFORCE_2FA is not true (staff and restaurant owners must use two-factor authentication in production)');
   if ((i.dataEncryptionKey ?? '').length < 32) p.push('DATA_ENCRYPTION_KEY is missing or shorter than 32 chars (it encrypts TOTP seeds at rest; keep it separate from JWT_SECRET)');
   if (KNOWN_DEFAULT_PASSWORDS.includes(i.seedSuperAdminPassword)) p.push('SEED_SUPERADMIN_PASSWORD is the known default - set a unique strong password');
   if (!i.dbPassword || ['postgres', 'password', 'admin', 'root'].includes(i.dbPassword)) p.push('DB_PASSWORD is empty or a well-known default; use a dedicated least-privilege DB user with a strong password');
+  return p;
+}
+
+/** Production Stripe configuration (keys from settings or env). Empty = OK. Checked at boot once the settings are loaded. */
+export function stripeProductionProblems(c: { secretKey: string; publishableKey: string; webhookSecret: string; connectEnabled: boolean }): string[] {
+  const p: string[] = [];
+  if (!c.secretKey) p.push('The Stripe secret key is not configured (System > Integrations or STRIPE_SECRET_KEY): customers could not pay');
+  else if (!/^(sk|rk)_live_/.test(c.secretKey)) p.push('The Stripe secret key is not a LIVE key (sk_live_... / rk_live_...)');
+  if (!c.publishableKey) p.push('The Stripe publishable key is not configured (System > Integrations or STRIPE_PUBLISHABLE_KEY)');
+  else if (!/^pk_live_/.test(c.publishableKey)) p.push('The Stripe publishable key is not a LIVE key (pk_live_...)');
+  if (!c.webhookSecret) p.push('The Stripe webhook signing secret is not configured (System > Integrations or STRIPE_WEBHOOK_SECRET)');
   return p;
 }
 

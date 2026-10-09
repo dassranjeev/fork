@@ -44,6 +44,7 @@ export class KdsService {
       .createQueryBuilder('o')
       .leftJoinAndSelect('o.items', 'i')
       .where('o.restaurantId = :rid', { rid: restaurantId })
+      .andWhere('(o.kitchenReleaseAt IS NULL OR o.kitchenReleasedAt IS NOT NULL)') // held orders are not the kitchen's yet
       .andWhere(
         new Brackets((b) =>
           b.where('o.status IN (:...active)', { active: ACTIVE_STATUSES }).orWhere('(o.status IN (:...done) AND o."readyAt" >= :cutoff)', { done: DONE_STATUSES, cutoff }),
@@ -76,6 +77,7 @@ export class KdsService {
 
   private async orderFor(restaurantId: string, orderId: string) {
     const order = await this.orders.findOne({ where: { id: orderId, restaurantId }, relations: ['items'] });
+    if (order && order.kitchenReleaseAt && !order.kitchenReleasedAt) throw new NotFoundException('Order not found');
     if (!order) throw new NotFoundException('Order not found');
     return order;
   }

@@ -115,14 +115,15 @@ export class DriverLocationService implements OnModuleInit {
     let etaMin: number | null = null;
     if (onTrip) {
       for (const o of active) {
-        const e = await this.updateEta(o, p.lat, p.lng, now).catch(() => null);
+        const ahead = active.find((x) => x.id !== o.id && [OrderStatus.PICKED_UP, OrderStatus.ON_THE_WAY].includes(x.status));
+        const e = await this.updateEta(o, p.lat, p.lng, now, ahead).catch(() => null);
         if (e != null && o.id === (p.orderId ?? active[0].id)) etaMin = e;
       }
     }
     return { ok: true, onTrip, etaMin };
   }
 
-  private async updateEta(o: Order, lat: number, lng: number, now: number): Promise<number | null> {
+  private async updateEta(o: Order, lat: number, lng: number, now: number, ahead?: Order): Promise<number | null> {
     const beforePickup = [OrderStatus.DRIVER_ASSIGNED, OrderStatus.PREPARING, OrderStatus.READY].includes(o.status);
     const r = o.restaurant;
     const drop = o.deliveryAddress;
@@ -130,12 +131,17 @@ export class DriverLocationService implements OnModuleInit {
     let etaMin: number | null = null;
     let deliveryAt: Date | null = null;
     if (beforePickup && r?.lat != null && drop?.lat != null) {
-      const toR = roadEstimate(lat, lng, r.lat, r.lng, speed);
+      // stacked second order: the driver first delivers the order ahead of it, then drives from that drop-off to this restaurant
+      const first = ahead?.deliveryAddress;
+      const startLat = first?.lat != null ? Number(first.lat) : lat;
+      const startLng = first?.lat != null ? Number(first.lng) : lng;
+      const lead = first?.lat != null ? (roadEstimate(lat, lng, startLat, startLng, speed).minutes + 2) * 60_000 : 0;
+      const toR = roadEstimate(startLat, startLng, r.lat, r.lng, speed);
       const rToC = roadEstimate(r.lat, r.lng, drop.lat, drop.lng, speed);
-      const arrive = now + toR.minutes * 60_000;
+      const arrive = now + lead + toR.minutes * 60_000;
       const ready = o.estimatedReadyAt ? new Date(o.estimatedReadyAt).getTime() : arrive;
       deliveryAt = new Date(Math.max(arrive, ready) + (rToC.minutes + 2) * 60_000);
-      etaMin = toR.minutes;
+      etaMin = Math.round(toR.minutes + lead / 60_000);
     } else if (!beforePickup && drop?.lat != null) {
       const toC = roadEstimate(lat, lng, drop.lat, drop.lng, speed);
       deliveryAt = new Date(now + toC.minutes * 60_000);

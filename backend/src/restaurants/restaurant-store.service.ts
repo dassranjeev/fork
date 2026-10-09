@@ -347,7 +347,7 @@ export class RestaurantStoreService {
       actor: actor ? { type: actor.type === UserType.RESTAURANT ? 'RESTAURANT' : 'STAFF', id: actor.id, name: actor.name } : undefined,
     });
     const [row] = await this.ds.query(
-      `SELECT COUNT(*)::int AS n FROM orders WHERE "restaurantId" = $1 AND status IN ($2,$3,$4,$5,$6,$7)`,
+      `SELECT COUNT(*)::int AS n FROM orders WHERE "restaurantId" = $1 AND ("kitchenReleaseAt" IS NULL OR "kitchenReleasedAt" IS NOT NULL) AND status IN ($2,$3,$4,$5,$6,$7)`,
       [id, OrderStatus.PLACED, OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.DRIVER_ASSIGNED, OrderStatus.PICKED_UP],
     );
     return { id, ...info, openOrders: row?.n ?? 0 };
@@ -416,8 +416,8 @@ export class RestaurantStoreService {
     const r = await this.get(id);
     const tablet = { ...(r.meta?.tablet ?? {}), lastSeenAt: new Date().toISOString(), appVersion: dto.appVersion ?? r.meta?.tablet?.appVersion, battery: dto.battery ?? null, network: dto.network ?? null, queuedActions: dto.queuedActions ?? 0, deviceId: dto.deviceId ?? r.meta?.tablet?.deviceId };
     await this.patchMeta(id, { tablet });
-    const [row] = await this.ds.query(`SELECT COUNT(*)::int AS n FROM orders WHERE "restaurantId" = $1 AND status = 'PLACED'`, [id]);
-    const [row2] = await this.ds.query(`SELECT COUNT(*)::int AS n FROM orders WHERE "restaurantId" = $1 AND status IN ('ACCEPTED','DRIVER_ASSIGNED','PREPARING')`, [id]);
+    const [row] = await this.ds.query(`SELECT COUNT(*)::int AS n FROM orders WHERE "restaurantId" = $1 AND ("kitchenReleaseAt" IS NULL OR "kitchenReleasedAt" IS NOT NULL) AND status = 'PLACED'`, [id]);
+    const [row2] = await this.ds.query(`SELECT COUNT(*)::int AS n FROM orders WHERE "restaurantId" = $1 AND ("kitchenReleaseAt" IS NULL OR "kitchenReleasedAt" IS NOT NULL) AND status IN ('ACCEPTED','DRIVER_ASSIGNED','PREPARING')`, [id]);
     const open = await this.availability.status(r).catch(() => ({ open: false }));
     return {
       serverTime: new Date().toISOString(),
@@ -704,7 +704,7 @@ export class RestaurantStoreService {
          COUNT(*) FILTER (WHERE "readyAt" IS NOT NULL AND "estimatedReadyAt" IS NOT NULL AND "readyAt" <= "estimatedReadyAt" + interval '2 minutes')::int AS "prepOnTime",
          COALESCE(AVG(EXTRACT(EPOCH FROM ("readyAt" - COALESCE("acceptedAt","createdAt")))/60) FILTER (WHERE "readyAt" IS NOT NULL),0)::float AS "avgPrepMin",
          COALESCE(AVG(EXTRACT(EPOCH FROM ("acceptedAt" - "createdAt"))) FILTER (WHERE "acceptedAt" IS NOT NULL),0)::float AS "avgAcceptSec"
-       FROM orders WHERE "restaurantId" = $1 AND "createdAt" >= $2 AND "createdAt" <= $3`,
+       FROM orders WHERE "restaurantId" = $1 AND ("kitchenReleaseAt" IS NULL OR "kitchenReleasedAt" IS NOT NULL) AND "createdAt" >= $2 AND "createdAt" <= $3`,
       [restaurantId, from, to],
     );
     let errorOrders = 0;
@@ -756,7 +756,7 @@ export class RestaurantStoreService {
          COUNT(*) FILTER (WHERE status IN ('ACCEPTED','DRIVER_ASSIGNED','PREPARING'))::int AS "inKitchen",
          COUNT(*) FILTER (WHERE status = 'READY')::int AS ready,
          COUNT(*) FILTER (WHERE "isLate")::int AS late
-       FROM orders WHERE "restaurantId" = $1 AND "createdAt" >= date_trunc('day', now())`,
+       FROM orders WHERE "restaurantId" = $1 AND ("kitchenReleaseAt" IS NULL OR "kitchenReleasedAt" IS NOT NULL) AND "createdAt" >= date_trunc('day', now())`,
       [restaurantId],
     );
     const checklist = await this.documentChecklist(restaurantId);

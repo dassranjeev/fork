@@ -15,7 +15,11 @@ Cycle (SOP-07): generate (LOCKED, reconciliation auto-run) -> adjust payouts -> 
 | GET | /ledger/export/csv | export | same filters | `{filename, csv}` |
 | POST | /adjustments | edit | `{partyType, partyId, amount(+/-), reason, restaurantId?}` | `{balance}` |
 | GET | /reports/hst | view | `from, to` | `{customerHstByMonth[{month,tax,subtotal}], customerHstByTaxClass[{taxClass,tax,base}], forksyHstByMonth[{month,hst,base}]}` |
-| GET | /parties/:partyType/:partyId | view | - | PartyInfo `{name, bankOk, bankVerified, bankMasked, hold, holdReason, stripeAccountId, schedule}` |
+| GET | /parties/:partyType/:partyId | view | - | PartyInfo `{name, bankOk, bankVerified, bankMasked, hold, holdReason, stripeAccountId, schedule, connectStatus, connectInfo, connectRequired, payoutReady}` (`bankOk` = payout account ENABLED when Stripe Connect is active) |
+| GET | /payout-accounts | view | partyType, status, search, page, limit | `{data:[{partyType,partyId,name,status,payoutsEnabled,requirementsDue,bankLast4,syncedAt,hold}], counts, connectRequired}` |
+| POST | /payout-accounts/:partyType/:partyId/sync | edit | - | live sync from Stripe, returns the account view |
+| POST | /payout-accounts/sync | edit | - | `{synced, failed}` |
+| GET | (path /admin/orders/:id/payments) | view | - | `{paymentIntentId, intent, dashboardUrl, dispute, payments[{kind,provider,amount,status,externalId}]}` |
 | GET | /parties/:partyType/:partyId/bank | view | - | masked bank + verification |
 | POST | /parties/:partyType/:partyId/bank | edit | `{institution?, transit?, accountNumber?, holder?, debitCardLast4?}` | bank view (verification reset) |
 | POST | /parties/:partyType/:partyId/bank/verify/initiate | edit | - | bank view (+`mockAmounts` outside prod) |
@@ -62,4 +66,9 @@ Cycle (SOP-07): generate (LOCKED, reconciliation auto-run) -> adjust payouts -> 
 
 | Method | Path | Response |
 |---|---|---|
-| POST | /driver/earnings/instant-cashout | Payout (`instant=true`, `fee`, `net`, status PAID/ON_HOLD). 403 if `instant_payouts` flag off or hold; 400 if no bank/low balance. Fee: `payments.instantPayoutFeePct` (min `payments.instantPayoutFeeMin`). |
+| POST | /driver/earnings/instant-cashout | Payout (`instant=true`, `fee`, `net`, status PAID/ON_HOLD, `meta.instantFallback` when it was paid as a normal transfer). 403 if `instant_payouts` flag off or hold; 400 if the Stripe payout account is not ready / low balance. Stripe transfer + instant payout to the debit card; no eligible card = standard transfer, fee waived. Fee: `payments.instantPayoutFeePct` (min `payments.instantPayoutFeeMin`). |
+| POST | /driver/payouts/onboarding | `{url, kind: onboarding or dashboard, status}`: Stripe-hosted Account Link (Express account created if missing). `NoImpersonation` |
+| GET | /driver/payouts/account | `{status NOT_STARTED / PENDING / RESTRICTED / ENABLED, payoutsEnabled, detailsSubmitted, requirementsDue[], bankLast4, message}`; `?refresh=true` syncs from Stripe |
+| POST | /driver/payouts/dashboard-link | `{url}` Stripe Express dashboard (409 before onboarding finished) |
+
+Same three routes under `/restaurant/payouts/*` (restaurant OWNER role only). See docs/payments.md.

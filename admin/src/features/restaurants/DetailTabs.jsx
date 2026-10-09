@@ -5,7 +5,7 @@ import { useFetch, useForm, usePagedList, useSubmit } from "../../lib/hooks";
 import { useAuth } from "../../lib/auth";
 import { fmtDate, fmtDateTime, money, pct, timeAgo, titleCase } from "../../lib/format";
 import {
-  BoolBadge, Badge, Button, Card, EmptyState, ErrorState, FormModal, FormRow, KeyValue, LocationPicker, Loading, Modal, NumberInput, PercentInput, Progress,
+  AddressFinder, BoolBadge, Badge, Button, Card, EmptyState, ErrorState, FormModal, FormRow, KeyValue, LocationPicker, Loading, Modal, NumberInput, PercentInput, Progress,
   Select, StatCard, StatusBadge, Switch, TextArea, TextInput, useConfirm,
 } from "../../ui";
 import { DAYS, assetUrl, listOf, restaurantPost, useLookups } from "./shared";
@@ -532,7 +532,8 @@ export function LocationTab({ r, reload }) {
   return (
     <div className="row gy-4">
       <div className="col-lg-7">
-        <Card title="Geo-pin" subtitle={canEdit ? "Click the map or drag the pin to adjust" : undefined}>
+        <Card title="Geo-pin" subtitle={canEdit ? "Find the address, or click the map / drag the pin to adjust" : undefined}>
+          {canEdit && <AddressFinder proximity={hasPin ? `${geo.lng},${geo.lat}` : undefined} onPick={(a) => { setGeo({ lat: a.lat, lng: a.lng }); form.setValues((x) => ({ ...x, addressLine1: a.line1 || x.addressLine1, city: a.city || x.city, postalCode: a.postalCode || x.postalCode })); }} />}
           {hasPin ? (
             canEdit ? (
               <LocationPicker value={geo} onChange={setGeo} height={380} />

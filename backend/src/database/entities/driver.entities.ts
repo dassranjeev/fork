@@ -106,6 +106,13 @@ export class DriverProfile extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   stripeAccountId: string | null;
 
+  /** Stripe Connect state (synced from Stripe and the account.updated webhook): NOT_STARTED | PENDING | RESTRICTED | ENABLED */
+  @Column({ type: 'varchar', default: 'NOT_STARTED' })
+  stripeAccountStatus: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  stripeAccountInfo: Record<string, any> | null;
+
   /** T4A info: SIN stored as last-3 only; full value is held by the tax provider. */
   @Column({ type: 'jsonb', nullable: true })
   taxInfo: { sinLast3?: string; legalName?: string; address?: string; collectedAt?: string } | null;

@@ -118,7 +118,9 @@ export class RefundsService implements IRefundsService {
     if (refund.type === RefundType.CREDIT) {
       await this.wallet.credit(order.customerId, refund.amount, 'REFUND', { orderId: order.id, note: refund.reasonCode });
     } else {
-      await this.payments.refund(order, refund.amount, refund.reasonCode);
+      // to the card through Stripe (idempotent per refund id); whatever the card cannot take (paid with wallet credit, hold not captured yet) goes to the wallet
+      const paid = await this.payments.refund(order, refund.amount, refund.reasonCode, refund.id);
+      if (paid.walletCredit > 0) await this.wallet.credit(order.customerId, paid.walletCredit, 'REFUND', { orderId: order.id, note: `${refund.reasonCode} (returned as wallet credit)` });
       const totalRefunded = round2(refund.amount + (await this.processedTotal(order.id, refund.id)));
       order.paymentStatus = totalRefunded >= round2(Number(order.total)) - 0.01 ? PaymentStatus.REFUNDED : PaymentStatus.PARTIALLY_REFUNDED;
       await this.orders.save(order);

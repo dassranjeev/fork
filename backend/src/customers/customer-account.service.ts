@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DataSource, In, IsNull } from 'typeorm';
 import {
   Address,
@@ -60,6 +61,7 @@ export class CustomerAccountService {
     private ext: ExternalServices,
     private discovery: DiscoveryService,
     private dataRequests: DataRequestsService,
+    private events: EventEmitter2,
   ) {}
 
   private profiles = () => this.ds.getRepository(CustomerProfile);
@@ -149,6 +151,7 @@ export class CustomerAccountService {
       patch.meta = { ...p.meta, consentLog: log.slice(-100) };
     }
     if (Object.keys(patch).length) await this.profiles().update({ userId }, patch);
+    this.events.emit('notification.prefs.changed', { userId });
     return this.getProfile(userId);
   }
 
@@ -157,6 +160,7 @@ export class CustomerAccountService {
     const prefs = { ...DEFAULT_PREFS, ...(p.meta?.notificationPrefs ?? {}) };
     for (const k of Object.keys(DEFAULT_PREFS) as (keyof NotificationPrefs)[]) if (typeof dto[k] === 'boolean') prefs[k] = dto[k]!;
     await this.profiles().update({ userId }, { meta: { ...p.meta, notificationPrefs: prefs } });
+    this.events.emit('notification.prefs.changed', { userId });
     return { notificationPrefs: prefs };
   }
 
@@ -293,6 +297,10 @@ export class CustomerAccountService {
   }
   setupCard(customerId: string) {
     return this.ext.payments.createSetupIntent(customerId);
+  }
+  async defaultCard(customerId: string, paymentMethodId: string) {
+    await this.ext.payments.setDefaultPaymentMethod(customerId, paymentMethodId);
+    return { ok: true, defaultCardId: paymentMethodId };
   }
   async removeCard(customerId: string, paymentMethodId: string) {
     await this.ext.payments.detachPaymentMethod(customerId, paymentMethodId);

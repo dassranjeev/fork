@@ -5,6 +5,8 @@
   "dependencies": {
     "@iconify-json/solar": "^1.2.0",
     "@popperjs/core": "^2.11.8",
+    "@stripe/react-stripe-js": "^7.0.0",
+    "@stripe/stripe-js": "^10.0.0",
     "@testing-library/jest-dom": "^5.17.0",
     "apexcharts": "^4.3.0",
     "axios": "^1.7.7",

@@ -42,10 +42,35 @@
   $('btnLogin').onclick = async function () {
     try {
       var r = await api('POST', '/auth/login', { identifier: $('email').value, password: $('password').value, app: 'driver' });
-      state.token = r.accessToken; $('who').textContent = 'Logged in as ' + ((r.user && (r.user.firstName || r.user.email)) || $('email').value);
+      state.token = r.accessToken; state.refresh = r.refreshToken; $('who').textContent = 'Logged in as ' + ((r.user && (r.user.firstName || r.user.email)) || $('email').value);
+      show('btnOnline', true); show('btnLogout', true); show('btnLogin', false);
+      if (window.FkNotify) window.FkNotify.start(r.user || {}).catch(function () { /* notifications are optional */ });
       await loadTrip();
     } catch (e) { $('who').textContent = e.message; }
   };
+  $('btnOnline').onclick = async function () {
+    var b = this; b.disabled = true;
+    try {
+      var online = b.textContent === 'Go offline';
+      if (online) await api('POST', '/driver/offline'); else await api('POST', '/driver/online', {});
+      b.textContent = online ? 'Go online' : 'Go offline'; b.classList.toggle('on', !online);
+    } catch (e) { $('who').textContent = e.message; } finally { b.disabled = false; }
+  };
+  // log out: this browser stops receiving this driver's pushes first (needs the token), then the session is closed
+  $('btnLogout').onclick = async function () {
+    this.disabled = true;
+    try { if (window.FkNotify) await window.FkNotify.stop(); } catch (e) { /* ignore */ }
+    try { if (state.refresh) await api('POST', '/auth/logout', { refreshToken: state.refresh }); } catch (e) { /* the token may already be expired */ }
+    state.token = null; state.refresh = null; state.trip = null;
+    show('tripCard', false); show('deliverCard', false); show('btnOnline', false); show('btnLogout', false); show('btnLogin', true);
+    $('btnOnline').textContent = 'Go online'; $('btnOnline').classList.remove('on'); this.disabled = false;
+    $('who').textContent = 'Logged out.';
+  };
+  if (window.FkNotify) window.FkNotify.init({
+    api: base, token: function () { return state.token; },
+    onOfferAccepted: function () { loadTrip().catch(function () { /* shown on refresh */ }); },
+    onTripChange: function () { if (state.token) loadTrip().catch(function () { /* ignore */ }); },
+  });
   $('btnReload').onclick = function () { loadTrip().catch(function (e) { say(e.message, false); }); };
 
   async function loadTrip() {

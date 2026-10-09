@@ -6,7 +6,7 @@ import { money, num, pct, titleCase } from "../../lib/format";
 import { useSocketEvent } from "../../lib/socket";
 import { Async, CityFilter, kpiProps } from "./shared";
 
-const STATUS_HEX = { PLACED: "#06b6d4", ACCEPTED: "#487fff", DRIVER_ASSIGNED: "#8b5cf6", PREPARING: "#eab308", READY: "#22c55e", PICKED_UP: "#a78bfa", ON_THE_WAY: "#f95a16" };
+const STATUS_HEX = { PLACED: "#06b6d4", ACCEPTED: "#487fff", DRIVER_ASSIGNED: "#8b5cf6", PREPARING: "#eab308", READY: "#22c55e", PICKED_UP: "#a78bfa", ON_THE_WAY: "#ff6917" };
 
 export default function DashboardPage() {
   const [cityId, setCityId] = useState("");

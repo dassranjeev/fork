@@ -5,6 +5,7 @@ import { http } from "../../lib/api";
 import { useFetch, useDebounced, useForm, useSubmit } from "../../lib/hooks";
 import { useAuth } from "../../lib/auth";
 import { titleCase } from "../../lib/format";
+import PayoutAccountBadge from "./PayoutAccountBadge";
 
 /** Date-only strings (YYYY-MM-DD) must not shift with the timezone. */
 export function fmtDay(v) {
@@ -175,6 +176,7 @@ export function PartyPanel({ partyType, partyId, onChanged }) {
         items={[
           { label: "Payout schedule", value: titleCase(p.schedule) },
           { label: "Stripe account", value: p.stripeAccountId },
+          hasBank && { label: "Payout account (Stripe Connect)", value: <PayoutAccountBadge partyType={partyType} partyId={partyId} /> },
           hasBank && { label: "Bank account", value: bank ? `${bank.institution || "—"}-${bank.transit || "—"} ${bank.account || ""}` : "Not on file" },
           hasBank && { label: "Account holder", value: bank?.holder },
           hasBank && { label: "Bank verified", value: <StatusBadge status={verified ? "Verified" : p.bankOk ? "Unverified" : "Missing"} tone={verified ? "success" : "warning"} /> },

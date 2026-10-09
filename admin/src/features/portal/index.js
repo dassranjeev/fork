@@ -11,6 +11,9 @@ const Reviews = React.lazy(() => import("./Reviews"));
 const Finance = React.lazy(() => import("./Finance"));
 const Reports = React.lazy(() => import("./Reports"));
 const Promotions = React.lazy(() => import("./Promotions"));
+const Assistant = React.lazy(() => import("./Assistant"));
+const Notifications = React.lazy(() => import("../notifications/NotificationsPage"));
+const NotificationSettings = React.lazy(() => import("../notifications/NotificationSettings"));
 
 const MANAGERS = ["OWNER", "LOCATION_MANAGER"];
 const OWNER = ["OWNER"];
@@ -29,6 +32,9 @@ export const routes = [
   { path: "finance", element: <Finance />, roles: OWNER },
   { path: "reports", element: <Reports />, roles: MANAGERS },
   { path: "promotions", element: <Promotions />, roles: MANAGERS },
+  { path: "assistant", element: <Assistant />, roles: MANAGERS },
+  { path: "notifications", element: <Notifications title="Notifications" subtitle="Alerts for your restaurant" /> },
+  { path: "notification-settings", element: <NotificationSettings /> },
 ];
 
 export const menu = [
@@ -40,7 +46,10 @@ export const menu = [
   { section: "MONEY", order: 10, label: "Finance", icon: "solar:wallet-money-outline", to: "/portal/finance", roles: OWNER },
   { section: "MONEY", order: 20, label: "Reports", icon: "solar:chart-2-outline", to: "/portal/reports", roles: MANAGERS },
   { section: "GROWTH", order: 10, label: "Promotions", icon: "solar:tag-price-outline", to: "/portal/promotions", roles: MANAGERS },
+  { section: "GROWTH", order: 15, label: "Assistant", icon: "solar:chat-round-dots-outline", to: "/portal/assistant", roles: MANAGERS },
   { section: "GROWTH", order: 20, label: "Reviews", icon: "solar:star-outline", to: "/portal/reviews", roles: MANAGERS },
   { section: "ACCOUNT", order: 10, label: "Staff", icon: "solar:users-group-rounded-outline", to: "/portal/staff", roles: MANAGERS },
+  { section: "ACCOUNT", order: 15, label: "Notifications", icon: "solar:inbox-outline", to: "/portal/notifications" },
+  { section: "ACCOUNT", order: 16, label: "Notification Settings", icon: "solar:bell-outline", to: "/portal/notification-settings" },
   { section: "ACCOUNT", order: 20, label: "My Account", icon: "solar:user-circle-outline", to: "/portal/account" },
 ];

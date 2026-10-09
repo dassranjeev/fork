@@ -10,6 +10,7 @@ import { useFetch, useForm, useSubmit } from "../../lib/hooks";
 import { useAuth } from "../../lib/auth";
 import { fmtDateTime, money, num, timeAgo, titleCase } from "../../lib/format";
 import DriverRatingCard from "../ratings/DriverRatingCard";
+import PayoutAccountBadge from "../finance/PayoutAccountBadge";
 import { fmtDay as fmtDate } from "./shared";
 import { EXPIRY_REQUIRED, VEHICLES, acceptanceTone, fileHref, useZones } from "./shared";
 
@@ -167,6 +168,7 @@ function Overview({ d, reload, can }) {
               { label: "Vehicle", value: [titleCase(d.vehicle?.type), d.vehicle?.color, d.vehicle?.make, d.vehicle?.model].filter(Boolean).join(" · ") },
               { label: "Licence plate", value: d.vehicle?.licensePlate },
               { label: "Payout schedule", value: titleCase(d.payoutSchedule) },
+              { label: "Payout account (Stripe)", value: <PayoutAccountBadge partyType="DRIVER" partyId={d.id} /> },
               { label: "Bank", value: d.bank ? `${d.bank.institution}-${d.bank.transit} ${d.bank.account}` : "Not provided" },
               { label: "Tax info (T4A)", value: d.taxInfo ? `${d.taxInfo.legalName} · SIN ${d.taxInfo.sin}` : "Not provided" },
               { label: "Ontario notice acknowledged", value: <BoolBadge value={d.ontarioNoticeAcked} /> },

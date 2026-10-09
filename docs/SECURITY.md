@@ -119,6 +119,7 @@ Checked and found clean: all 651 operations (`routes_before/after.txt`): every n
 | Uploads | magic bytes, random names, caps, safe serving | `uploads.module.ts` |
 | Audit | `auth.login`, `auth.login_failed`, `auth.lockout_*`, `auth.password_*`, `security.rate_limited`, `security.access_denied`, `security.settings_denied`, `security.staff_role_change`, `security.role_permissions_changed`, `security.super_admin_created`, `security.staff_password_reset`, `security.staff_2fa_reset`, `restaurant.impersonate`; append-only table | `AuditService`, `filters.ts` |
 | Supply chain | `npm audit` = 0, overrides documented, lockfile committed | `package.json` |
+| Push notifications | browser subscription endpoints are validated against SSRF (production: https + known push-service hosts only, no IPs / credentials / private hosts, no redirects followed); VAPID key pair generated once and stored encrypted (secretbox); pushes carry only registry copy rendered with allow-listed variables + allow-listed ids (never PIN, access / pickup code, phone, address, card or proof data; `scrubPush` as a second line; one-time codes are never pushed); subscriptions bound to the logged-in user, moved on re-subscribe, removed on logout (clients unsubscribe first), on 404 / 410 and after 20 consecutive failures; every notification route is scoped to the caller (foreign ids -> 404); service worker only opens same-origin relative URLs; admin kill switches and test sends audited and permission-gated (`notifications` module); FCM service-account JSON is a masked secret; legacy FCM server-key path removed | `notifications/*`, `admin/public/sw.js`, `docs/notifications.md` |
 
 ### Public (unauthenticated) routes and why they exist
 
@@ -197,7 +198,8 @@ console adapters) log a warning at boot and are impossible when `NODE_ENV=produc
 ## 8. Residual risks and deferred work
 
 * In-memory throttling/lockout (single instance) – see scaling note.
-* Stripe integration is implemented but could not be exercised against live Stripe here; 3-D Secure (`requires_action`) is not handled server-side.
+* The Stripe on-page payment flow (PaymentIntent + Payment Element, webhooks, Connect payouts) is implemented and proven against a fake Stripe server only; it needs a run with the owner's TEST keys (docs/payments.md). 3-D Secure is handled in the browser by Stripe.js; the server refuses an order whose intent is not `requires_capture` (409 `PAYMENT_ACTION_REQUIRED`).
+* Stripe / Mapbox keys are stored encrypted in the settings table (needs `DATA_ENCRYPTION_KEY`); the production gate refuses `ALLOW_MOCK_PAYMENTS`, `STRIPE_API_BASE` / `MAPBOX_API_BASE`, and missing or non-live Stripe keys.
 * Staff city/zone scoping is enforced on analytics, orders and order chat only, not on every module.
 * Admin-created staff / restaurant members still receive a one-time temporary password in the API response (the console displays it); an email set-password link with forced change would remove this.
 * Uploaded documents are public-by-URL (see Files above).

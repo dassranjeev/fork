@@ -10,6 +10,11 @@ import { LazyServices } from './lazy';
 import { batchCompatible, DEFAULT_WEIGHTS, scoreCandidate, ScoreWeights, vehicleSpeedKmh } from './scoring';
 import { RankedCandidate } from './dispatch.types';
 
+/** No driver ever carries more than this many orders at once (owner rule). */
+export const HARD_MAX_ORDERS_PER_DRIVER = 2;
+/** minutes to hand over the first order before heading to the next pickup */
+const STACK_HANDOVER_MIN = 2;
+
 const ACTIVE_TRIP_STATUSES = [OrderStatus.DRIVER_ASSIGNED, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.PICKED_UP, OrderStatus.ON_THE_WAY];
 /** time the driver needs to read + accept the offer before heading out (min) */
 const ACCEPT_BUFFER_MIN = 0.5;
@@ -101,6 +106,7 @@ export class DispatchRankingService {
     const bike = { maxKm: Number(this.settings.get('dispatch.bikeMaxDistanceKm', 4)), maxSubtotal: Number(this.settings.get('dispatch.bikeMaxSubtotal', 80)) };
     const freshSec = Number(this.settings.get('dispatch.locationFreshSec', 120));
     const batching = await this.batchingEnabled(order.cityId);
+    const stack = this.stackingConfig();
     const itemCount = Number((await this.items.sum('quantity', { orderId: order.id, removed: false })) ?? 0) || 1;
 
     const qb = this.drivers
@@ -137,7 +143,7 @@ export class DispatchRankingService {
     for (const d of drivers) {
       const reasons: string[] = [];
       const straight = haversineKm(d.lat, d.lng, restaurant.lat, restaurant.lng);
-      const est = roadEstimate(d.lat, d.lng, restaurant.lat, restaurant.lng, vehicleSpeedKmh(d.vehicleType));
+      let est = roadEstimate(d.lat, d.lng, restaurant.lat, restaurant.lng, vehicleSpeedKmh(d.vehicleType));
       if (!d.isOnline) reasons.push('OFFLINE');
       if (!d.lastLocationAt || now.getTime() - new Date(d.lastLocationAt).getTime() > freshSec * 1000) reasons.push('STALE_LOCATION');
       if (order.zoneId ? !(d.zoneIds ?? []).includes(order.zoneId) : !!order.cityId && !!d.cityId && d.cityId !== order.cityId) reasons.push('NOT_APPROVED_FOR_ZONE');
@@ -156,6 +162,27 @@ export class DispatchRankingService {
           ).ok;
         }
       }
+      // EN-ROUTE STACKING: a driver who already has the first order in the car (heading to its drop-off B) can take a second order whose pickup is
+      // near B, to be collected right after that delivery. Never more than stack.max (hard cap 2) orders per driver; the first order is never delayed.
+      let stackOk = false;
+      if (mine.length >= HARD_MAX_ORDERS_PER_DRIVER) reasons.push('MAX_ORDERS_REACHED');
+      else if (mine.length === 1 && stack.enabled && mine.length < stack.max) {
+        const e = mine[0];
+        const first = e.deliveryAddress;
+        if ([OrderStatus.PICKED_UP, OrderStatus.ON_THE_WAY].includes(e.status) && first?.lat != null && first?.lng != null) {
+          const speed = vehicleSpeedKmh(d.vehicleType);
+          const leg1 = roadEstimate(d.lat, d.lng, Number(first.lat), Number(first.lng), speed); // to the first customer
+          const leg2 = roadEstimate(Number(first.lat), Number(first.lng), restaurant.lat, restaurant.lng, speed); // from there to the new restaurant
+          const lateMin = (now.getTime() + (ACCEPT_BUFFER_MIN + leg1.minutes + STACK_HANDOVER_MIN + leg2.minutes) * 60_000 - readyAt.getTime()) / 60_000;
+          if (leg2.km <= stack.maxPickupFromDropKm && lateMin <= stack.maxLateMin) {
+            stackOk = true;
+            est = { km: leg1.km + leg2.km, minutes: leg1.minutes + STACK_HANDOVER_MIN + leg2.minutes };
+
+          } else {
+            reasons.push(leg2.km > stack.maxPickupFromDropKm ? 'STACK_PICKUP_TOO_FAR_FROM_DROP' : 'STACK_WOULD_ARRIVE_LATE');
+          }
+        }
+      }
       const arrivalMs = now.getTime() + (ACCEPT_BUFFER_MIN + est.minutes) * 60_000;
       const slackMin = (readyAt.getTime() - arrivalMs) / 60_000;
       const lastOffer = d.lastOfferAt ? (now.getTime() - new Date(d.lastOfferAt).getTime()) / 60_000 : null;
@@ -172,9 +199,9 @@ export class DispatchRankingService {
           itemCount,
           bike,
           activeOrders: mine.length,
-          batchingEnabled: batching,
-          batchMaxOrders: city.batchMaxOrders,
-          batchCompatible: compatible,
+          batchingEnabled: batching || stackOk,
+          batchMaxOrders: stackOk ? stack.max : city.batchMaxOrders,
+          batchCompatible: compatible || stackOk,
           acceptanceRate: Number(d.acceptanceRate ?? this.settings.get('dispatch.acceptance.priorRate', 90)),
           acceptanceLowThreshold: Number(this.settings.get('dispatch.acceptance.lowThreshold', 50)),
           onTimeRate: Number(d.onTimeRate ?? 100),
@@ -212,6 +239,16 @@ export class DispatchRankingService {
     res.sort((a, b) => Number(b.eligible) - Number(a.eligible) || b.score - a.score || a.distanceKm - b.distanceKm);
     if (opts.limit) res = res.slice(0, opts.limit);
     return res;
+  }
+
+  /** En-route stacking settings (System > Platform Settings > dispatch). The per-driver cap can be lowered but never raised above 2. */
+  stackingConfig() {
+    return {
+      enabled: this.settings.get<boolean>('dispatch.stacking.enabled', true),
+      max: Math.min(HARD_MAX_ORDERS_PER_DRIVER, Math.max(1, Number(this.settings.get<number>('dispatch.stacking.maxOrdersPerDriver', 2)))),
+      maxPickupFromDropKm: Number(this.settings.get<number>('dispatch.stacking.maxPickupFromDropKm', 3)),
+      maxLateMin: Number(this.settings.get<number>('dispatch.stacking.maxLateMin', 10)),
+    };
   }
 
   async batchingEnabled(cityId?: string | null): Promise<boolean> {

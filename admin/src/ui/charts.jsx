@@ -2,7 +2,7 @@ import React from "react";
 import ReactApexChart from "react-apexcharts";
 import { chartSafe } from "../lib/safe";
 
-export const PALETTE = ["#f95a16", "#487fff", "#22c55e", "#8b5cf6", "#eab308", "#06b6d4", "#ef4444", "#64748b"];
+export const PALETTE = ["#ff6917", "#487fff", "#22c55e", "#8b5cf6", "#eab308", "#06b6d4", "#ef4444", "#64748b"];
 
 const base = (height, extra = {}) => ({
   chart: { toolbar: { show: false }, height, fontFamily: "inherit", animations: { enabled: true }, ...extra.chart },
@@ -61,7 +61,7 @@ export function DonutChart({ labels: rawLabels, values, height = 280, colors, to
 }
 
 /** Day-of-week x hour heat map. data: [{ name:'Mon', data:[{x:'00',y:3},...] }] */
-export function Heatmap({ series: rawSeries, height = 320, color = "#f95a16" }) {
+export function Heatmap({ series: rawSeries, height = 320, color = "#ff6917" }) {
   const series = chartSafe(rawSeries);
   const options = {
     ...base(height, { chart: { type: "heatmap" } }),

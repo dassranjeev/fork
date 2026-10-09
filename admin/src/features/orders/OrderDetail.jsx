@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
 import {
-  Badge, Button, Card, DataTable, EmptyState, ErrorState, FormModal, KeyValue, Loading, MapView, MoneyInput, PageHeader, Select, StatusBadge, Tabs, TextArea, Timeline,
+  Badge, Button, Card, DataTable, EmptyState, ErrorState, FormModal, KeyValue, Loading, MapView, MoneyInput, PageHeader, Select, StatusBadge, Tabs, TextArea, TextInput, Timeline,
 } from "../../ui";
 import { useFetch, useForm, useSubmit } from "../../lib/hooks";
 import { useAuth } from "../../lib/auth";
@@ -37,13 +37,93 @@ function ForceStatusModal({ order, onClose, onDone }) {
   );
 }
 
+const BEFORE_PICKUP = ["PLACED", "ACCEPTED", "PREPARING", "READY", "DRIVER_ASSIGNED"];
+const APPROVAL_CHANNELS = [
+  { value: "PHONE", label: "Phone call" },
+  { value: "CHAT", label: "Chat / message" },
+  { value: "EMAIL", label: "Email" },
+  { value: "IN_PERSON", label: "In person" },
+];
+
+/**
+ * Cancelling: free while FORKSY still holds the order (customer's cancellation window). Once the restaurant has the order, FORKSY can only cancel
+ * with the restaurant's approval: either the restaurant answers a request in its portal, or staff record who approved it by phone / chat.
+ */
 function CancelModal({ order, onClose, onDone }) {
+  const needsApproval = !!order.kitchenReleaseAt && !!order.kitchenReleasedAt && BEFORE_PICKUP.includes(order.status);
+  const req = order.meta?.cancelRequest;
+  const approved = req?.status === "APPROVED";
+  const f = useForm({ reason: req?.reason || "", contactName: "", channel: "PHONE", note: "" });
+  const [mode, setMode] = useState(approved ? "cancel" : "request");
+  const { busy, run } = useSubmit();
+  const v = f.values;
+  const done = (msg) => ({ success: msg, onDone: () => { onClose(); onDone(); } });
+  const submit = () => {
+    if (!needsApproval || mode === "cancel") return run(() => http.post(`/admin/orders/${order.id}/cancel`, { reason: v.reason }), done("Order cancelled"));
+    if (mode === "record") return run(() => http.post(`/admin/orders/${order.id}/cancel`, { reason: v.reason, restaurantApproval: { contactName: v.contactName.trim(), channel: v.channel, note: v.note || undefined } }), done("Order cancelled"));
+    return run(() => http.post(`/admin/orders/${order.id}/cancel-request`, { reason: v.reason }), done("Request sent to the restaurant"));
+  };
+  const waiting = needsApproval && mode === "request" && req?.status === "PENDING";
+  const ready = String(v.reason).trim().length >= 3 && (mode !== "record" || v.contactName.trim().length >= 2) && !waiting;
+  return (
+    <FormModal
+      open
+      onClose={onClose}
+      title={`Cancel ${order.code}`}
+      onSubmit={submit}
+      busy={busy}
+      submitText={needsApproval && mode === "request" ? "Send request to the restaurant" : "Cancel order"}
+      submitVariant={needsApproval && mode === "request" ? "primary" : "danger"}
+      disabled={!ready}
+    >
+      {!needsApproval ? (
+        <div className="alert alert-success radius-8 py-8 text-sm">{order.kitchenReleaseAt && !order.kitchenReleasedAt ? "This order is still held by FORKSY (the customer's cancellation window), so the restaurant has not received it. No approval is needed." : "No restaurant approval is needed for this order."}</div>
+      ) : (
+        <>
+          <div className="alert alert-warning radius-8 py-8 text-sm">The restaurant already has this order, so FORKSY can only cancel it with the <strong>restaurant's approval</strong>.</div>
+          {req && (
+            <div className={`alert ${req.status === "APPROVED" ? "alert-success" : req.status === "DECLINED" ? "alert-danger" : "alert-info"} radius-8 py-8 text-sm`}>
+              Cancellation request: <strong>{titleCase(req.status)}</strong>
+              {req.respondedBy?.name ? ` by ${req.respondedBy.name}` : ""}
+              {req.note ? ` - "${req.note}"` : ""}
+              {req.status === "PENDING" ? " (waiting for the restaurant to answer in its portal)" : ""}
+            </div>
+          )}
+          {!approved && (
+            <Select
+              label="How do you get the approval?"
+              allowEmpty={false}
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: "request", label: "Ask the restaurant to approve (they answer in their portal)" },
+                { value: "record", label: "The restaurant already approved (phone / chat) - record it" },
+              ]}
+            />
+          )}
+        </>
+      )}
+      <TextArea label="Reason" required rows={3} hint="Shared with the customer and restaurant." {...f.bind("reason")} />
+      {needsApproval && mode === "record" && !approved && (
+        <div className="row">
+          <TextInput col={6} label="Who at the restaurant approved?" required {...f.bind("contactName")} />
+          <Select col={6} label="How" allowEmpty={false} options={APPROVAL_CHANNELS} {...f.bind("channel")} />
+          <TextInput label="Note (optional)" {...f.bind("note")} />
+        </div>
+      )}
+    </FormModal>
+  );
+}
+
+/** Staff waive the driver's wait-time charge: the restaurant is made whole and FORKSY absorbs it; the driver keeps the pay. */
+function WaiveWaitModal({ order, onClose, onDone }) {
   const f = useForm({ reason: "" });
   const { busy, run } = useSubmit();
-  const submit = () => run(() => http.post(`/admin/orders/${order.id}/cancel`, f.values), { success: "Order cancelled", onDone: () => { onClose(); onDone(); } });
+  const submit = () => run(() => http.post(`/admin/orders/${order.id}/wait-fee/waive`, { reason: f.values.reason }), { success: "Wait charge waived", onDone: () => { onClose(); onDone(); } });
   return (
-    <FormModal open onClose={onClose} title={`Cancel ${order.code}`} onSubmit={submit} busy={busy} submitText="Cancel order" submitVariant="danger" disabled={!String(f.values.reason).trim()}>
-      <TextArea label="Reason" required rows={3} hint="Shared with the customer and restaurant." {...f.bind("reason")} />
+    <FormModal open onClose={onClose} title={`Waive the driver wait charge on ${order.code}`} onSubmit={submit} busy={busy} submitText="Waive charge" disabled={String(f.values.reason).trim().length < 3}>
+      <div className="alert alert-info radius-8 py-8 text-sm">The restaurant is credited {money(order.driverWaitFee)} back. The driver keeps the wait-time pay and FORKSY absorbs the cost.</div>
+      <TextArea label="Reason" required rows={3} {...f.bind("reason")} />
     </FormModal>
   );
 }
@@ -120,6 +200,8 @@ function Payments({ order }) {
   const { can } = useAuth();
   const allowed = can("finance", "view");
   const ledger = useFetch(allowed ? "/admin/finance/ledger" : null, { orderId: order.id, limit: 50 });
+  const gateway = useFetch(allowed ? `/admin/orders/${order.id}/payments` : null);
+  const g = gateway.data;
   const cols = [
     { key: "createdAt", title: "When", render: (r) => fmtDateTime(r.createdAt) },
     { key: "type", title: "Type", render: (r) => <StatusBadge status={r.type} tone="info" /> },
@@ -140,6 +222,20 @@ function Payments({ order }) {
             { label: "Charged total", value: money(order.total) },
           ]} />
         </Card>
+        {g && (g.payments.length > 0 || g.dispute) && (
+          <Card title="Gateway payments" subtitle={g.provider === "stripe" ? "Stripe" : g.provider === "mock" ? "Development mock" : ""} className="mt-24" actions={g.dashboardUrl && <a className="btn btn-sm btn-outline-neutral-300 radius-8" href={g.dashboardUrl} target="_blank" rel="noopener noreferrer">Open in Stripe</a>}>
+            {g.dispute && <div className="alert alert-danger radius-8 py-8 text-sm" data-testid="order-dispute">Card dispute {g.dispute.id}: {g.dispute.status} ({g.dispute.reason}), {money(g.dispute.amount)}</div>}
+            {g.paymentAlert && <div className="alert alert-warning radius-8 py-8 text-sm">{g.paymentAlert.reason}</div>}
+            <ul className="list-unstyled mb-0" data-testid="gateway-payments">
+              {g.payments.map((p) => (
+                <li key={p.id} className="d-flex justify-content-between gap-2 py-6 text-sm border-bottom">
+                  <span><b>{titleCase(p.kind)}</b> <code className="text-xs">{p.externalId || "-"}</code></span>
+                  <span>{money(p.amount)} <StatusBadge status={p.status} /></span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
       </div>
       <div className="col-lg-7">
         <Card title="Ledger entries" subtitle="Sales, fees, tips and refunds posted for this order" noPadding>
@@ -159,7 +255,7 @@ function Tracking({ order, tracking }) {
   const d = tracking.driver;
   const a = order.deliveryAddress;
   const markers = [];
-  if (r?.lat != null) markers.push({ id: "r", lat: r.lat, lng: r.lng, color: "#f95a16", glyph: "R", title: `Restaurant: ${r.name}` });
+  if (r?.lat != null) markers.push({ id: "r", lat: r.lat, lng: r.lng, color: "#ff6917", glyph: "R", title: `Restaurant: ${r.name}` });
   if (a?.lat != null) markers.push({ id: "c", lat: a.lat, lng: a.lng, color: "#22c55e", glyph: "C", title: `Drop-off: ${a.line1}` });
   if (d?.lat != null) markers.push({ id: "d", lat: d.lat, lng: d.lng, color: "#487fff", kind: "dot", title: `Driver: ${d.name}` });
   const lines = r?.lat != null && a?.lat != null ? [{ id: "route", points: [[r.lat, r.lng], [a.lat, a.lng]], dashed: true }] : [];
@@ -169,6 +265,14 @@ function Tracking({ order, tracking }) {
       <div className="col-lg-4">
         <Card title="Live tracking">
           <KeyValue cols={1} items={[
+            order.type === "DELIVERY" && {
+              label: "Driver wait-time charge",
+              value: Number(order.driverWaitFee) > 0 ? (
+                <span>
+                  {money(order.driverWaitFee)} for {order.driverWaitMinutes} min waiting at the restaurant (paid to the driver, deducted from the restaurant){order.meta?.waitFee?.waived && <Badge tone="info" className="ms-2">Waived</Badge>}
+                </span>
+              ) : order.pickedUpAt ? "None" : "-",
+            },
             { label: "Driver", value: d ? `${d.name} · ${titleCase(d.vehicleType)}${d.vehicleColor ? ` (${d.vehicleColor})` : ""}` : "Not assigned" },
             { label: "Pickup code", value: tracking.pickupCode },
             { label: "Delivery PIN", value: tracking.deliveryPin },
@@ -229,6 +333,7 @@ export default function OrderDetail() {
       {canEdit && <Button variant="light" icon="solar:refresh-circle-outline" onClick={() => setModal("status")}>Force status</Button>}
       {canEdit && order.type === "DELIVERY" && <Button variant="light" icon="solar:user-rounded-outline" onClick={() => setModal("reassign")}>Reassign driver</Button>}
       {can("orders", "approve") && <Button variant="warning" icon="solar:wallet-money-outline" onClick={() => setModal("refund")}>Refund</Button>}
+      {can("orders", "approve") && Number(order.driverWaitFee) > 0 && !order.meta?.waitFee?.waived && <Button variant="light" icon="solar:clock-circle-outline" onClick={() => setModal("waive")}>Waive wait charge</Button>}
       {canEdit && !closed && <Button variant="danger" icon="solar:close-circle-outline" onClick={() => setModal("cancel")}>Cancel order</Button>}
     </>
   );
@@ -244,6 +349,7 @@ export default function OrderDetail() {
             { label: "Fulfilment", value: titleCase(order.fulfilment) },
             { label: "Source", value: titleCase(order.source) },
             { label: "Placed", value: fmtDateTime(order.createdAt) },
+            { label: "Sent to the restaurant", value: !order.kitchenReleaseAt ? "At placement" : order.kitchenReleasedAt ? fmtDateTime(order.kitchenReleasedAt) : <Badge tone="info">Held for the customer's cancellation window until {fmtTime(order.kitchenReleaseAt)}</Badge> },
             { label: "Scheduled for", value: order.isScheduled ? fmtDateTime(order.scheduledFor) : "ASAP" },
             { label: "Delivered", value: fmtDateTime(order.deliveredAt) },
             { label: "Delivery address", value: addr ? `${addr.line1}, ${addr.city} ${addr.postalCode || ""}` : "-" },
@@ -323,6 +429,7 @@ export default function OrderDetail() {
       {modal === "status" && <ForceStatusModal order={order} onClose={close} onDone={reload} />}
       {modal === "cancel" && <CancelModal order={order} onClose={close} onDone={reload} />}
       {modal === "refund" && <RefundModal order={order} onClose={close} onDone={reload} />}
+      {modal === "waive" && <WaiveWaitModal order={order} onClose={close} onDone={reload} />}
       {modal === "reassign" && <ReassignModal order={order} onClose={close} onDone={reload} />}
     </>
   );

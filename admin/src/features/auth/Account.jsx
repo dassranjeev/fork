@@ -3,6 +3,7 @@ import { safeImgUrl } from "../../lib/safe";
 import { toast } from "react-toastify";
 import { errorMessage, http } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { Link } from "react-router-dom";
 import { useForm, useSubmit } from "../../lib/hooks";
 import { fullName, fmtDateTime } from "../../lib/format";
 import { Avatar, Badge, Button, Card, FileInput, KeyValue, PageHeader, TextInput } from "../../ui";
@@ -69,6 +70,13 @@ export default function Account() {
                 <Button variant="outline-danger" loading={busy} disabled={!disablePw} onClick={() => run(async () => { await http.post("/auth/2fa/disable", { password: disablePw }); setDisablePw(""); await reload(); }, { success: "Two-factor disabled" })}>Disable</Button>
               </div>
             )}
+          </Card>
+        </div>
+        <div className="col-12">
+          <Card title="Notifications" subtitle="Browser alerts, quiet hours, channels and your devices">
+            <Link to={user.type === "RESTAURANT" ? "/portal/notification-settings" : "/notification-settings"} className="btn btn-outline-primary-600 btn-sm px-16 py-8 radius-8 d-inline-flex align-items-center gap-2">
+              Open notification settings
+            </Link>
           </Card>
         </div>
         <div className="col-12">

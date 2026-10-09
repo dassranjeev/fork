@@ -3,7 +3,7 @@ import { http } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { useFetch, useForm, useSubmit } from "../../lib/hooks";
 import { money } from "../../lib/format";
-import { Badge, BoolBadge, Button, Card, FormModal, FormRow, IconButton, MapView, NumberInput, PolygonEditor, Select, Switch, TextInput } from "../../ui";
+import { AddressFinder, Badge, BoolBadge, Button, Card, FormModal, FormRow, IconButton, MapView, NumberInput, PolygonEditor, Select, Switch, TextInput } from "../../ui";
 import { CrudPage, numOrNull, useCityOptions } from "./crud";
 
 const DAYS = [
@@ -94,6 +94,7 @@ export default function Zones() {
   const { options: cityOptions } = useCityOptions();
   const { data: all } = useFetch("/admin/zones", { limit: 100 });
   const [busyZone, setBusyZone] = useState(null);
+  const [finderCenter, setFinderCenter] = useState(null);
   const allZones = all?.data ?? [];
 
   return (
@@ -166,7 +167,7 @@ export default function Zones() {
             height={320}
             polygons={(list.rows.length ? list.rows : allZones)
               .filter((z) => z.polygon?.length >= 3)
-              .map((z) => ({ id: z.id, points: z.polygon, label: z.name, color: z.busyMode ? "#eab308" : z.active ? "#f95a16" : "#94a3b8" }))}
+              .map((z) => ({ id: z.id, points: z.polygon, label: z.name, color: z.busyMode ? "#eab308" : z.active ? "#ff6917" : "#94a3b8" }))}
           />
         </Card>
       )}
@@ -196,11 +197,13 @@ export default function Zones() {
       renderForm={({ f, row }) => (
         <div className="row">
           <div className="col-lg-7 mb-16">
+            <AddressFinder label="Find address (centres the map)" onPick={(a) => setFinderCenter([a.lat, a.lng])} />
             <label className="form-label fw-semibold text-primary-light text-sm mb-8">Zone boundary</label>
             <PolygonEditor
               value={f.values.polygon}
               onChange={(p) => f.set("polygon", p)}
               height={440}
+              center={finderCenter || undefined}
               others={allZones.filter((z) => z.id !== row?.id && z.polygon?.length >= 3).map((z) => ({ id: z.id, points: z.polygon, label: z.name }))}
             />
           </div>

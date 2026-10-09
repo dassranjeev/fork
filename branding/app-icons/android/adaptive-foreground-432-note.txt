@@ -1,0 +1,1 @@
+Adaptive icon: use branding/forksy-icon-transparent-1024.png as the foreground (scaled so the circle sits inside the 66% safe zone) and background colour #ff6917.

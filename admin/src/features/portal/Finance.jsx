@@ -339,8 +339,47 @@ function BankTab() {
   );
 }
 
+// ------------------------------------------------------------------ Stripe payout account (Connect)
+const ACCT_TONE = { ENABLED: "success", PENDING: "warning", RESTRICTED: "danger", NOT_STARTED: "neutral" };
+const ACCT_LABEL = { ENABLED: "Ready", PENDING: "Pending", RESTRICTED: "Needs attention", NOT_STARTED: "Not set up" };
+
+function PayoutAccountTab() {
+  const [nonce, setNonce] = useState(0);
+  const state = usePortalFetch("/restaurant/payouts/account", { refresh: nonce ? "true" : undefined, n: nonce || undefined });
+  const api = useApi();
+  const { busy, run } = useAction();
+  const go = async () => {
+    const r = await run("onb", () => api.post("/restaurant/payouts/onboarding"));
+    if (r.ok && r.data?.url) window.location.assign(r.data.url);
+  };
+  const dash = async () => {
+    const r = await run("dash", () => api.post("/restaurant/payouts/dashboard-link"));
+    if (r.ok && r.data?.url) window.open(r.data.url, "_blank", "noopener,noreferrer");
+  };
+  return (
+    <Async state={state}>
+      {(a) => (
+        <Card title="Payout account" subtitle="Payouts are sent through Stripe. Stripe checks your business and collects your bank details securely." actions={<Button variant="outline" loading={busy === "refresh"} onClick={() => setNonce((n) => n + 1)}>Refresh status</Button>}>
+          <div className="d-flex flex-wrap align-items-center gap-3 mb-12">
+            <Badge tone={ACCT_TONE[a.status] || "neutral"}><span data-testid="payout-status">{ACCT_LABEL[a.status] || a.status}</span></Badge>
+            {a.bankLast4 && <span className="text-secondary-light text-sm">Bank account ending {a.bankLast4}</span>}
+          </div>
+          <p data-testid="payout-message">{a.message}</p>
+          {a.requirementsDue?.length > 0 && <ul className="mb-12">{a.requirementsDue.map((r) => <li key={r}>{r}</li>)}</ul>}
+          {a.connectRequired && (
+            <div className="d-flex flex-wrap gap-2">
+              {a.status !== "ENABLED" && <Button loading={busy === "onb"} onClick={go} data-testid="payout-onboard">{a.status === "NOT_STARTED" ? "Set up payout account" : "Continue payout setup"}</Button>}
+              {a.status !== "NOT_STARTED" && <Button variant="light" loading={busy === "dash"} onClick={dash}>Open Stripe dashboard</Button>}
+            </div>
+          )}
+        </Card>
+      )}
+    </Async>
+  );
+}
+
 export default function Finance() {
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState(() => (/[?&]stripe=(return|refresh)/.test(window.location.search) ? "payout-account" : "overview"));
   const [statement, setStatement] = useState(null);
   return (
     <PortalPage title="Finance" subtitle="Payouts, statements and invoices for your business">
@@ -352,6 +391,7 @@ export default function Finance() {
           { key: "payouts", label: "Payouts & statements", content: <Payouts onOpen={setStatement} /> },
           { key: "invoices", label: "Invoices", content: <Invoices /> },
           { key: "ledger", label: "Order ledger", content: <Ledger /> },
+          { key: "payout-account", label: "Payout account", content: <PayoutAccountTab /> },
           { key: "bank", label: "Bank account", content: <BankTab /> },
         ]}
       />

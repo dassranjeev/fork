@@ -91,7 +91,11 @@ export class PayoutsService implements IPayoutsService {
     if (!(await this.settings.isFeatureEnabled('instant_payouts'))) throw new ForbiddenException('Instant cash-out is currently unavailable');
     const driver = await this.drivers.findOne({ where: { id: driverId } });
     if (!driver) throw new NotFoundException('Driver not found');
-    if (!driver.bank?.debitCardLast4 && !driver.bank?.accountLast4) throw new BadRequestException('Add a debit card or bank account before cashing out');
+    const info0 = await this.parties.info(PartyType.DRIVER, driverId);
+    if (info0.connectRequired) {
+      // real payouts: the driver must have finished Stripe onboarding (identity + bank / debit card live at Stripe, not here)
+      if (!info0.payoutReady) throw new BadRequestException('Your payout account is not ready. Finish the Stripe payout setup (Earnings > Payout account) before you cash out.');
+    } else if (!driver.bank?.debitCardLast4 && !driver.bank?.accountLast4) throw new BadRequestException('Add a debit card or bank account before cashing out');
     if (driver.meta?.payoutHold) throw new ForbiddenException('Payouts are on hold for your account. Please contact support.');
     return this.createDirectPayout({ partyType: PartyType.DRIVER, partyId: driverId, instant: true, actor });
   }
@@ -109,6 +113,11 @@ export class PayoutsService implements IPayoutsService {
   async createDirectPayout(opts: { partyType: PartyType; partyId: string; instant?: boolean; untilExclusive?: Date; actor: ActorRef }): Promise<Payout> {
     const { partyType, partyId } = opts;
     const info = await this.parties.info(partyType, partyId);
+    if (info.connectRequired && !info.payoutReady && !info.hold) {
+      // nothing is tagged / created: the balance simply waits until the Stripe payout account is ENABLED
+      await this.notifyAccountNotReady(partyType, partyId, info.name);
+      throw new BadRequestException('Payout account not ready: finish the Stripe payout setup first');
+    }
     const pid = randomUUID();
     const today = torontoDate();
     const payout = await this.ds.transaction(async (em) => {
@@ -158,17 +167,54 @@ export class PayoutsService implements IPayoutsService {
     try {
       const payout = await this.payouts.findOne({ where: { id: payoutId } });
       if (!payout) throw new NotFoundException('Payout not found');
-      if (![PayoutStatus.RELEASED, PayoutStatus.FAILED].includes(payout.status)) throw new ConflictException(`Payout is ${payout.status}, only RELEASED or FAILED payouts can be sent`);
+      const waiting = payout.status === PayoutStatus.PENDING && !!payout.meta?.awaitingAccount;
+      if (!waiting && ![PayoutStatus.RELEASED, PayoutStatus.FAILED].includes(payout.status)) throw new ConflictException(`Payout is ${payout.status}, only RELEASED or FAILED payouts can be sent`);
       const info = await this.parties.info(payout.partyType, payout.partyId);
-      if (info.hold || !info.bankOk) {
+      if (info.hold) {
         payout.status = PayoutStatus.ON_HOLD;
-        payout.failureReason = info.hold ? `Payout hold: ${info.holdReason ?? 'manual hold'}` : 'Bank details are missing or not verified';
+        payout.failureReason = `Payout hold: ${info.holdReason ?? 'manual hold'}`;
+        await this.payouts.save(payout);
+        if (opts.throwOnFailure) throw new BadRequestException(payout.failureReason);
+        return payout;
+      }
+      if (!info.bankOk) {
+        if (info.connectRequired) {
+          // Stripe Connect payout account is not ENABLED yet: keep it PENDING, tell the party once, send it automatically when the account is ready
+          payout.status = PayoutStatus.PENDING;
+          payout.failureReason = 'Payout account not ready';
+          payout.meta = { ...(payout.meta ?? {}), awaitingAccount: true };
+          await this.payouts.save(payout);
+          await this.notifyAccountNotReady(payout.partyType, payout.partyId, info.name, payout);
+          if (opts.throwOnFailure) throw new BadRequestException('Payout account not ready: finish the Stripe payout setup first');
+          return payout;
+        }
+        payout.status = PayoutStatus.ON_HOLD;
+        payout.failureReason = 'Bank details are missing or not verified';
         await this.payouts.save(payout);
         if (opts.throwOnFailure) throw new BadRequestException(payout.failureReason);
         return payout;
       }
       try {
-        const res = await this.providers.transfer(payout, info.stripeAccountId);
+        let instant = false;
+        if (payout.instant && this.providers.mode === 'stripe' && info.stripeAccountId) {
+          const el = await this.providers.instantEligible(info.stripeAccountId);
+          if (el.ok) instant = true;
+          else {
+            // no eligible debit card: pay as a normal transfer and do NOT charge the instant fee
+            payout.net = r2(payout.net + payout.fee);
+            payout.fee = 0;
+            payout.meta = { ...(payout.meta ?? {}), instantFallback: el.reason };
+            await this.payouts.save(payout);
+          }
+        }
+        const res = await this.providers.transfer(payout, info.stripeAccountId, { instant });
+        if (res.instantRef) payout.meta = { ...(payout.meta ?? {}), instantRef: res.instantRef };
+        if (instant && !res.instantRef && res.instantFallback) {
+          // the transfer is done but the card payout was refused: the fee is not charged, it stays in the party's balance for the next payout
+          payout.meta = { ...(payout.meta ?? {}), instantFallback: res.instantFallback, feeWaived: payout.fee };
+          payout.fee = 0;
+        }
+        payout.meta = { ...(payout.meta ?? {}), awaitingAccount: false, transferGroup: payout.batchId ? `batch_${payout.batchId}` : `payout_${payout.id}` };
         return await this.finalizePaid(payout, res.ref);
       } catch (e: any) {
         const reason = String(e?.message ?? e).slice(0, 300);
@@ -197,6 +243,10 @@ export class PayoutsService implements IPayoutsService {
       if (payout.fee > 0) {
         rows.push({ partyType: payout.partyType, partyId: payout.partyId, type: LedgerType.INSTANT_FEE, amount: -payout.fee, payoutId: payout.id, description: 'Instant cash-out fee' });
         rows.push({ partyType: PartyType.PLATFORM, partyId: null, type: LedgerType.INSTANT_FEE, amount: payout.fee, payoutId: payout.id, description: `Instant cash-out fee (${payout.partyName ?? payout.partyId})` });
+      }
+      if (payout.meta?.feeWaived > 0) {
+        rows.push({ partyType: payout.partyType, partyId: payout.partyId, type: LedgerType.ADJUSTMENT, amount: -payout.meta.feeWaived, payoutId: payout.id, description: 'Instant cash-out fee not charged (re-queued)' });
+        rows.push({ partyType: payout.partyType, partyId: payout.partyId, type: LedgerType.ADJUSTMENT, amount: payout.meta.feeWaived, payoutId: null, description: 'Instant cash-out fee not charged: balance carried to the next payout' });
       }
       await L.insert(rows as any[]);
       payout.status = PayoutStatus.PAID;
@@ -342,7 +392,8 @@ export class PayoutsService implements IPayoutsService {
     if (!batchId) return;
     const b = await this.batches.findOne({ where: { id: batchId } });
     if (!b || ![BatchStatus.RELEASED, BatchStatus.COMPLETED].includes(b.status)) return;
-    const waiting = await this.payouts.count({ where: { batchId, status: In([PayoutStatus.RELEASED, PayoutStatus.FAILED]) } });
+    // PENDING inside a released batch = waiting for the party's Stripe payout account to become ENABLED
+    const waiting = await this.payouts.count({ where: { batchId, status: In([PayoutStatus.RELEASED, PayoutStatus.FAILED, PayoutStatus.PENDING]) } });
     const target = waiting === 0 ? BatchStatus.COMPLETED : BatchStatus.RELEASED;
     if (b.status !== target) await this.batches.update(b.id, { status: target });
   }
@@ -481,10 +532,29 @@ export class PayoutsService implements IPayoutsService {
     const to = torontoMidnight(addDays(pe, 1));
     const row = await this.payments
       .createQueryBuilder('p')
-      .select(`COALESCE(SUM(CASE WHEN p.kind = 'CAPTURE' THEN p.amount WHEN p.kind = 'REFUND' THEN -p.amount ELSE 0 END), 0)`, 'net')
-      .where('p.status = :st AND p.createdAt >= :from AND p.createdAt < :to', { st: 'SUCCEEDED', from, to })
+      .select(
+        `COALESCE(SUM(CASE
+          WHEN p.kind = 'CAPTURE' THEN p.amount
+          WHEN p.kind = 'REFUND' THEN -p.amount
+          WHEN p.kind = 'TIP_ADJUST' AND p.meta ->> 'phase' = 'post' THEN p.amount
+          WHEN p.kind = 'DISPUTE' THEN -p.amount
+          WHEN p.kind = 'DISPUTE_REVERSAL' THEN p.amount
+          ELSE 0 END), 0)`,
+        'net',
+      )
+      .where("p.status = :st AND p.provider <> 'mock' AND p.createdAt >= :from AND p.createdAt < :to", { st: 'SUCCEEDED', from, to })
       .getRawOne<{ net: string }>();
-    const captured = r2(Number(row?.net ?? 0));
+    // wallet top-ups and gift-card purchases are Stripe charges without an order
+    const topups = await this.ds.query(`SELECT COALESCE(SUM(amount), 0) AS s FROM stripe_intents WHERE purpose IN ('TOPUP','GIFT_CARD') AND "consumedAt" >= $1 AND "consumedAt" < $2 AND "intentId" NOT LIKE '%mock%'`, [from, to]);
+    const mockRow = await this.payments
+      .createQueryBuilder('p')
+      .select(`COALESCE(SUM(CASE WHEN p.kind = 'CAPTURE' THEN p.amount WHEN p.kind = 'REFUND' THEN -p.amount ELSE 0 END), 0)`, 'net')
+      .where("p.status = :st AND p.provider = 'mock' AND p.createdAt >= :from AND p.createdAt < :to", { st: 'SUCCEEDED', from, to })
+      .getRawOne<{ net: string }>();
+    const realNet = r2(Number(row?.net ?? 0) + Number(topups?.[0]?.s ?? 0));
+    // real mode compares what FORKSY recorded through Stripe with Stripe's own balance transactions (old demo "mock" rows are not in Stripe);
+    // the development mock provider simply reports the recorded total
+    const captured = this.providers.mode === 'stripe' ? realNet : r2(realNet + Number(mockRow?.net ?? 0));
     const res = await this.providers.balanceFor(from, to, captured);
     const tolerance = Number(this.settings.get('payments.reconciliationToleranceCad', 1));
     const gap = r2(captured - res.net);
@@ -632,6 +702,88 @@ export class PayoutsService implements IPayoutsService {
     } catch (e: any) {
       this.logger.error(`daily restaurant payouts cron failed: ${e.message}`);
     }
+  }
+
+  // ==================================================================== Stripe Connect: waiting payouts and provider callbacks
+  /** Tell the party (once per account problem) that money is waiting for their Stripe payout account. */
+  async notifyAccountNotReady(partyType: PartyType, partyId: string, name?: string, payout?: Payout) {
+    const col = partyType === PartyType.RESTAURANT ? this.merchants : this.drivers;
+    const row: any = await (col as any).findOne({ where: { id: partyId } });
+    const info = row?.stripeAccountInfo ?? {};
+    if (info.notReadyNotifiedAt) return; // once, until the account became ready (reset in onAccountReady)
+    await (col as any).update(partyId, { stripeAccountInfo: { ...info, notReadyNotifiedAt: new Date().toISOString() } });
+    await this.parties.notifyParty(partyType, partyId, 'payout.account_not_ready', { amount: payout ? money(payout.net) : '' }, { payoutId: payout?.id ?? null });
+    await this.notifications.notifyOps('finance.payout_waiting_account', { party: name ?? partyId }, { partyType, partyId });
+  }
+
+  /** The party's Stripe payout account just became ENABLED: send everything that was waiting for it. */
+  async onAccountReady(partyType: PartyType, partyId: string): Promise<number> {
+    const col = partyType === PartyType.RESTAURANT ? this.merchants : this.drivers;
+    const row: any = await (col as any).findOne({ where: { id: partyId } });
+    if (row?.stripeAccountInfo?.notReadyNotifiedAt) await (col as any).update(partyId, { stripeAccountInfo: { ...row.stripeAccountInfo, notReadyNotifiedAt: null } });
+    const waiting = await this.payouts.find({ where: { partyType, partyId, status: PayoutStatus.PENDING } });
+    let sent = 0;
+    for (const p of waiting.filter((w) => w.meta?.awaitingAccount)) {
+      try {
+        const done = await this.execute(p.id);
+        await this.refreshBatch(p.batchId);
+        if (done.status === PayoutStatus.PAID) sent++;
+      } catch (e: any) {
+        this.logger.warn(`waiting payout ${p.id} could not be sent: ${e.message}`);
+      }
+    }
+    return sent;
+  }
+
+  /** Safety net for a missed account.updated webhook: retry waiting payouts every hour. */
+  @Cron(CronExpression.EVERY_HOUR)
+  async sweepWaitingPayouts() {
+    try {
+      const waiting = (await this.payouts.find({ where: { status: PayoutStatus.PENDING } })).filter((p) => p.meta?.awaitingAccount);
+      for (const p of waiting) {
+        const info = await this.parties.info(p.partyType, p.partyId).catch(() => null);
+        if (!info?.payoutReady || info.hold) continue;
+        await this.execute(p.id).catch((e) => this.logger.warn(`sweep payout ${p.id}: ${e.message}`));
+        await this.refreshBatch(p.batchId);
+      }
+    } catch (e: any) {
+      this.logger.error(`waiting payouts sweep failed: ${e.message}`);
+    }
+  }
+
+  /** transfer.reversed: money came back from the connected account. Mark the payout FAILED, return the amount to the party's ledger, tell finance. */
+  async onTransferReversed(transferId: string, amountReversed: number): Promise<{ payoutId: string | null }> {
+    const p = await this.payouts.findOne({ where: { externalRef: transferId } });
+    if (!p) return { payoutId: null };
+    const already = Number(p.meta?.reversedAmount ?? 0);
+    const delta = r2(amountReversed - already);
+    if (delta <= 0) return { payoutId: p.id };
+    await this.ledger.insert({ partyType: p.partyType, partyId: p.partyId, orderId: null, type: LedgerType.ADJUSTMENT, amount: delta, payoutId: null, description: `Transfer reversed by Stripe (${transferId})`, meta: { transferId, payoutId: p.id } } as any);
+    p.meta = { ...(p.meta ?? {}), reversedAmount: r2(already + delta), reversedAt: new Date().toISOString() };
+    if (r2(amountReversed) >= r2(Number(p.net)) - 0.001) {
+      p.status = PayoutStatus.FAILED;
+      p.failureReason = 'Transfer reversed by Stripe';
+    }
+    await this.payouts.save(p);
+    await this.notifications.notifyOps('finance.payout_failed', { party: p.partyName ?? p.partyId, amount: money(delta), reason: 'The transfer was reversed by Stripe' }, { payoutId: p.id });
+    return { payoutId: p.id };
+  }
+
+  /** payout.failed on a connected account (the party's bank refused the money). Finance and the party are told; the transfer itself stays recorded. */
+  async onConnectedPayoutFailed(accountId: string, stripePayout: any) {
+    const party = await this.findPartyByAccount(accountId);
+    if (!party) return;
+    const reason = String(stripePayout?.failure_message ?? stripePayout?.failure_code ?? 'unknown').slice(0, 200);
+    await this.notifications.notifyOps('finance.payout_failed', { party: party.name, amount: money((stripePayout?.amount ?? 0) / 100), reason: `Stripe payout to the bank failed: ${reason}` }, { partyType: party.type, partyId: party.id, stripePayoutId: stripePayout?.id });
+    await this.parties.notifyParty(party.type, party.id, 'payout.bank_failed', { reason }, { stripePayoutId: stripePayout?.id });
+  }
+
+  async findPartyByAccount(accountId: string): Promise<{ type: PartyType; id: string; name: string } | null> {
+    const m = await this.merchants.findOne({ where: { stripeAccountId: accountId } });
+    if (m) return { type: PartyType.RESTAURANT, id: m.id, name: m.businessName };
+    const d = await this.drivers.findOne({ where: { stripeAccountId: accountId }, relations: ['user'] });
+    if (d) return { type: PartyType.DRIVER, id: d.id, name: d.user ? `${d.user.firstName} ${d.user.lastName}`.trim() : d.id };
+    return null;
   }
 
   // ==================================================================== ledger explorer / manual adjustments / dashboard

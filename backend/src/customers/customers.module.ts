@@ -18,7 +18,7 @@ import {
   CustomerReferralsController,
   CustomerWalletController,
 } from './account.controller';
-import { CustomerCartController, CustomerCheckoutController } from './cart-checkout.controller';
+import { CustomerCartController, CustomerCheckoutController, CustomerPaymentsController } from './cart-checkout.controller';
 import { CustomerOrdersController } from './customer-orders.controller';
 import {
   CustomerHomeController,
@@ -45,6 +45,7 @@ import {
     CustomerPrivacyController,
     CustomerCartController,
     CustomerCheckoutController,
+    CustomerPaymentsController,
     CustomerOrdersController,
     CustomerHomeController,
     CustomerSearchController,

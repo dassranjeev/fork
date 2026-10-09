@@ -219,6 +219,8 @@ export enum LedgerType {
   ADJUSTMENT = 'ADJUSTMENT',
   PAYOUT = 'PAYOUT', // negative when paid
   INSTANT_FEE = 'INSTANT_FEE',
+  /** driver waited at the restaurant beyond the grace period: + for the driver, - for the restaurant (deducted from its payout) */
+  WAIT_FEE = 'WAIT_FEE',
 }
 
 export enum PayoutStatus {

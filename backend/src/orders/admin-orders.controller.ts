@@ -1,6 +1,7 @@
+import { Type } from 'class-transformer';
 import { Body, ForbiddenException, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { IsEnum, IsIn, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
+import { IsEnum, IsIn, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min, MinLength, ValidateNested } from 'class-validator';
 import { hasPermission } from '../common/guards';
 import { csvRow } from '../common/csv';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -26,8 +27,18 @@ class ForceStatusDto {
   @IsEnum(OrderStatus) status: OrderStatus;
   @IsOptional() @IsString() @MaxLength(500) reason?: string;
 }
+/** Who at the restaurant agreed (phone / chat / email / in person) when FORKSY cancels an order the restaurant already has. */
+class RestaurantApprovalDto {
+  @IsString() @MinLength(2) @MaxLength(80) contactName: string;
+  @IsIn(['PHONE', 'CHAT', 'EMAIL', 'IN_PERSON']) channel: string;
+  @IsOptional() @IsString() @MaxLength(300) note?: string;
+}
 class CancelBodyDto {
   @IsString() @MaxLength(500) reason: string;
+  @IsOptional() @ValidateNested() @Type(() => RestaurantApprovalDto) restaurantApproval?: RestaurantApprovalDto;
+}
+class CancelRequestDto {
+  @IsString() @MinLength(3) @MaxLength(500) reason: string;
 }
 class ReassignBodyDto {
   @IsUUID() driverId: string;
@@ -141,8 +152,26 @@ export class AdminOrdersController {
   @Permission(Module.ORDERS, Action.EDIT)
   async cancel(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser, @Body() dto: CancelBodyDto) {
     const reason = dto.reason;
-    const order = await this.ordersService.cancel(id, { ...actorFor(user), supportApproved: true }, reason);
-    await this.audit.log({ actor: user, action: 'order.cancel', entity: 'Order', entityId: id, after: { reason } });
+    const order = await this.ordersService.cancel(id, { ...actorFor(user), supportApproved: true }, reason, { restaurantApproval: dto.restaurantApproval });
+    await this.audit.log({ actor: user, action: 'order.cancel', entity: 'Order', entityId: id, after: { reason, restaurantApproval: dto.restaurantApproval ?? (order.meta?.cancelRequest?.status === 'APPROVED' ? 'via portal request' : undefined) } });
+    return order;
+  }
+
+  /** Waive the driver wait-time charge (e.g. after a restaurant dispute): the restaurant is made whole, FORKSY absorbs it, the driver keeps the pay. */
+  @Post(':id/wait-fee/waive')
+  @Permission(Module.ORDERS, Action.APPROVE)
+  async waiveWaitFee(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser, @Body() dto: CancelRequestDto) {
+    const order = await this.ordersService.waiveWaitFee(id, actorFor(user), dto.reason);
+    await this.audit.log({ actor: user, action: 'order.wait_fee_waived', entity: 'Order', entityId: id, after: { reason: dto.reason } });
+    return order;
+  }
+
+  /** Ask the restaurant for permission to cancel an order it already has. The restaurant answers in its portal. */
+  @Post(':id/cancel-request')
+  @Permission(Module.ORDERS, Action.EDIT)
+  async cancelRequest(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser, @Body() dto: CancelRequestDto) {
+    const order = await this.ordersService.requestCancelApproval(id, { ...actorFor(user), supportApproved: true }, dto.reason);
+    await this.audit.log({ actor: user, action: 'order.cancel_requested', entity: 'Order', entityId: id, after: { reason: dto.reason } });
     return order;
   }
 

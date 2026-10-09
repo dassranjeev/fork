@@ -101,6 +101,11 @@ export class DispatchService implements IDispatchService {
 
   // ---------------------------------------------------------------------- IDispatchService
 
+  /** minutes before the food is due that the driver search starts (0 = only when the kitchen marks the order ready) */
+  private preReadyMinutes(): number {
+    return Math.max(0, Number(this.settings.get<number>('dispatch.preReadyMinutes', 5)));
+  }
+
   async startDispatch(orderId: string): Promise<void> {
     const order = await this.orders.findOne({ where: { id: orderId }, relations: ['restaurant'] });
     if (!order) return;
@@ -142,11 +147,9 @@ export class DispatchService implements IDispatchService {
       return;
     }
 
+    // Owner rule: the driver search starts dispatch.preReadyMinutes (default 5) before the food is due, e.g. ready at 3:20 pm => search from 3:15 pm.
     const readyAt = this.ranking.expectedReadyAt(order, order.restaurant ?? null, now);
-    const readyWindow = Number(this.settings.get('dispatch.readyMatchWindowMin', 2));
-    const peek = await this.ranking.rank(order, { radiusKm: d.radiusKm, limit: 1 }).catch(() => [] as RankedCandidate[]);
-    const leadMin = peek[0] ? peek[0].etaMin + 0.5 : Number(this.settings.get('dispatch.assumedPickupEtaMin', 8));
-    const idealStart = new Date(readyAt.getTime() - (leadMin + readyWindow) * 60_000);
+    const idealStart = new Date(readyAt.getTime() - this.preReadyMinutes() * 60_000);
 
     if (idealStart.getTime() > now.getTime() + 15_000) {
       d.state = 'WAITING';
@@ -171,6 +174,8 @@ export class DispatchService implements IDispatchService {
         offer.declineReason = reason ?? 'dispatch_cancelled';
         await this.offers.save(offer);
         this.rt.emitToDriver(offer.driverId, 'driver.offer.cancelled', { offerId: offer.id, orderId, reason: reason ?? 'cancelled' });
+        // replaces the ringing push of the offer (same collapse tag) so a closed phone does not keep an obsolete offer
+        this.drivers.findOne({ where: { id: offer.driverId }, select: ['id', 'userId'] }).then((dp) => dp?.userId && this.notifications.notify({ userId: dp.userId, audience: 'DRIVER', event: 'driver.offer_cancelled', vars: { restaurant: order.restaurant?.name ?? '' }, data: { offerId: offer.id, orderId } })).catch(() => undefined);
       }
     }
     d.state = 'STOPPED';
@@ -258,10 +263,14 @@ export class DispatchService implements IDispatchService {
     if (!offer || offer.expiresAt.getTime() < Date.now()) return null;
     const order = await this.orders.findOne({ where: { id: offer.orderId }, relations: ['restaurant', 'items'] });
     if (!order) return null;
+    const carrying = await this.orders.count({ where: { driverId, status: In([OrderStatus.PICKED_UP, OrderStatus.ON_THE_WAY]) } });
     return {
       id: offer.id,
       orderId: order.id,
       code: order.code,
+      // en-route stacking: the driver is already delivering an order; this one is picked up right after it
+      stacked: carrying > 0,
+      stackedNote: carrying > 0 ? 'Pick this up after you finish your current delivery' : undefined,
       restaurant: order.restaurant
         ? { id: order.restaurant.id, name: order.restaurant.name, address: order.restaurant.addressLine1, lat: order.restaurant.lat, lng: order.restaurant.lng }
         : null,
@@ -331,7 +340,9 @@ export class DispatchService implements IDispatchService {
 
       // ready-time WAITING gate
       if (d.state === 'WAITING') {
-        if (d.nextAttemptAt && new Date(d.nextAttemptAt).getTime() > Date.now()) {
+        const idealStart = new Date(this.ranking.expectedReadyAt(order, order.restaurant ?? null).getTime() - this.preReadyMinutes() * 60_000);
+        d.nextAttemptAt = idealStart.toISOString();
+        if (idealStart.getTime() > Date.now() + 1000) {
           await this.saveMeta(order, d);
           return;
         }
@@ -431,7 +442,7 @@ export class DispatchService implements IDispatchService {
             audience: 'DRIVER',
             event: 'driver.offer',
             vars: { restaurant: restaurantName, pickupKm: candidate.distanceKm, dropKm: candidate.dropKm, pay: `$${candidate.estimatedPay.toFixed(2)}`, seconds: timeoutSec },
-            data: { offerId: offer.id, orderId: order.id },
+            data: { offerId: offer.id, orderId: order.id, seconds: timeoutSec, expiresAt: expiresAt.toISOString() },
           })
           .catch(() => undefined);
       }
@@ -495,7 +506,20 @@ export class DispatchService implements IDispatchService {
     try {
       if (payload.order.fulfilment !== FulfilmentMode.PLATFORM_DRIVER) return;
       // dispatch.startOn: READY (default) = search starts only once the kitchen confirms the food is ready; ACCEPTED = legacy
-      const startOn = String(this.settings.get('dispatch.startOn', 'READY')).toUpperCase() === 'ACCEPTED' ? OrderStatus.ACCEPTED : OrderStatus.READY;
+      const legacyAccepted = String(this.settings.get('dispatch.startOn', 'READY')).toUpperCase() === 'ACCEPTED';
+      if (this.preReadyMinutes() > 0 && !legacyAccepted) {
+        // accepted: arm the search for (ready time - lead); ready: make sure it is running now (promote a waiting search, or start one that never started)
+        if (payload.to === OrderStatus.ACCEPTED) await this.startDispatch(payload.order.id);
+        else if (payload.to === OrderStatus.READY) {
+          const o = await this.orders.findOne({ where: { id: payload.order.id } });
+          const d = o ? this.metaOf(o) : null;
+          if (!o || o.driverId) return;
+          if (!d || d.state === 'STOPPED') await this.startDispatch(o.id);
+          else if (d.state === 'WAITING') await this.advance(o.id); // ready time reached: the gate above lets it through
+        }
+        return;
+      }
+      const startOn = legacyAccepted ? OrderStatus.ACCEPTED : OrderStatus.READY;
       if (payload.to === startOn) await this.startDispatch(payload.order.id);
     } catch (e: any) {
       this.logger.warn(`onOrderStatusChanged failed: ${e.message}`);
@@ -517,7 +541,7 @@ export class DispatchService implements IDispatchService {
       }
       // READY (or later): search right away; earlier statuses wait for the configured trigger
       const startOn = String(this.settings.get('dispatch.startOn', 'READY')).toUpperCase();
-      if (order.status === OrderStatus.READY || startOn === 'ACCEPTED') await this.startDispatch(order.id);
+      if (order.status === OrderStatus.READY || startOn === 'ACCEPTED' || this.preReadyMinutes() > 0) await this.startDispatch(order.id);
     } catch (e: any) {
       this.logger.warn(`onDriverUnassigned failed: ${e.message}`);
     }

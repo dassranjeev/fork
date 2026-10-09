@@ -11,6 +11,8 @@ const SignIn = lazy(() => import("./features/auth/SignIn"));
 const ForgotPassword = lazy(() => import("./features/auth/ForgotPassword"));
 const RestaurantApply = lazy(() => import("./features/auth/RestaurantApply"));
 const Account = lazy(() => import("./features/auth/Account"));
+// customer website: public layout at /order/*, its own session + cart (no admin sidebar, no admin auth)
+const Storefront = lazy(() => import("./features/storefront/Storefront"));
 
 function Forbidden() {
   return (
@@ -31,9 +33,10 @@ function NotFound() {
 }
 
 /** Wrap an element with a permission / restaurant-role check. */
-function Guard({ perm, roles, children }) {
+function Guard({ perm, anyPerm, roles, children }) {
   const { can, restaurantRole } = useAuth();
   if (perm && !can(perm[0], perm[1] || "view")) return <Forbidden />;
+  if (anyPerm && !anyPerm.some((p) => can(p[0], p[1] || "view"))) return <Forbidden />;
   if (roles && !roles.includes(restaurantRole)) return <Forbidden />;
   return children;
 }
@@ -41,7 +44,7 @@ function Guard({ perm, roles, children }) {
 const toRoutes = (features) =>
   features
     .flatMap((f) => f.routes || [])
-    .map((r) => <Route key={r.path || "index"} path={r.path?.replace(/^\//, "")} index={r.index} element={<Guard perm={r.perm} roles={r.roles}>{r.element}</Guard>} />);
+    .map((r) => <Route key={r.path || "index"} path={r.path?.replace(/^\//, "")} index={r.index} element={<Guard perm={r.perm} anyPerm={r.anyPerm} roles={r.roles}>{r.element}</Guard>} />);
 
 const adminMenu = adminFeatures.flatMap((f) => f.menu || []);
 const portalMenu = portalFeatures.flatMap((f) => f.menu || []);
@@ -63,6 +66,7 @@ function App() {
               <Route path="/sign-in" element={<SignIn />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/apply" element={<RestaurantApply />} />
+              <Route path="/order/*" element={<Storefront />} />
 
               {/* Restaurant portal + KDS */}
               <Route

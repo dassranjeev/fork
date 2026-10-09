@@ -1,0 +1,63 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+
+  admin:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin
+    env:
+      DISABLE_ESLINT_PLUGIN: "true"
+      GENERATE_SOURCEMAP: "false"
+      REACT_APP_API_URL: http://localhost:4000/api/v1
+      REACT_APP_WS_URL: http://localhost:4000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [backend, admin]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API image
+        run: docker build -t forksy-api ./backend
+      - name: Build web image
+        run: docker build -t forksy-web --build-arg REACT_APP_API_URL=https://api.example.ca/api/v1 --build-arg REACT_APP_WS_URL=https://api.example.ca ./admin
+
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan for committed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

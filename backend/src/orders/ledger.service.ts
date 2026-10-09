@@ -108,6 +108,32 @@ export class LedgerService implements ILedgerService {
       }
     }
 
+    // ---- driver wait-time pay (the driver waited at the restaurant): paid to the driver, deducted from the restaurant
+    if (order.driverId && order.fulfilment === FulfilmentMode.PLATFORM_DRIVER && Number(order.driverWaitFee) > 0) {
+      const fee = round2(Number(order.driverWaitFee));
+      rows.push({
+        partyType: PartyType.DRIVER,
+        partyId: order.driverId,
+        orderId: order.id,
+        type: LedgerType.WAIT_FEE,
+        amount: fee,
+        description: `Wait-time pay at the restaurant for ${order.code} (${order.driverWaitMinutes} min)`,
+        meta: { waitMinutes: order.driverWaitMinutes },
+      });
+      if (merchantId) {
+        rows.push({
+          partyType: PartyType.RESTAURANT,
+          partyId: merchantId,
+          restaurantId: order.restaurantId,
+          orderId: order.id,
+          type: LedgerType.WAIT_FEE,
+          amount: -fee,
+          description: `Driver wait-time charge on ${order.code} (${order.driverWaitMinutes} min after the promised ready time)`,
+          meta: { waitMinutes: order.driverWaitMinutes },
+        });
+      }
+    }
+
     // ---- platform: fees + commission revenue, minus platform-funded promo
     const feeRevenue = round2(Number(order.deliveryFee) * (order.fulfilment === FulfilmentMode.PLATFORM_DRIVER ? 1 : 0) + Number(order.serviceFee) + Number(order.smallOrderFee) - Number(order.platformPromoAmount));
     if (feeRevenue !== 0) {

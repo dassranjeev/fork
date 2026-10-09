@@ -37,8 +37,14 @@ Base: `/api/v1`. Customer routes need a CUSTOMER JWT (guest tokens from `/public
 | GET | `/customer/favorites` | lat,lng | `{data: RestaurantCard[]}` |
 | POST/DELETE | `/customer/favorites/:restaurantId` | - | `{ok,isFavorite}` |
 | GET | `/customer/cards` | - | `{data:[{id,brand,last4,expMonth,expYear,isDefault}]}` |
-| POST | `/customer/cards/setup-intent` | - | `{clientSecret}` |
-| DELETE | `/customer/cards/:id` | - | `{ok}` |
+| POST | `/customer/cards/setup-intent` | - | `{clientSecret, customerId, publishableKey}`: confirm it with the Stripe Payment Element (`confirmSetup`) |
+| POST | `/customer/cards/:id/default` | - | `{ok, defaultCardId}` (400 if the card is not the customer's) |
+| DELETE | `/customer/cards/:id` | - | `{ok}` (400 if the card is not the customer's) |
+| POST | `/customer/payments/intent` | quote fields + `{saveCard?, paymentMethodId?, intentId?}` (an `amount` field is rejected) | `{required, clientSecret, intentId, amount, currency, publishableKey, status, updated, quote}`; `{required:false}` when wallet credit covers the order. Manual-capture PaymentIntent for the card part, priced by the server. See docs/payments.md |
+| POST | `/customer/wallet/top-up-intent` | `{amount}` (`payments.topUpMin`..`topUpMax`) | `{intentId, clientSecret, amount, publishableKey}` |
+| POST | `/customer/wallet/top-up/confirm` | `{paymentIntentId}` | `{status: credited / already / not_paid, amount, balance}` (idempotent; the webhook credits the same intent once) |
+| POST | `/customer/gift-cards/purchase-intent` | `{amount (10..500), recipientEmail?, message?}` | `{intentId, clientSecret, amount, publishableKey}` |
+| POST | `/customer/gift-cards/purchase/confirm` | `{paymentIntentId}` | `{status: issued / already / not_paid, giftCard{id,code,amount}}` |
 | GET | `/customer/wallet` | page,limit | `{balance, transactions:{data,meta}}` |
 | POST | `/customer/wallet/redeem-gift-card` | `{code}` | `{amount,balance}` |
 | GET | `/customer/referrals` | - | `{code,shareText,rewards,stats,referrals[]}` |
@@ -52,7 +58,7 @@ Base: `/api/v1`. Customer routes need a CUSTOMER JWT (guest tokens from `/public
 | POST | `/customer/cart/promo` | `{code|null}` | cart |
 | DELETE | `/customer/cart` | - | empty cart |
 | POST | `/customer/checkout/quote` | `{type DELIVERY/PICKUP, fulfilment?, addressId|lat+lng, tip, useWallet, promoCode, scheduledFor}` (uses current cart) | `Quote` (PricingService) |
-| POST | `/customer/orders` | quote fields + `{paymentMethod, paymentToken?, giftCardCode? (redeemed to wallet first), dropoffMethod? (HAND_TO_ME/LEAVE_AT_DOOR/MEET_OUTSIDE), usePin? (default true; false = no PIN, the driver must upload a photo of the delivered order),  dropoffNotes? (driver instructions, max 300), accessCode? (max 40, sensitive), contactless? (legacy: true = LEAVE_AT_DOOR), customerNotes (KITCHEN note)}` | Order (cart cleared). Omitted method/notes/code are prefilled from the chosen saved address. Hand-to-me / meet-outside orders get a 4-digit `deliveryPin` (shown to the customer) unless `usePin` is false. Drivers must be within 100 m of the delivery location to complete |
+| POST | `/customer/orders` | quote fields + `{paymentMethod (CARD / APPLE_PAY / GOOGLE_PAY / WALLET / GIFT_CARD; CASH is refused), paymentIntentId (required for any card amount: the confirmed PaymentIntent; replaces paymentToken, which only works with the development mock), giftCardCode? (redeemed to wallet first), dropoffMethod? (HAND_TO_ME/LEAVE_AT_DOOR/MEET_OUTSIDE), usePin? (default true; false = no PIN, the driver must upload a photo of the delivered order),  dropoffNotes? (driver instructions, max 300), accessCode? (max 40, sensitive), contactless? (legacy: true = LEAVE_AT_DOOR), customerNotes (KITCHEN note)}` | Order (cart cleared). Payment errors carry a `code` (`PAYMENT_INTENT_REQUIRED`, `PAYMENT_INTENT_INVALID`, `PAYMENT_NOT_CONFIRMED`, 409 `PAYMENT_QUOTE_CHANGED` / `PAYMENT_ACTION_REQUIRED` / `PAYMENT_INTENT_USED` / `PAYMENT_INTENT_CANCELED`), see docs/payments.md. Omitted method/notes/code are prefilled from the chosen saved address. Hand-to-me / meet-outside orders get a 4-digit `deliveryPin` (shown to the customer) unless `usePin` is false. Drivers must be within 100 m of the delivery location to complete |
 | GET | `/customer/orders` | page,limit,status | paginated own orders |
 | GET | `/customer/orders/:id` | - | Order with items, `deliveryPin` (when a PIN is required), `accessCodeSet`, `kitchenNotes`, and once delivered `deliveryProof{proofType,deliveredAt,photoUrl,location,dropoff}` (photo via the authenticated `GET /orders/:id/proof/photo`) |
 | PATCH | `/customer/orders/:id/delivery-instructions` | `{dropoffMethod?, usePin?, dropoffNotes?, accessCode?}` (10/min) | Order. Allowed until the driver picks the food up (400 after). Switching method updates the proof rule / PIN; the assigned driver gets a realtime `order.instructions_changed` event + notification; an OrderEvent is written (never containing the code) |

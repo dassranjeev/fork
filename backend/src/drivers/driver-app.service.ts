@@ -308,11 +308,16 @@ export class DriverAppService {
   }
 
   async activeTrip(driverId: string) {
-    const o = await this.orders.findOne({ where: { driverId, status: In(ON_TRIP_STATUSES) }, order: { createdAt: 'DESC' } });
-    if (!o) return null;
+    const all = await this.orders.find({ where: { driverId, status: In(ON_TRIP_STATUSES) }, relations: ['restaurant'], order: { createdAt: 'ASC' } });
+    if (!all.length) return null;
+    // a driver can carry up to 2 orders (en-route stacking): the one furthest along is "current" (food already in the car first), the rest wait in the queue
+    const rank = (s: OrderStatus) => ([OrderStatus.ON_THE_WAY, OrderStatus.PICKED_UP].includes(s) ? 0 : s === OrderStatus.READY ? 1 : 2);
+    const sorted = [...all].sort((a, b) => rank(a.status) - rank(b.status) || a.createdAt.getTime() - b.createdAt.getTime());
+    const o = sorted[0];
     const view = await this.ordersService.trackingView(o.id, 'DRIVER');
+    const queue = sorted.slice(1).map((q) => ({ id: q.id, code: q.code, status: q.status, restaurant: q.restaurant?.name ?? null, pickupAfterCurrentDelivery: [OrderStatus.PICKED_UP, OrderStatus.ON_THE_WAY].includes(o.status) && ![OrderStatus.PICKED_UP, OrderStatus.ON_THE_WAY].includes(q.status) }));
     // masked call: the driver never sees real numbers; POST /driver/trip/:orderId/call opens a proxy session
-    return { ...view, maskedCall: { customer: true, restaurant: true, path: `/driver/trip/${o.id}/call` } };
+    return { ...view, queue, stackedOrders: queue.length, maskedCall: { customer: true, restaurant: true, path: `/driver/trip/${o.id}/call` } };
   }
 
   async arrivedRestaurant(driverId: string, orderId: string, dto: StepDto) {

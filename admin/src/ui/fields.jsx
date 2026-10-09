@@ -94,7 +94,7 @@ export function Switch({ label, hint, checked, onChange, className = "mb-16", co
   return (
     <div className={`${col ? `col-md-${col}` : ""} ${className}`}>
       <div className="form-check form-switch switch-primary d-flex align-items-center gap-3">
-        <input className="form-check-input" type="checkbox" role="switch" checked={!!checked} disabled={disabled} onChange={(e) => onChange?.(e.target.checked)} />
+        <input className="form-check-input" type="checkbox" role="switch" aria-label={typeof label === "string" ? label : undefined} checked={!!checked} disabled={disabled} onChange={(e) => onChange?.(e.target.checked)} />
         <label className="form-check-label fw-medium text-primary-light">{label}</label>
       </div>
       {hint && <div className="text-secondary-light text-xs mt-4 ms-5 ps-3">{hint}</div>}

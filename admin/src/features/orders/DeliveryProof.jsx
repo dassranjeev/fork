@@ -84,8 +84,8 @@ export function DeliveryProofTab({ orderId, status }) {
   const markers = [];
   const lines = [];
   if (d.dropoff?.lat != null) markers.push({ id: "drop", lat: d.dropoff.lat, lng: d.dropoff.lng, color: "#22c55e", glyph: "D", title: `Drop-off address: ${d.dropoff.line1 || ""}` });
-  if (p?.photoLat != null) markers.push({ id: "photo", lat: p.photoLat, lng: p.photoLng, color: "#f95a16", glyph: "P", title: `Photo location (${p.distanceMeters ?? "?"} m from drop-off)` });
-  else if (p?.claimedLat != null) markers.push({ id: "claim", lat: p.claimedLat, lng: p.claimedLng, color: "#f95a16", glyph: "P", title: "Claimed delivery location" });
+  if (p?.photoLat != null) markers.push({ id: "photo", lat: p.photoLat, lng: p.photoLng, color: "#ff6917", glyph: "P", title: `Photo location (${p.distanceMeters ?? "?"} m from drop-off)` });
+  else if (p?.claimedLat != null) markers.push({ id: "claim", lat: p.claimedLat, lng: p.claimedLng, color: "#ff6917", glyph: "P", title: "Claimed delivery location" });
   const pts = (p?.breadcrumb?.points || []).filter((x) => x.lat != null);
   pts.forEach((x, i) => markers.push({ id: `b${i}`, lat: x.lat, lng: x.lng, kind: "dot", color: "#487fff", size: 10, title: `GPS ${fmtDateTime(x.at)} · ${x.distanceMeters ?? "?"} m from drop-off` }));
   if (pts.length > 1) lines.push({ id: "trail", points: pts.map((x) => [x.lat, x.lng]), color: "#487fff", dashed: true });

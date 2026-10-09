@@ -10,6 +10,7 @@ const RESTAURANT_COLS: { key: string; label: string; types: LedgerType[] }[] = [
   { key: 'sale', label: 'Food sales + HST', types: [LedgerType.SALE] },
   { key: 'commission', label: 'Commission', types: [LedgerType.COMMISSION] },
   { key: 'promo', label: 'Restaurant promos', types: [LedgerType.RESTAURANT_PROMO] },
+  { key: 'waitFee', label: 'Driver wait-time charges', types: [LedgerType.WAIT_FEE] },
   { key: 'refund', label: 'Refunds charged', types: [LedgerType.REFUND] },
   { key: 'adjustment', label: 'Adjustments', types: [LedgerType.ADJUSTMENT] },
 ];
@@ -17,6 +18,7 @@ const DRIVER_COLS: { key: string; label: string; types: LedgerType[] }[] = [
   { key: 'deliveryPay', label: 'Delivery pay', types: [LedgerType.DELIVERY_PAY] },
   { key: 'tip', label: 'Tips', types: [LedgerType.TIP] },
   { key: 'boost', label: 'Boosts / bonuses', types: [LedgerType.BOOST] },
+  { key: 'waitFee', label: 'Wait-time pay', types: [LedgerType.WAIT_FEE] },
   { key: 'refund', label: 'Refunds charged', types: [LedgerType.REFUND] },
   { key: 'adjustment', label: 'Adjustments', types: [LedgerType.ADJUSTMENT] },
 ];

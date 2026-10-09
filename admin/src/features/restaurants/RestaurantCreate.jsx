@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { http } from "../../lib/api";
 import { useFetch, useForm, useSubmit } from "../../lib/hooks";
-import { Button, Card, FormRow, LocationPicker, Modal, MultiCheck, NumberInput, PageHeader, Segmented, Select, TextArea, TextInput } from "../../ui";
+import { AddressFinder, Button, Card, FormRow, LocationPicker, Modal, MultiCheck, NumberInput, PageHeader, Segmented, Select, TextArea, TextInput } from "../../ui";
 import { listOf, useLookups } from "./shared";
 
 const INIT = {
@@ -59,6 +59,7 @@ export default function RestaurantCreate() {
               <Select col={6} label="Commission tier" placeholder="Default tier" options={tiers.map((t) => ({ value: t.id, label: `${t.name} (${t.deliveryPct}% delivery)` }))} {...form.bind("commissionTierId")} />
             </FormRow>
             <MultiCheck label="Cuisines" cols={4} options={cuisines.map((c) => ({ value: c.id, label: c.name }))} value={v.cuisineIds} onChange={(x) => form.set("cuisineIds", x)} />
+            <AddressFinder onPick={(a) => { setGeo({ lat: a.lat, lng: a.lng }); form.setValues((x) => ({ ...x, addressLine1: a.line1 || x.addressLine1, city: a.city || x.city, province: a.province || x.province, postalCode: a.postalCode || x.postalCode })); }} />
             <div className="text-sm fw-semibold mb-8">Map pin (click to place; zone is resolved automatically)</div>
             <LocationPicker value={geo} onChange={setGeo} height={260} />
             <div className="text-secondary-light text-xs mt-4">

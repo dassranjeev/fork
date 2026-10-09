@@ -10,7 +10,8 @@ import { CartService } from './cart.service';
 import { ExternalServices } from './lazy';
 import { openCode } from '../orders/delivery-instructions';
 import { DeliveryProof } from '../database/entities';
-import { CheckoutQuoteDto, PlaceOrderDto, UpdateDeliveryInstructionsDto } from './dto';
+import { CheckoutQuoteDto, PaymentIntentDto, PlaceOrderDto, UpdateDeliveryInstructionsDto } from './dto';
+import { quoteFingerprint } from '../orders/quote-hash';
 
 /**
  * Glue between the customer app and the shared order-lifecycle services (OrdersService / PricingService).
@@ -66,9 +67,22 @@ export class CheckoutService {
     return this.ext.pricing.quote(input);
   }
 
+  /**
+   * POST /customer/payments/intent. The cart is priced again HERE and the intent amount is the card part of that quote
+   * (total minus wallet). Nothing about the amount comes from the browser.
+   */
+  async createPaymentIntent(customerId: string, dto: PaymentIntentDto) {
+    const input = await this.buildQuoteInput(customerId, dto);
+    const quote = await this.ext.pricing.quote(input);
+    const hash = quoteFingerprint(input, quote);
+    const r = await this.ext.payments.createCheckoutIntent(customerId, quote, hash, { saveCard: dto.saveCard, paymentMethodId: dto.paymentMethodId, existingIntentId: dto.intentId });
+    return { ...r, quote: { total: quote.total, walletUsed: quote.walletUsed, cardAmount: Math.round((quote.total - quote.walletUsed) * 100) / 100 } };
+  }
+
   async placeOrder(customerId: string, dto: PlaceOrderDto) {
     const input = (await this.buildQuoteInput(customerId, dto)) as PlaceOrderInput;
     input.paymentMethod = dto.paymentMethod;
+    input.paymentIntentId = dto.paymentIntentId;
     input.paymentToken = dto.paymentToken;
     input.customerNotes = dto.customerNotes; // KITCHEN note
     // delivery instructions: explicit request values win, otherwise the chosen address's saved defaults, otherwise HAND_TO_ME
@@ -110,6 +124,10 @@ export class CheckoutService {
     return Object.assign(order, {
       deliveryPin: order.requiresPin ? order.deliveryPin : null,
       accessCodeSet: hasCode,
+      driverWaitFee: undefined,
+      driverWaitMinutes: undefined,
+      canCancel: this.ext.orders.customerCancelWindow(order).open,
+      cancelUntil: this.ext.orders.customerCancelWindow(order).until,
       kitchenNotes: order.customerNotes,
       deliveryProof: p
         ? { proofType: p.proofType, method: p.method, deliveredAt: p.deliveredAt, pinVerified: p.pinVerified, photoUrl: photoOk ? `/api/v1/orders/${order.id}/proof/photo` : null, location: p.photoLat != null ? { lat: p.photoLat, lng: p.photoLng } : null, dropoff: p.dropoffLat != null ? { lat: p.dropoffLat, lng: p.dropoffLng } : null }

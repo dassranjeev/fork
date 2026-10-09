@@ -9,9 +9,9 @@ import { useAuth } from "../../lib/auth";
 export function AuthFrame({ title, subtitle, children }) {
   return (
     <section className="auth bg-base d-flex flex-wrap">
-      <div className="auth-left d-lg-flex d-none align-items-center justify-content-center" style={{ background: "linear-gradient(135deg,#f95a16,#fb7d3c 55%,#fdaa74)" }}>
+      <div className="auth-left d-lg-flex d-none align-items-center justify-content-center" style={{ background: "linear-gradient(135deg,#ff6917,#ff8340 55%,#ffa66f)" }}>
         <div className="text-white p-48" style={{ maxWidth: 520 }}>
-          <img src="/assets/images/forksy-logo-light.svg" alt="FORKSY" className="mb-40" style={{ height: 52 }} />
+          <img src="/brand/logo-horizontal-white.png" alt="FORKSY" className="mb-40" style={{ height: 64 }} />
           <h3 className="text-white mb-16">Run the whole delivery network from one console.</h3>
           <p className="text-white opacity-75 mb-32">Customers, restaurants and drivers, live dispatch, payouts and support, all in one place.</p>
           <ul className="list-unstyled d-grid gap-3 mb-0">
@@ -25,7 +25,7 @@ export function AuthFrame({ title, subtitle, children }) {
       </div>
       <div className="auth-right py-32 px-24 d-flex flex-column justify-content-center">
         <div className="max-w-464-px mx-auto w-100">
-          <img src="/assets/images/forksy-logo.svg" alt="FORKSY" className="mb-32 d-lg-none" style={{ height: 44 }} />
+          <img src="/brand/logo-horizontal-orange.png" alt="FORKSY" className="mb-32 d-lg-none" style={{ height: 48 }} />
           <h4 className="mb-12">{title}</h4>
           <p className="mb-32 text-secondary-light text-lg">{subtitle}</p>
           {children}

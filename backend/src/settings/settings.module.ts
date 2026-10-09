@@ -3,7 +3,7 @@ import { InjectRepository, TypeOrmModule } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsObject, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
 import { AppVersion, FeatureFlag, Incident, Setting } from '../database/entities';
-import { SettingsService } from './settings.service';
+import { SettingsService, sealSecret } from './settings.service';
 import { AdminController, Permission, PublicController } from '../common/decorators';
 import { Action, Module as Mod } from '../common/enums';
 import { AuditService } from '../audit/audit.service';
@@ -32,7 +32,7 @@ class AppVersionDto {
 }
 
 /** Settings that change the security posture or move money: only a Super Admin may write them (a staff role with settings:edit may not). */
-const PRIVILEGED_KEY = /^(security\.|payments\.|customers\.walletAdjustApprovalThreshold|support\..*[Ll]imit|orders\.acceptCashPayments|finance\.|payouts\.)/;
+const PRIVILEGED_KEY = /^(security\.|payments\.|integrations\.|customers\.walletAdjustApprovalThreshold|support\..*[Ll]imit|finance\.|payouts\.)/;
 
 /** The new value must have the same JSON type as the current one (a threshold cannot become the string "unlimited"). */
 function sameKind(oldV: any, newV: any): boolean {
@@ -70,6 +70,7 @@ class SettingsController {
     for (const [key, value] of Object.entries(dto.values)) {
       const row = await this.repo.findOne({ where: { key } });
       if (!row) continue;
+      if (row.group === 'integrations') throw new BadRequestException('Integration keys are edited on System > Integrations');
       if (row.isSecret && (value === '********' || value === undefined)) continue;
       if (!isSuper && (row.isSecret || PRIVILEGED_KEY.test(key))) {
         await this.audit.logReq(req, 'security.settings_denied', 'settings', undefined, undefined, { key });
@@ -77,7 +78,7 @@ class SettingsController {
       }
       if (!sameKind(row.value, value)) throw new BadRequestException(`Invalid value for "${key}" (expected the same type as the current value)`);
       changed[key] = { before: row.isSecret ? '[secret]' : row.value, after: row.isSecret ? '[secret]' : value };
-      row.value = value;
+      row.value = row.isSecret ? sealSecret(value) : value;
       await this.repo.save(row);
     }
     await this.svc.reload();

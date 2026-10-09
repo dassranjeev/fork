@@ -27,7 +27,7 @@ export function ChatList({ items, selectedId, onSelect, now }) {
             data-testid="chat-row"
             onClick={() => onSelect(c.id)}
             className={`text-start border-0 border-bottom px-16 py-12 bg-transparent ${selectedId === c.id ? "bg-primary-50" : ""}`}
-            style={selectedId === c.id ? { boxShadow: "inset 3px 0 0 var(--primary-600, #f95a16)" } : undefined}
+            style={selectedId === c.id ? { boxShadow: "inset 3px 0 0 var(--primary-600, #ff6917)" } : undefined}
           >
             <div className="d-flex align-items-center gap-2 mb-4">
               <Avatar name={c.requesterName} size={32} tone={c.requesterType === "DRIVER" ? "purple" : "primary"} />

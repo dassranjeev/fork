@@ -5,3 +5,4 @@ export * from "./Modal";
 export * from "./Tabs";
 export * from "./charts";
 export * from "./map";
+export * from "./AddressFinder";

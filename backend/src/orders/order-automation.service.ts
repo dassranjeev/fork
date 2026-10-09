@@ -11,6 +11,7 @@ import { SettingsService } from '../settings/settings.service';
 import { RealtimeService } from '../realtime/realtime.module';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../common/auth.types';
+import { NotificationsService } from '../notifications/notifications.service';
 import { OrdersService } from './orders.service';
 
 export interface AutomationConfig {
@@ -43,6 +44,7 @@ export class OrderAutomationService {
     private settings: SettingsService,
     private rt: RealtimeService,
     private audit: AuditService,
+    private notifications: NotificationsService,
   ) {}
 
   // ------------------------------------------------------------------ configuration (platform default, restaurant override)
@@ -93,7 +95,7 @@ export class OrderAutomationService {
   }
 
   // ------------------------------------------------------------------ 1. placement -> accepted
-  @OnEvent(Events.ORDER_PLACED, { async: true })
+  @OnEvent(Events.ORDER_RELEASED, { async: true })
   async onPlaced({ order }: { order: Order }) {
     try {
       await this.autoAccept(order.id);
@@ -197,6 +199,26 @@ export class OrderAutomationService {
       const accepted = await this.orders.find({ where: { status: In([OrderStatus.ACCEPTED, OrderStatus.DRIVER_ASSIGNED]) }, take: 200 });
       for (const o of accepted) {
         if (await this.startDue(o)) await this.startPrep(o.id).catch((e) => this.logger.warn(`auto-start ${o.code}: ${e.message}`));
+      }
+
+      // a driver is waiting at the restaurant: warn the kitchen shortly before the wait-time charge starts (once per order)
+      const wcfg = this.ordersService.waitFeeConfig();
+      if (wcfg.enabled) {
+        const waiting = await this.orders
+          .createQueryBuilder('o')
+          .where('o.status IN (:...st) AND o.driverId IS NOT NULL AND o.driverArrivedRestaurantAt IS NOT NULL AND o.pickedUpAt IS NULL', { st: [OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.DRIVER_ASSIGNED, OrderStatus.ACCEPTED] })
+          .andWhere("COALESCE(o.meta ->> 'waitWarned', 'false') <> 'true'")
+          .take(100)
+          .getMany();
+        for (const o of waiting) {
+          const start = this.ordersService.waitClockStart(o);
+          if (!start) continue;
+          const waited = (Date.now() - start.getTime()) / 60_000;
+          if (waited < Math.max(0, wcfg.graceMinutes - 2)) continue;
+          const startsIn = waited >= wcfg.graceMinutes ? 'now' : `in ${Math.max(1, Math.ceil(wcfg.graceMinutes - waited))} min`;
+          await this.orders.query(`UPDATE orders SET meta = jsonb_set(COALESCE(meta, '{}'::jsonb), '{waitWarned}', 'true') WHERE id = $1`, [o.id]);
+          await this.notifications.notifyRestaurant(o.restaurantId, 'driver.waiting', { code: o.code, perMinute: `$${wcfg.perMinute.toFixed(2)}`, startsIn }, { orderId: o.id }).catch(() => undefined);
+        }
       }
 
       // prep time elapsed -> READY (the driver search starts from the READY event)

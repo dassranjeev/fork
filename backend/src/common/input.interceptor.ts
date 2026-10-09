@@ -22,7 +22,7 @@ export class InputSanitizerInterceptor implements NestInterceptor {
     const ct = String(req.headers['content-type'] ?? '');
     try {
       const rich = RICH_ROUTE.test(String(req.path ?? '')) ? RICH_KEYS : undefined;
-      if (req.body && typeof req.body === 'object' && !ct.startsWith('multipart/')) req.body = sanitizeDeep(req.body, '', 0, DEFAULT_LIMITS, '', rich);
+      if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body) && !ct.startsWith('multipart/')) req.body = sanitizeDeep(req.body, '', 0, DEFAULT_LIMITS, '', rich);
       if (req.query && Object.keys(req.query).length) {
         const q = sanitizeDeep({ ...req.query });
         for (const [k, min, max] of [['page', 1, 10_000], ['limit', 1, 1000]] as const) {

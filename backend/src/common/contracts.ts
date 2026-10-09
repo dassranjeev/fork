@@ -98,7 +98,12 @@ export interface PlaceOrderInput extends QuoteInput {
   addressId?: string;
   deliveryAddress?: { lat: number; lng: number; line1?: string; line2?: string; city?: string; province?: string; postalCode?: string; dropoffNotes?: string; label?: string };
   paymentMethod: PaymentMethod;
-  /** Stripe PaymentMethod id / token from the app; never raw card data */
+  /**
+   * Stripe PaymentIntent the customer confirmed on the page (Payment Element). Required for any card amount; the server retrieves it
+   * from Stripe and verifies owner / status / amount / quote before the order exists. Replaces paymentToken for card payments.
+   */
+  paymentIntentId?: string;
+  /** DEVELOPMENT MOCK ONLY (ALLOW_MOCK_PAYMENTS=true, no Stripe key): any token = a mock payment. Ignored when Stripe is configured. */
   paymentToken?: string;
   giftCardCode?: string;
   contactless?: boolean;
@@ -145,7 +150,11 @@ export interface IOrdersService {
   getById(id: string, relations?: string[]): Promise<Order>;
   /** Single entry point for every status change (validates transition, owner, time limits, writes OrderEvent, emits realtime, notifies, triggers payment capture/settlement). */
   transition(orderId: string, to: OrderStatus, actor: ActorRef, opts?: TransitionOpts): Promise<Order>;
-  cancel(orderId: string, actor: ActorRef, reason: string): Promise<Order>;
+  cancel(orderId: string, actor: ActorRef, reason: string, opts?: { restaurantApproval?: { contactName: string; channel: string; note?: string } }): Promise<Order>;
+  /** Customer cancel grace window (orders.customerCancelGraceSeconds): open while inside it and before pickup; `until` is when it closes. */
+  customerCancelWindow(order: Pick<Order, 'status' | 'createdAt' | 'fulfilment' | 'kitchenReleaseAt' | 'kitchenReleasedAt'>): { open: boolean; until: Date | null };
+  /** has the order been handed to the kitchen (customer cancellation window over)? */
+  isReleased(order: Pick<Order, 'kitchenReleaseAt' | 'kitchenReleasedAt'>): boolean;
   /** Restaurant removes an unavailable item -> customer approval + partial refund flow */
   removeItem(orderId: string, orderItemId: string, actor: ActorRef, reason: string): Promise<Order>;
   addEvent(orderId: string, type: string, actor: ActorRef, note?: string, data?: Record<string, any>): Promise<void>;
@@ -178,15 +187,17 @@ export interface IDispatchService {
 }
 
 export interface IPaymentsService {
-  /** Authorise (hold) at PLACED. Returns provider intent id / client secret if the app must confirm. */
-  authorize(order: Order, opts: { paymentToken?: string; amount: number; customerEmail?: string | null }): Promise<{ ok: boolean; intentId?: string; clientSecret?: string; error?: string }>;
+  /** Checkout step 1: a manual-capture PaymentIntent for the card part of the priced cart (amount is always computed by the server). */
+  createCheckoutIntent(customerId: string, quote: Quote, quoteHash: string, opts?: { saveCard?: boolean; paymentMethodId?: string; existingIntentId?: string }): Promise<any>;
   capture(order: Order, amount?: number): Promise<void>;
   release(order: Order): Promise<void>;
-  refund(order: Order, amount: number, reason?: string): Promise<{ externalId?: string }>;
+  /** card part is refunded to the card (idempotent per refundId); `walletCredit` is what the card could not take and must be credited to the wallet */
+  refund(order: Order, amount: number, reason?: string, refundId?: string): Promise<{ externalId?: string; cardAmount: number; walletCredit: number }>;
   adjustTip(order: Order, newTip: number): Promise<void>;
   /** Saved cards (Stripe customer). Card data never touches our servers. */
-  createSetupIntent(customerId: string): Promise<{ clientSecret: string; customerId?: string }>;
-  listPaymentMethods(customerId: string): Promise<{ id: string; brand: string; last4: string; expMonth: number; expYear: number; isDefault?: boolean }[]>;
+  createSetupIntent(customerId: string): Promise<{ clientSecret: string; customerId?: string; publishableKey?: string | null; mock?: boolean }>;
+  listPaymentMethods(customerId: string): Promise<{ id: string; brand: string; last4: string; expMonth: number; expYear: number; isDefault?: boolean; wallet?: string | null }[]>;
+  setDefaultPaymentMethod(customerId: string, paymentMethodId: string): Promise<void>;
   detachPaymentMethod(customerId: string, paymentMethodId: string): Promise<void>;
 }
 
@@ -270,6 +281,8 @@ export interface IPromotionsService {
 /** Listen with @OnEvent(Events.X). Emit with EventEmitter2.emit(Events.X, payload). Listeners must not throw. */
 export const Events = {
   ORDER_PLACED: 'order.placed',
+  /** payload: { order } - the customer's cancellation window is over and the order has been handed to the restaurant */
+  ORDER_RELEASED: 'order.released',
   ORDER_STATUS_CHANGED: 'order.status_changed',
   ORDER_DELIVERED: 'order.delivered', // DELIVERED or COLLECTED (after payment capture + settlement)
   ORDER_CANCELLED: 'order.cancelled', // CANCELLED or REJECTED

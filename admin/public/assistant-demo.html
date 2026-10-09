@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' http://localhost:4000; style-src 'unsafe-inline'; img-src 'self' data: http://localhost:4000 https:; connect-src http://localhost:4000; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Bistro Demo - merchant website (assistant widget test)</title>
+<style>
+  body { margin:0; font:16px/1.55 Georgia,serif; color:#2b2118; background:#fbf6ee; }
+  header { background:#2b2118; color:#f5e9d6; padding:18px 24px; }
+  header h1 { margin:0; font-size:26px; letter-spacing:.04em; }
+  main { max-width:760px; margin:0 auto; padding:24px; }
+  .note { background:#fff3cd; border:1px solid #e6c96b; padding:10px 14px; border-radius:8px; font:14px/1.4 system-ui,sans-serif; }
+  code { background:#eee2cf; padding:1px 5px; border-radius:4px; }
+  h2 { margin-top:32px; }
+</style>
+</head>
+<body>
+<header><h1>Bistro Demo</h1></header>
+<main>
+  <p class="note" id="status">Open this page with <code>?key=bk_...</code> (the bot key from Restaurant portal &rarr; Assistant). The page origin <code>http://localhost:3000</code> must be in the restaurant's allowed websites. Optional: <code>?mode=site&amp;restaurant=&lt;slug&gt;</code> or <code>?mode=site</code> for the FORKSY website bots, <code>&amp;position=left</code>.</p>
+  <h2>Welcome</h2>
+  <p>This is a fake merchant website used to test the embeddable ordering assistant. The chat bubble at the bottom of the page is the widget loaded from the FORKSY API.</p>
+  <h2>Opening hours</h2>
+  <p>Mon-Sun, whenever the demo data says so.</p>
+</main>
+<script src="/assistant-demo.js"></script>
+</body>
+</html>

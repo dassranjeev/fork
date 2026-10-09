@@ -93,6 +93,21 @@ location / { try_files $uri /index.html; }
 ```
 Also set `Cache-Control: no-store` on authenticated API responses (backend) so the back button and shared proxies never cache data.
 
+## The one deliberate CSP exception: Stripe
+The Stripe Payment Element (card form, Apple / Google Pay, 3-D Secure) is Stripe's code in Stripe's iframes; it cannot be self-hosted. The CSP therefore allows exactly Stripe, through two new build variables plus the existing connect / img ones (see `admin/.env.example`):
+
+| Directive | Value |
+|---|---|
+| `script-src` | `'self'` + `REACT_APP_CSP_SCRIPT` = `https://js.stripe.com` |
+| `frame-src` | `REACT_APP_CSP_FRAME` = `https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com` (empty = no frames at all, as before) |
+| `connect-src` | add to `REACT_APP_CSP_CONNECT`: `https://api.stripe.com https://m.stripe.network https://r.stripe.com` |
+| `img-src` | add to `REACT_APP_CSP_IMG`: `https://*.stripe.com` |
+
+There is still no `unsafe-inline` / `unsafe-eval` in `script-src`. Mapbox needs NO CSP entry: the website calls only the FORKSY API for address search. The same `index.html` serves the admin console,
+the portal and the storefront, so the Stripe origins apply to all three (only the storefront loads Stripe.js). `admin/test/xss-smoke.mjs` asserts the policy: `script-src` = `'self'` + Stripe.js,
+`frame-src` = Stripe frames only, no other third-party `connect-src`, and the usual "no third-party requests / no unexpected violations" sweeps (including `/order/wallet` and `/order/payouts/return`).
+Note: `REACT_APP_CSP_*` are read when the dev server / build starts; restart `npm start` after changing them. If the two new variables are missing the policy keeps a literal `%REACT_APP_CSP_SCRIPT%` token and the smoke test fails on purpose.
+
 ## Residual risks
 - Tokens in localStorage (needs the backend cookie flow).
 - `style-src 'unsafe-inline'` is required by Bootstrap/WowDash, ApexCharts and Leaflet inline styles; script-src has no inline or eval. CSS injection is therefore not blocked (low impact: no scripts, no data exfil without img/connect to attacker hosts, which the CSP forbids).

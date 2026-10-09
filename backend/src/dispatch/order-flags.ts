@@ -37,7 +37,8 @@ export function computeOrderFlag(o: Order, now: Date, cfg: OrderFlagConfig): Ord
 
   switch (o.status) {
     case OrderStatus.PLACED: {
-      const sec = elapsedMin * 60;
+      if (o.kitchenReleaseAt && !o.kitchenReleasedAt) break; // still held for the customer's cancellation window: nothing to flag
+      const sec = (min(o.kitchenReleasedAt ?? o.createdAt, now) ?? 0) * 60;
       if (sec >= cfg.autoRejectSec) raise('RED', 'RESTAURANT_NOT_ACCEPTING');
       else if (sec >= Math.min(120, cfg.autoRejectSec * 0.8)) raise('AMBER', 'RESTAURANT_NOT_ACCEPTING');
       break;

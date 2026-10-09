@@ -142,6 +142,11 @@ export class CustomerCardsController {
     return this.account.setupCard(user.id);
   }
 
+  @Post(':id/default')
+  makeDefault(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.account.defaultCard(user.id, id);
+  }
+
   @Delete(':id')
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.account.removeCard(user.id, id);

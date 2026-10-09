@@ -4,9 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FORKSY - Complete workflow</title>
+<link rel="icon" href="../admin/public/favicon.ico" sizes="any">
 <style>
+  @font-face { font-family: "Chewy"; src: url("../admin/public/fonts/Chewy-Regular.ttf") format("truetype"); font-display: swap; }
   :root {
-    --bg: #f6f7fb; --card: #ffffff; --ink: #1c2233; --muted: #667089; --line: #e3e7f1; --brand: #f95a16; --brand-ink: #ffffff;
+    --bg: #f6f7fb; --card: #ffffff; --ink: #1c2233; --muted: #667089; --line: #e3e7f1; --brand: #ff6917; --brand-ink: #ffffff;
     --auto: #0f9d58; --auto-bg: #e6f6ed; --manual: #c2410c; --manual-bg: #fff1e6; --info: #2563eb; --info-bg: #e8f0ff; --warn: #a16207; --warn-bg: #fff7d6; --bad: #b91c1c; --bad-bg: #fde8e8;
     --code: #eef1f8;
   }
@@ -21,9 +23,11 @@
   html { scroll-behavior: smooth; }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   a { color: var(--info); }
-  header.top { background: linear-gradient(135deg, #f95a16, #c2410c); color: #fff; padding: 36px 20px 30px; }
+  header.top { background: linear-gradient(135deg, #ff6917, #c2410c); color: #fff; padding: 36px 20px 30px; }
   header.top .wrap { max-width: 1100px; margin: 0 auto; }
-  header.top h1 { margin: 0 0 6px; font-size: clamp(26px, 5vw, 40px); letter-spacing: .01em; }
+  header.top h1 { margin: 0 0 6px; font-size: clamp(26px, 5vw, 40px); letter-spacing: .01em; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  header.top h1 img { height: 1.5em; width: auto; border-radius: 50%; background: #fff; }
+  header.top h1 .brand { font-family: "Chewy", system-ui, sans-serif; font-weight: 400; letter-spacing: .03em; -webkit-text-stroke: .045em currentColor; paint-order: stroke fill; stroke-linejoin: round; }
   header.top p { margin: 0; max-width: 780px; opacity: .95; }
   .layout { max-width: 1100px; margin: 0 auto; padding: 0 16px 60px; display: grid; grid-template-columns: 230px 1fr; gap: 28px; }
   nav.toc { position: sticky; top: 12px; align-self: start; margin-top: 24px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 8px; font-size: 14px; max-height: calc(100vh - 24px); overflow: auto; }
@@ -83,7 +87,7 @@
 <body>
 <header class="top">
   <div class="wrap">
-    <h1>FORKSY - Complete workflow</h1>
+    <h1><img src="../admin/public/brand/icon-128.png" alt=""><span><span class="brand">FORKSY</span> - Complete workflow</span></h1>
     <p>How the food-delivery marketplace for Mississauga and Brampton works end to end: who does what, what the system does by itself, and where a person still has to step in. Written from the current code of this repository.</p>
   </div>
 </header>
@@ -166,12 +170,14 @@
     <thead><tr><th>Step</th><th>Who does it</th><th>How</th><th>Switch</th></tr></thead>
     <tbody>
       <tr><td>Order placement and payment hold</td><td><span class="tag t-auto">Automatic</span></td><td>Instant. The order is PLACED the moment the card hold succeeds.</td><td>-</td></tr>
-      <tr><td>Order acceptance</td><td><span class="tag t-auto">Automatic</span></td><td>Accepted at once with a prep estimate that includes the kitchen load. Waits for the restaurant only if the kitchen is overloaded, the store is paused or closed, or the restaurant turned it off.</td><td><code>automation.orders.autoAccept</code> + per restaurant</td></tr>
+      <tr><td>Cancellation window</td><td><span class="tag t-auto">Automatic</span></td><td>For 120 seconds after the payment is confirmed the customer can cancel for free. During that time the order is held by FORKSY and the restaurant does not see it. After it, the order goes to the restaurant and the customer can no longer cancel.</td><td><code>orders.customerCancelGraceSeconds</code></td></tr>
+      <tr><td>Order acceptance</td><td><span class="tag t-auto">Automatic</span></td><td>As soon as the order is sent to the restaurant (after the window), it is accepted with a prep estimate that includes the kitchen load. Waits for the restaurant only if the kitchen is overloaded, the store is paused or closed, or the restaurant turned it off.</td><td><code>automation.orders.autoAccept</code> + per restaurant</td></tr>
       <tr><td>Start of preparation</td><td><span class="tag t-auto">Automatic</span></td><td>Moves to PREPARING and starts the kitchen ticket. Scheduled orders start in time to be ready.</td><td><code>automation.orders.autoStartPrep</code> + per restaurant</td></tr>
       <tr><td>Order ready</td><td><span class="tag t-auto">Automatic</span> <span class="tag t-manual">Kitchen can override</span></td><td>When the prep time has elapsed the order is marked READY. The kitchen may mark it ready earlier, or extend the prep time.</td><td><code>automation.orders.autoReady</code> + per restaurant</td></tr>
-      <tr><td>Finding a driver</td><td><span class="tag t-auto">Automatic</span></td><td>Starts the instant the order is READY: best nearby driver first, next driver on decline or timeout, wider search, then alert to operations.</td><td><code>dispatch.autoAssign</code></td></tr>
+      <tr><td>Finding a driver</td><td><span class="tag t-auto">Automatic</span></td><td>Starts <strong>5 minutes before the food is due</strong> (ready at 3:20 pm means the search starts at 3:15 pm), so the driver arrives as the food is finished: best nearby driver first, next driver on decline or timeout, wider search, then alert to operations.</td><td><code>dispatch.preReadyMinutes</code> (5), <code>dispatch.autoAssign</code></td></tr>
       <tr><td>Driver says yes or no</td><td><span class="tag t-manual">Driver</span></td><td>One tap. Drivers may decline; that is recorded in their acceptance rate.</td><td>-</td></tr>
       <tr><td>Driver arrives at the restaurant / customer</td><td><span class="tag t-auto">Automatic</span></td><td>Detected from GPS within 80 m. The driver does not need to tap "arrived".</td><td><code>automation.driver.autoArrive</code></td></tr>
+      <tr><td>Driver wait-time pay</td><td><span class="tag t-auto">Automatic</span></td><td>If a driver has to wait at the restaurant more than 5 minutes after the promised ready time (or after arriving, if later), the extra minutes are paid to the driver ($0.50 a minute, up to $10) and deducted from the restaurant's payout. The restaurant is warned while the driver waits. Staff can waive a charge after a dispute.</td><td><code>orders.waitFee.*</code></td></tr>
       <tr><td>Pickup handoff</td><td><span class="tag t-manual">Driver</span></td><td>The driver enters the pickup code from the restaurant (a physical handover).</td><td>-</td></tr>
       <tr><td>Delivery confirmation</td><td><span class="tag t-manual">Driver</span></td><td>Customer PIN, or a photo, or a recorded hand-over. Needed as proof. See section 6.</td><td>customer's choice</td></tr>
       <tr><td>Payment capture, ledger, driver earnings</td><td><span class="tag t-auto">Automatic</span></td><td>On delivery.</td><td>-</td></tr>
@@ -190,13 +196,14 @@
     <li><div class="who"><span class="tag t-manual">Customer</span></div><h4>Browse and build a cart</h4><p>Discovery shows only restaurants that are open and offer what the customer wants (delivery or pickup, based on the store's service mode). Items that are out of stock (86'd) cannot be added.</p></li>
     <li><div class="who"><span class="tag t-manual">Customer</span> <span class="tag t-auto">System</span></div><h4>Checkout quote</h4><p>The system prices the order: items, delivery fee (zone and distance), service fee, tax, promo code, wallet or gift card, tip. The customer picks an address, the handoff (hand to me, leave at door, meet outside), whether to use a private delivery PIN, notes for the driver, and notes for the kitchen.</p></li>
     <li><div class="who"><span class="tag t-auto">System</span></div><h4>Place the order and hold the money</h4><p>Checks hours, service mode, delivery zone and minimum order; reserves the promo; authorises the card (a hold, not a charge); debits the wallet portion. The order becomes <code>PLACED</code> instantly. The restaurant and operations are notified.</p></li>
-    <li><div class="who"><span class="tag t-auto">System</span></div><h4>Accept automatically</h4><p>The order is accepted straight away with a prep time based on the restaurant's usual time plus kitchen load (a minute per order beyond three, up to 15 extra minutes). The customer gets "accepted, ready in about N minutes". If auto-accept is off or blocked, the restaurant accepts by hand; an order nobody acts on within 180 seconds is rejected and the hold released.</p></li>
+    <li><div class="who"><span class="tag t-auto">System</span> <span class="tag t-manual">Customer (optional)</span></div><h4>Cancellation window (120 seconds)</h4><p>The order is held by FORKSY and is <strong>not</strong> given to the kitchen. The customer sees a countdown and can cancel for free; if they do, the restaurant never hears about it and the card hold is released. When the countdown ends the order is sent to the restaurant (the restaurant is notified at that moment) and the customer can no longer cancel.</p></li>
+    <li><div class="who"><span class="tag t-auto">System</span></div><h4>Accept automatically</h4><p>As soon as the order is sent to the restaurant it is accepted with a prep time based on the restaurant's usual time plus kitchen load (a minute per order beyond three, up to 15 extra minutes). The customer gets "accepted, ready in about N minutes". If auto-accept is off or blocked, the restaurant accepts by hand; an order nobody acts on within 180 seconds is rejected and the hold released.</p></li>
     <li><div class="who"><span class="tag t-auto">System</span></div><h4>Start preparing</h4><p>Status moves to <code>PREPARING</code> and the ticket appears on the kitchen display. Scheduled orders wait until it is time to start.</p></li>
     <li><div class="who"><span class="tag t-manual">Kitchen (optional)</span></div><h4>Cook</h4><p>The kitchen cooks. It can bump items, mark an item out of stock, extend the prep time (the automatic "ready" then waits), or mark the order ready early.</p></li>
-    <li><div class="who"><span class="tag t-auto">System</span></div><h4>Mark ready</h4><p>When the prep time has elapsed the order becomes <code>READY</code>. This is the moment the driver search starts.</p></li>
-    <li><div class="who"><span class="tag t-auto">System</span> <span class="tag t-manual">Driver</span></div><h4>Offer to the best nearby driver</h4><p>One driver at a time gets a 30-second offer. Accept: the order is assigned to that driver and the record is updated. Decline or no answer: the next best driver is offered it, and the search area widens. Details in section 5.</p></li>
+    <li><div class="who"><span class="tag t-auto">System</span></div><h4>Mark ready</h4><p>When the prep time has elapsed the order becomes <code>READY</code>. The driver was already found shortly before this, so pickup can happen right away.</p></li>
+    <li><div class="who"><span class="tag t-auto">System</span> <span class="tag t-manual">Driver</span></div><h4>Offer to the best nearby driver (5 minutes before the food is due)</h4><p>The search starts 5 minutes before the estimated ready time (an order due at 3:20 pm is offered to drivers from 3:15 pm; the prep time is re-checked each time, so if the kitchen extends it, the search moves later too). One driver at a time gets a 30-second offer. Accept: the order is assigned to that driver and the record is updated. Decline or no answer: the next best driver is offered it, and the search area widens. Details in section 5.</p></li>
     <li><div class="who"><span class="tag t-auto">System</span></div><h4>Driver heads to the restaurant</h4><p>The customer sees the driver and a live ETA. When the driver is within 80 m of the restaurant, arrival is recorded automatically.</p></li>
-    <li><div class="who"><span class="tag t-manual">Restaurant</span> <span class="tag t-manual">Driver</span></div><h4>Pickup</h4><p>The restaurant hands the bag over; the driver enters the pickup code. Status becomes <code>PICKED_UP</code>, then <code>ON_THE_WAY</code>. The customer is notified.</p></li>
+    <li><div class="who"><span class="tag t-manual">Restaurant</span> <span class="tag t-manual">Driver</span></div><h4>Pickup (and wait-time pay)</h4><p>The restaurant hands the bag over; the driver enters the pickup code. If the driver waited more than 5 minutes past the promised ready time, the waiting beyond that is paid to the driver per minute and deducted from the restaurant's payout. Status becomes <code>PICKED_UP</code>, then <code>ON_THE_WAY</code>. The customer is notified.</p></li>
     <li><div class="who"><span class="tag t-auto">System</span></div><h4>Arrival at the customer</h4><p>Within 80 m of the address, arrival is recorded and the customer is told the driver is outside, with wording for the handoff they chose.</p></li>
     <li><div class="who"><span class="tag t-manual">Driver</span></div><h4>Confirm the delivery with proof</h4><p>PIN, photo, or recorded hand-over, and the driver must be within 100 m of the address. Rules in section 6. Status becomes <code>DELIVERED</code>.</p></li>
     <li><div class="who"><span class="tag t-auto">System</span></div><h4>Settle</h4><p>The card hold is captured. The ledger records the restaurant's share, the driver's earnings, tip, tax and the platform's share. Referral rewards are processed.</p></li>
@@ -246,10 +253,10 @@
 <!-- ============================================================ 5 -->
 <section id="dispatch">
   <h2>5. Driver dispatch</h2>
-  <p class="lead">Dispatch starts automatically when the kitchen's order is READY and finds a driver without anyone choosing one. Staff can still assign by hand from the live map.</p>
+  <p class="lead">Dispatch starts automatically 5 minutes before the food is due and finds a driver without anyone choosing one. Staff can still assign by hand from the live map.</p>
 
   <div class="flow">
-    <span class="n ok">Order READY</span><span class="arr">&rarr;</span>
+    <span class="n ok">5 min before food is due</span><span class="arr">&rarr;</span>
     <span class="n">Find eligible drivers</span><span class="arr">&rarr;</span>
     <span class="n">Rank them</span><span class="arr">&rarr;</span>
     <span class="n">Offer to #1 (30 s)</span><span class="arr">&rarr;</span>
@@ -266,6 +273,7 @@
   <div class="grid">
     <div class="card"><h3 style="margin-top:0">Who is eligible</h3><ul><li>Online and approved, in the right zone</li><li>Recent GPS (within 2 minutes)</li><li>Not already busy with another trip</li><li>Right vehicle: bikes only for trips of about 3 km or less</li></ul></div>
     <div class="card"><h3 style="margin-top:0">How they are ranked</h3><ul><li>Distance to the restaurant</li><li>Acceptance rate over the last 14 days (20% weight)</li><li>Other driver quality signals</li></ul><p style="margin:6px 0 0;color:var(--muted)">Drivers who accept more get offers first.</p></div>
+    <div class="card"><h3 style="margin-top:0">Two orders on one trip</h3><p>If free drivers are busy or few, a driver who has already picked up an order and is heading to its drop-off can be offered a second order from a restaurant near that drop-off. They collect it right after the first delivery, so the first customer is not delayed. <strong>No driver ever carries more than 2 orders.</strong> Free drivers are always offered the order first.</p></div>
     <div class="card"><h3 style="margin-top:0">Acceptance rate</h3><p>accepted &divide; (accepted + declined + expired) over a rolling 14 days, shown on the driver's profile and in the admin. Drivers with fewer than 5 offers are smoothed toward a neutral value so one decline does not wreck a new account. Updated on every response and hourly.</p></div>
   </div>
 </section>
@@ -324,8 +332,10 @@
       <tr><td>Driver declines or ignores an offer</td><td>Counts against their acceptance rate; next driver is offered the order; radius widens.</td><td>-</td></tr>
       <tr><td>No driver found</td><td>Escalation alert to operations.</td><td>Ops assign manually from the live map, or offer an alternative</td></tr>
       <tr><td>Driver goes missing mid-trip</td><td>Order is flagged on the live map.</td><td>Ops unassign and re-dispatch (needs support approval after pickup)</td></tr>
+      <tr><td>Driver kept waiting at the restaurant</td><td>The restaurant is warned a couple of minutes before charges start. After 5 minutes past the promised ready time, wait-time pay accrues per minute: paid to the driver, deducted from the restaurant payout (shown on the order and the restaurant statement).</td><td>Staff can waive it after a dispute (FORKSY then absorbs the cost; the driver keeps the pay)</td></tr>
       <tr><td>Order running late</td><td>Flagged as late; customer can be notified.</td><td>Support if the customer contacts them</td></tr>
-      <tr><td>Customer cancels</td><td>Payment released or refunded according to how far the order got.</td><td>-</td></tr>
+      <tr><td>Customer cancels within 120 s</td><td>Order cancelled, card hold released in full, restaurant never notified.</td><td>-</td></tr>
+      <tr><td>Customer wants to cancel after 120 s</td><td>Not possible in the app: the order is already with the restaurant.</td><td>FORKSY support, <strong>only with the restaurant's approval</strong>: staff send a cancellation request that the restaurant approves or declines in its portal, or record who at the restaurant agreed by phone or chat. Both are written to the order timeline and audit log.</td></tr>
       <tr><td>Wrong or missing item</td><td>Self-serve help flow offers a refund or credit within limits.</td><td>Support tier 1 / 2 for larger cases</td></tr>
       <tr><td>"Never delivered"</td><td>Decided from the delivery proof (section 6).</td><td>Tier 2 if proof exists</td></tr>
     </tbody>
@@ -413,7 +423,7 @@
     <thead><tr><th>Area</th><th>What staff do there</th></tr></thead>
     <tbody>
       <tr><td>Dashboard and live map</td><td>Watch orders and drivers in real time, with flags for late, stuck or unassigned orders. Assign, reassign or unassign drivers when automation needs help.</td></tr>
-      <tr><td>Orders</td><td>Search, view the timeline and proof, change or cancel with a reason, refund.</td></tr>
+      <tr><td>Orders</td><td>Search, view the timeline and proof, refund, cancel with a reason. Cancelling an order the restaurant already has needs the restaurant's approval (request it from the order page, or record a phone approval).</td></tr>
       <tr><td>Restaurants</td><td>Onboarding pipeline, documents, commission, hours, members, service mode, automation switches, menu-editing permission, open any portal.</td></tr>
       <tr><td>Drivers</td><td>Applications, documents, checks, status, performance, acceptance rate, delivery-dispute strikes.</td></tr>
       <tr><td>Customers</td><td>Profiles, orders, wallet, flags, ratings received, privacy requests.</td></tr>

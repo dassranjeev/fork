@@ -1,0 +1,78 @@
+# FORKSY - single-host production stack.
+#   cp deploy/.env.example deploy/.env      (edit every value)
+#   cp backend/.env.production.example backend/.env.production   (edit every value)
+#   docker compose --env-file deploy/.env up -d --build
+# TLS: enable the "proxy" profile (Caddy gets certificates automatically):  docker compose --profile proxy up -d
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-forksy}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in deploy/.env}
+      POSTGRES_DB: ${DB_NAME:-forksy}
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-forksy} -d ${DB_NAME:-forksy}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    env_file: backend/.env.production
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-forksy}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-forksy}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
+      - private-uploads:/app/private-uploads
+    expose:
+      - "4000"
+
+  web:
+    build:
+      context: ./admin
+      args:
+        REACT_APP_API_URL: https://${API_DOMAIN:?set API_DOMAIN}/api/v1
+        REACT_APP_WS_URL: https://${API_DOMAIN}
+        REACT_APP_CSP_CONNECT: https://${API_DOMAIN} wss://${API_DOMAIN} https://api.stripe.com https://m.stripe.network https://r.stripe.com
+        REACT_APP_CSP_IMG: https://${API_DOMAIN} https://*.stripe.com
+        REACT_APP_CSP_SCRIPT: https://js.stripe.com
+        REACT_APP_CSP_FRAME: https://js.stripe.com https://hooks.stripe.com
+    restart: unless-stopped
+    expose:
+      - "80"
+
+  proxy:
+    profiles: ["proxy"]
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - web
+
+volumes:
+  dbdata:
+  uploads:
+  private-uploads:
+  caddy_data:
+  caddy_config:

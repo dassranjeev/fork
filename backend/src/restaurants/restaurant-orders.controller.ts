@@ -1,4 +1,6 @@
 import { Body, Get, NotFoundException, Param, Post, Query } from '@nestjs/common';
+import { Transform } from 'class-transformer';
+import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CurrentUser, RestaurantController } from '../common/decorators';
@@ -11,6 +13,12 @@ import { resolveRestaurantId, restaurantActor, restaurantOrderView } from './res
 import { AcceptOrderDto, ExtendPrepDto, HandoffDto, OrdersQuery, RejectOrderDto, RemoveItemDto } from './dto';
 
 const OPEN_STATUSES = [OrderStatus.PLACED, OrderStatus.ACCEPTED, OrderStatus.DRIVER_ASSIGNED, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.PICKED_UP, OrderStatus.ON_THE_WAY];
+
+class CancelResponseDto {
+  /** strict: the string "false" must not become true */
+  @Transform(({ obj }) => obj.approve) @IsBoolean() approve: boolean;
+  @IsOptional() @IsString() @MaxLength(300) note?: string;
+}
 
 /** Restaurant portal live orders: accept (prep +5/+10/+15), reject, ready, handoff by code, partial fulfilment (spec §4.5). */
 @RestaurantController('orders')
@@ -27,6 +35,7 @@ export class RestaurantOrdersController {
 
   private async orderFor(restaurantId: string, orderId: string): Promise<Order> {
     const order = await this.orders.findOne({ where: { id: orderId, restaurantId }, relations: ['items'] });
+    if (order && order.kitchenReleaseAt && !order.kitchenReleasedAt) throw new NotFoundException('Order not found');
     if (!order) throw new NotFoundException('Order not found');
     return order;
   }
@@ -34,7 +43,8 @@ export class RestaurantOrdersController {
   @Get()
   async list(@CurrentUser() user: AuthUser, @Query() q: OrdersQuery, @Query('restaurantId') restaurantId?: string) {
     const rid = this.rid(user, restaurantId);
-    const qb = this.orders.createQueryBuilder('o').where('o.restaurantId = :rid', { rid });
+    // orders still held for the customer's cancellation window are not the restaurant's yet
+    const qb = this.orders.createQueryBuilder('o').where('o.restaurantId = :rid', { rid }).andWhere('(o.kitchenReleaseAt IS NULL OR o.kitchenReleasedAt IS NOT NULL)');
     if (q.search) qb.andWhere('o.code ILIKE :s', { s: like(q.search) });
     if (q.status) qb.andWhere('o.status = :status', { status: q.status });
     else if (!q.from && !q.to) qb.andWhere('o.status IN (:...open)', { open: OPEN_STATUSES });
@@ -58,6 +68,14 @@ export class RestaurantOrdersController {
     const order = await this.orderFor(rid, id);
     const prepTimeMin = dto.prepTimeMin ?? (order.prepTimeMin ?? 20) + (dto.addMinutes ?? 0);
     return restaurantOrderView(await this.ordersService.transition(id, OrderStatus.ACCEPTED, restaurantActor(user), { prepTimeMin }));
+  }
+
+  /** FORKSY support asked to cancel this order; the restaurant approves or declines. */
+  @Post(':id/cancel-request/respond')
+  async respondCancelRequest(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: CancelResponseDto, @Query('restaurantId') restaurantId?: string) {
+    const rid = this.rid(user, restaurantId);
+    await this.orderFor(rid, id);
+    return restaurantOrderView(await this.ordersService.respondCancelRequest(id, rid, restaurantActor(user), dto.approve, dto.note));
   }
 
   @Post(':id/reject')

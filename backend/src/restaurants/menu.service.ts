@@ -16,6 +16,7 @@ import { DayPart } from '../common/enums';
 import { CategoryDto, ItemDto, ModifierGroupDto, ModifierOptionDto } from './dto';
 import { nextRestockTime } from './restaurants.util';
 import { AvailabilityService } from '../core/core.module';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const DAYPARTS = Object.values(DayPart) as string[];
 
@@ -86,6 +87,7 @@ export class MenuService {
     @InjectRepository(KitchenStation) private stations: Repository<KitchenStation>,
     @InjectRepository(TaxClass) private taxClasses: Repository<TaxClass>,
     private availability: AvailabilityService,
+    private notifications: NotificationsService,
   ) {}
 
   // ------------------------------------------------------------------ read
@@ -319,8 +321,16 @@ export class MenuService {
 
   /** Scheduler: auto-restock everything whose restockAt has passed. Returns counts. */
   async restockDue(now = new Date()) {
+    const due = await this.items.find({ where: { available: false, restockAt: LessThanOrEqual(now) }, select: ['id', 'name', 'restaurantId'] }).catch(() => [] as MenuItem[]);
     const a = await this.items.update({ available: false, restockAt: LessThanOrEqual(now) }, { available: true, restockAt: null });
     const b = await this.options.update({ available: false, restockAt: LessThanOrEqual(now) }, { available: true, restockAt: null });
+    // tell each restaurant which items came back by themselves (86 auto-restock)
+    const by = new Map<string, string[]>();
+    for (const i of due) by.set(i.restaurantId, [...(by.get(i.restaurantId) ?? []), i.name]);
+    for (const [rid, names] of by) {
+      const shown = names.slice(0, 3).join(', ') + (names.length > 3 ? ` and ${names.length - 3} more` : '');
+      this.notifications.notifyRestaurant(rid, 'menu.item_restocked', { count: names.length, items: shown }, { restaurantId: rid }).catch(() => undefined);
+    }
     return { items: a.affected ?? 0, options: b.affected ?? 0 };
   }
 

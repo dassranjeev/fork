@@ -8,9 +8,9 @@ export const DEFAULT_CENTER = [43.589, -79.6441]; // Mississauga
 
 // divIcon based coloured pins (avoids bundler issues with leaflet default images)
 const iconCache = {};
-export function pin(color = "#f95a16", glyph = "", size = 30) {
+export function pin(color = "#ff6917", glyph = "", size = 30) {
   // these values end up in an HTML string (L.divIcon): never trust them
-  color = safeColor(color, "#f95a16");
+  color = safeColor(color, "#ff6917");
   glyph = escapeHtml(glyph);
   size = Number(size) || 30;
   const key = `${color}|${glyph}|${size}`;
@@ -80,7 +80,7 @@ export function MapView({ markers = [], polygons = [], lines = [], height = 420,
         {fit && pts.length > 0 && <FitBounds points={pts} />}
         {onClick && <ClickHandler onClick={onClick} />}
         {polygons.map((g) => (
-          <Polygon key={g.id} positions={g.points} pathOptions={{ color: g.color || "#f95a16", fillOpacity: g.fillOpacity ?? 0.15, weight: 2 }} eventHandlers={g.onClick ? { click: g.onClick } : undefined}>
+          <Polygon key={g.id} positions={g.points} pathOptions={{ color: g.color || "#ff6917", fillOpacity: g.fillOpacity ?? 0.15, weight: 2 }} eventHandlers={g.onClick ? { click: g.onClick } : undefined}>
             {g.label && <Tooltip sticky>{g.label}</Tooltip>}
           </Polygon>
         ))}
@@ -141,10 +141,10 @@ export function PolygonEditor({ value = [], onChange, height = 420, center, othe
         onClick={(p) => onChange([...value, p])}
         polygons={[
           ...others.map((o) => ({ ...o, color: "#94a3b8", fillOpacity: 0.05 })),
-          ...(value.length >= 3 ? [{ id: "edit", points: value, color: "#f95a16", fillOpacity: 0.2 }] : []),
+          ...(value.length >= 3 ? [{ id: "edit", points: value, color: "#ff6917", fillOpacity: 0.2 }] : []),
         ]}
-        lines={value.length === 2 ? [{ id: "l", points: value, color: "#f95a16", dashed: true }] : []}
-        markers={value.map((p, i) => ({ id: `v${i}`, lat: p[0], lng: p[1], kind: "dot", color: "#f95a16", draggable: true, onDragEnd: (np) => move(i, np), title: `Point ${i + 1}` }))}
+        lines={value.length === 2 ? [{ id: "l", points: value, color: "#ff6917", dashed: true }] : []}
+        markers={value.map((p, i) => ({ id: `v${i}`, lat: p[0], lng: p[1], kind: "dot", color: "#ff6917", draggable: true, onDragEnd: (np) => move(i, np), title: `Point ${i + 1}` }))}
       />
       <div className="d-flex align-items-center gap-2 mt-2">
         <span className="text-secondary-light text-sm me-auto">

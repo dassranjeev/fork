@@ -9,6 +9,10 @@ export default () => ({
   env: process.env.NODE_ENV ?? 'development',
   port: parseInt(process.env.PORT ?? '4000', 10),
   publicUrl: process.env.PUBLIC_URL ?? 'http://localhost:4000',
+  /** The customer website (FORKSY storefront). Used for the assistant's checkout hand-off link: ${WEB_URL}/order/handoff?token=... */
+  webUrl: (process.env.WEB_URL ?? 'http://localhost:3000').replace(/[/]+$/, ''),
+  /** Optional: enables the LlmBrain adapter stub of the ordering assistant (untested, see docs/assistant.md). */
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
   corsOrigins: (process.env.CORS_ORIGINS ?? (isProd ? '' : 'http://localhost:3000,http://localhost:3001'))
     .split(',')
     .map((s) => s.trim())
@@ -81,7 +85,8 @@ export default () => ({
     from: process.env.TWILIO_FROM ?? '',
   },
   sendgrid: { apiKey: process.env.SENDGRID_API_KEY ?? '', from: process.env.EMAIL_FROM ?? 'no-reply@forksy.ca' },
-  fcm: { serverKey: process.env.FCM_SERVER_KEY ?? '' },
+  /** FCM HTTP v1 (native apps): service-account JSON; the legacy server key API is gone. Browser push needs no key (VAPID is generated). */
+  fcm: { serviceAccountJson: process.env.FCM_SERVICE_ACCOUNT_JSON ?? '' },
   certn: { apiKey: process.env.CERTN_API_KEY ?? '', webhookSecret: process.env.CERTN_WEBHOOK_SECRET ?? '' },
   seed: {
     superAdminEmail: process.env.SEED_SUPERADMIN_EMAIL ?? 'admin@forksy.ca',

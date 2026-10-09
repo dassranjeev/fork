@@ -44,6 +44,13 @@ export class Merchant extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   stripeAccountId: string | null;
 
+  /** Stripe Connect state (synced from Stripe and the account.updated webhook): NOT_STARTED | PENDING | RESTRICTED | ENABLED */
+  @Column({ type: 'varchar', default: 'NOT_STARTED' })
+  stripeAccountStatus: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  stripeAccountInfo: Record<string, any> | null;
+
   /** Bank details for EFT payouts (account number stored masked, full value lives in Stripe). */
   @Column({ type: 'jsonb', nullable: true })
   bank: { institution?: string; transit?: string; accountLast4?: string; holder?: string; verified?: boolean } | null;

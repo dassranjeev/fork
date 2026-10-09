@@ -86,6 +86,17 @@ export class Order extends BaseEntity {
   @Column({ type: 'timestamptz', nullable: true })
   acceptDeadlineAt: Date | null;
 
+  /**
+   * The order is only handed to the kitchen when the customer's cancellation window (orders.customerCancelGraceSeconds) has passed.
+   * kitchenReleaseAt = placement + window; kitchenReleasedAt = when it really was sent. Orders created before this rule have
+   * kitchenReleaseAt = null and count as released.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  kitchenReleaseAt: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  kitchenReleasedAt: Date | null;
+
   @Column({ type: 'timestamptz', nullable: true })
   acceptedAt: Date | null;
 
@@ -173,6 +184,14 @@ export class Order extends BaseEntity {
   @MoneyColumn()
   driverBoost: number;
 
+  /** Minutes the driver waited at the restaurant after the promised ready time (see orders.waitFee.* settings); 0 = none */
+  @Column({ type: 'int', default: 0 })
+  driverWaitMinutes: number;
+
+  /** Wait-time pay for the driver, deducted from the restaurant's payout. Posted to the ledger when the order is settled. */
+  @MoneyColumn()
+  driverWaitFee: number;
+
   @MoneyColumn()
   platformRevenue: number;
 
@@ -187,6 +206,8 @@ export class Order extends BaseEntity {
   @Column({ type: 'enum', enum: PaymentStatus, default: PaymentStatus.PENDING })
   paymentStatus: PaymentStatus;
 
+  /** Stripe PaymentIntent holding / having captured this order's card amount. One intent can back one order only. */
+  @Index({ unique: true, where: '"paymentIntentId" IS NOT NULL' })
   @Column({ type: 'varchar', nullable: true })
   paymentIntentId: string | null;
 
@@ -389,7 +410,7 @@ export class Payment extends BaseEntity {
   provider: string;
 
   @Column({ type: 'varchar' })
-  kind: 'AUTHORIZE' | 'CAPTURE' | 'RELEASE' | 'REFUND' | 'TIP_ADJUST' | 'WALLET' | 'GIFT_CARD';
+  kind: 'AUTHORIZE' | 'CAPTURE' | 'RELEASE' | 'REFUND' | 'TIP_ADJUST' | 'WALLET' | 'GIFT_CARD' | 'DISPUTE' | 'DISPUTE_REVERSAL';
 
   @MoneyColumn()
   amount: number;

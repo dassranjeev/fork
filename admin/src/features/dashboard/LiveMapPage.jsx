@@ -24,7 +24,7 @@ function Legend() {
       {item(FLAG_COLOR.AMBER, "Order delayed")}
       {item(FLAG_COLOR.RED, "Order very late / unassigned")}
       {item("#487fff", "Driver idle")}
-      {item("#f95a16", "Driver on trip")}
+      {item("#ff6917", "Driver on trip")}
       {item("#94a3b8", "Restaurant")}
     </div>
   );
@@ -75,7 +75,7 @@ export default function LiveMapPage() {
         lng: d.lng,
         kind: "dot",
         size: 18,
-        color: d.onTrip ? "#f95a16" : "#487fff",
+        color: d.onTrip ? "#ff6917" : "#487fff",
         popup: (
           <div>
             <strong>{d.name}</strong>

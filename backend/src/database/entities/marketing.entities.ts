@@ -224,6 +224,9 @@ export class NotificationTemplate extends BaseEntity {
 
 /** In-app inbox + delivery log for push / sms / email. */
 @Entity('notifications')
+@Index('IDX_notifications_user_read_created', ['userId', 'readAt', 'createdAt'])
+@Index('IDX_notifications_unread', ['userId', 'createdAt'], { where: "\"readAt\" IS NULL AND \"channel\" = 'IN_APP'" })
+@Index('IDX_notifications_channel_created', ['channel', 'createdAt'])
 export class Notification extends BaseEntity {
   @Index()
   @Column({ type: 'uuid' })
@@ -252,6 +255,74 @@ export class Notification extends BaseEntity {
 
   @Column({ type: 'varchar', nullable: true })
   error: string | null;
+
+  /** orders | delivery | payments | support | promotions | system (see notifications/events.ts) */
+  @Column({ type: 'varchar', nullable: true })
+  category: string | null;
+
+  /** deep link inside the web apps (e.g. /portal/orders?order=...) */
+  @Column({ type: 'varchar', nullable: true })
+  url: string | null;
+
+  /** delivery attempts of a push / sms / email row */
+  @Column({ type: 'int', default: 0 })
+  attempts: number;
+
+  /** delivery details of a non in-app row: { payload (the sanitised push payload), sent, failed, removed, ... } */
+  @Column({ type: 'jsonb', nullable: true })
+  meta: Record<string, any> | null;
+}
+
+/** A browser (W3C Web Push) subscription bound to the logged-in user. One row per browser profile / endpoint. */
+@Entity('push_subscriptions')
+export class WebPushSubscription extends BaseEntity {
+  @Index()
+  @Column({ type: 'uuid' })
+  userId: string;
+
+  /** customer | driver | restaurant | admin */
+  @Column({ type: 'varchar', default: 'customer' })
+  app: 'customer' | 'driver' | 'restaurant' | 'admin';
+
+  @Column({ type: 'varchar', default: 'web' })
+  platform: 'web';
+
+  @Index({ unique: true })
+  @Column({ type: 'varchar', length: 2048 })
+  endpoint: string;
+
+  @Column({ type: 'varchar', length: 256 })
+  p256dh: string;
+
+  @Column({ type: 'varchar', length: 128 })
+  auth: string;
+
+  @Column({ type: 'varchar', length: 300, nullable: true })
+  userAgent: string | null;
+
+  @Column({ type: 'timestamptz', default: () => 'now()' })
+  lastSeenAt: Date;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  lastSuccessAt: Date | null;
+
+  /** consecutive failed deliveries (reset on success) */
+  @Column({ type: 'int', default: 0 })
+  failures: number;
+
+  @Column({ type: 'varchar', length: 250, nullable: true })
+  lastError: string | null;
+}
+
+/** Per-user notification preferences (categories x channels, quiet hours, sound). Customers' consents live on CustomerProfile (merged on read). */
+@Entity('notification_preferences')
+export class NotificationPreference extends BaseEntity {
+  @Index({ unique: true })
+  @Column({ type: 'uuid' })
+  userId: string;
+
+  @Column({ type: 'jsonb', default: {} })
+  data: Record<string, any>;
 }
 
 /** Admin-composed push / email / SMS campaign (marketing manager). CASL: only opted-in users. */

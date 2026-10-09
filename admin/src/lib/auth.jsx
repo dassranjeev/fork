@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { act, clearAppStorage, http, impersonation, tokens } from "./api";
 import { disconnectSocket } from "./socket";
 import { IdleGuard } from "./idle";
+import { teardownActivePush } from "./notify";
 
 const AuthContext = createContext(null);
 
@@ -74,6 +75,8 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     if (impersonation.active) return exitImpersonation();
+    // this browser must stop receiving this user's pushes: unsubscribe while the session is still valid (also covers idle logout)
+    await teardownActivePush();
     try {
       await http.post("/auth/logout", { refreshToken: tokens.refresh });
     } catch {

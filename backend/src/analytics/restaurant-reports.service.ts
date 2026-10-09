@@ -26,7 +26,7 @@ export class RestaurantReportsService {
     const p = new Params();
     const [x] = await this.b.q(
       `SELECT COALESCE(SUM(o."restaurantPayout") FILTER (WHERE ${done()}), 0)::float8 payout, COALESCE(SUM(o."commissionAmount") FILTER (WHERE ${done()}), 0)::float8 commission
-       FROM orders o ${WHERE([...rangeConds(p, 'o."createdAt"', from, to), ...scopeConds(c, p)])}`,
+       FROM orders o ${WHERE([`(o."kitchenReleaseAt" IS NULL OR o."kitchenReleasedAt" IS NOT NULL)`, ...rangeConds(p, 'o."createdAt"', from, to), ...scopeConds(c, p)])}`,
       p.v,
     );
     return { payout: r2(x.payout)!, commission: r2(x.commission)! };
@@ -46,7 +46,7 @@ export class RestaurantReportsService {
               COALESCE(SUM(o.total) FILTER (WHERE ${done()}), 0)::float8 gmv,
               COALESCE(SUM(o."restaurantPayout") FILTER (WHERE ${done()}), 0)::float8 payout,
               COALESCE(SUM(o."commissionAmount") FILTER (WHERE ${done()}), 0)::float8 commission
-       FROM orders o ${WHERE([...rangeConds(p, 'o."createdAt"', c.from, c.to), ...scopeConds(c, p)])} GROUP BY 1`,
+       FROM orders o ${WHERE([`(o."kitchenReleaseAt" IS NULL OR o."kitchenReleasedAt" IS NOT NULL)`, ...rangeConds(p, 'o."createdAt"', c.from, c.to), ...scopeConds(c, p)])} GROUP BY 1`,
       p.v,
     );
     const series = fillSeries(bucketKeys(c.from, c.to, c.tz, c.groupBy), rows, { orders: 0, completed: 0, gmv: 0, payout: 0, commission: 0 }).map((r) => ({
@@ -83,7 +83,7 @@ export class RestaurantReportsService {
       `SELECT oi."menuItemId" "menuItemId", oi.name, COUNT(*)::int lines, COALESCE(SUM(oi.quantity), 0)::int qty,
               COALESCE(SUM(oi."lineTotal"), 0)::float8 revenue, COUNT(DISTINCT oi."orderId")::int orders
        FROM order_items oi JOIN orders o ON o.id = oi."orderId"
-       ${WHERE([done(), `NOT oi.removed`, ...rangeConds(p, 'o."createdAt"', c.from, c.to), ...scopeConds(c, p)])}
+       ${WHERE([`(o."kitchenReleaseAt" IS NULL OR o."kitchenReleasedAt" IS NOT NULL)`, done(), `NOT oi.removed`, ...rangeConds(p, 'o."createdAt"', c.from, c.to), ...scopeConds(c, p)])}
        GROUP BY oi."menuItemId", oi.name ORDER BY revenue DESC LIMIT ${p.add(c.limit)}`,
       p.v,
     );
@@ -103,7 +103,7 @@ export class RestaurantReportsService {
       `SELECT EXTRACT(DOW FROM o."createdAt" AT TIME ZONE ${tzp}::text)::int AS dow,
               EXTRACT(HOUR FROM o."createdAt" AT TIME ZONE ${tzp}::text)::int AS hour,
               COUNT(*)::int orders, COALESCE(SUM(o.total) FILTER (WHERE ${done()}), 0)::float8 gmv
-       FROM orders o ${WHERE([`o.status NOT IN ('CANCELLED','REJECTED')`, ...rangeConds(p, 'o."createdAt"', c.from, c.to), ...scopeConds(c, p)])}
+       FROM orders o ${WHERE([`(o."kitchenReleaseAt" IS NULL OR o."kitchenReleasedAt" IS NOT NULL)`, `o.status NOT IN ('CANCELLED','REJECTED')`, ...rangeConds(p, 'o."createdAt"', c.from, c.to), ...scopeConds(c, p)])}
        GROUP BY 1, 2`,
       p.v,
     );
@@ -132,14 +132,14 @@ export class RestaurantReportsService {
               COUNT(*) FILTER (WHERE rv."restaurantRating" = 3)::int r3, COUNT(*) FILTER (WHERE rv."restaurantRating" = 2)::int r2,
               COUNT(*) FILTER (WHERE rv."restaurantRating" = 1)::int r1, COUNT(*) FILTER (WHERE rv.reply IS NOT NULL)::int replied
        FROM reviews rv JOIN orders o ON o.id = rv."orderId"
-       ${WHERE([`rv."restaurantRating" IS NOT NULL`, `rv.status = 'VISIBLE'`, ...rangeConds(p, 'rv."createdAt"', c.from, c.to), ...scopeConds(c, p)])}`,
+       ${WHERE([`(o."kitchenReleaseAt" IS NULL OR o."kitchenReleasedAt" IS NOT NULL)`, `rv."restaurantRating" IS NOT NULL`, `rv.status = 'VISIBLE'`, ...rangeConds(p, 'rv."createdAt"', c.from, c.to), ...scopeConds(c, p)])}`,
       p.v,
     );
     const p2 = new Params();
     const recent = await this.b.q(
       `SELECT rv.id, rv."restaurantRating" rating, rv.comment, rv."restaurantTags" tags, rv.reply, rv."createdAt", o.code "orderCode"
        FROM reviews rv JOIN orders o ON o.id = rv."orderId"
-       ${WHERE([`rv."restaurantRating" IS NOT NULL`, `rv.status = 'VISIBLE'`, ...scopeConds(c, p2)])}
+       ${WHERE([`(o."kitchenReleaseAt" IS NULL OR o."kitchenReleasedAt" IS NOT NULL)`, `rv."restaurantRating" IS NOT NULL`, `rv.status = 'VISIBLE'`, ...scopeConds(c, p2)])}
        ORDER BY rv."createdAt" DESC LIMIT 25`,
       p2.v,
     );
@@ -199,7 +199,7 @@ export class RestaurantReportsService {
     const [impact] = await this.b.q(
       `SELECT COUNT(pr.id)::int redemptions, COALESCE(SUM(pr.discount), 0)::float8 "discountCost", COALESCE(SUM(o.total), 0)::float8 gmv
        FROM promo_redemptions pr JOIN orders o ON o.id = pr."orderId" AND ${done()}
-       ${WHERE([...rangeConds(p2, 'pr."createdAt"', c.from, c.to), ...sc])}`,
+       ${WHERE([`(o."kitchenReleaseAt" IS NULL OR o."kitchenReleasedAt" IS NOT NULL)`, ...rangeConds(p2, 'pr."createdAt"', c.from, c.to), ...sc])}`,
       p2.v,
     );
     return {

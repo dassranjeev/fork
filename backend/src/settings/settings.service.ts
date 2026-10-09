@@ -1,7 +1,9 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FeatureFlag, Setting } from '../database/entities';
+import { defaultMatrix } from '../notifications/events';
+import { seal, unseal } from '../common/secretbox';
 
 /** Every configurable platform setting with its default. Seeded on boot (existing values are never overwritten). */
 export const SETTING_DEFINITIONS: any[] = [
@@ -42,13 +44,17 @@ export const SETTING_DEFINITIONS: any[] = [
       ],
     },
   },
+  { key: 'orders.customerCancelGraceSeconds', group: 'orders', label: 'Customers can cancel within this many seconds of placing an order (0 = never); after that only staff can cancel', value: 120, inputType: 'number' },
+  { key: 'orders.waitFee.enabled', group: 'orders', label: 'Driver wait-time pay: when a driver waits at the restaurant longer than the grace period after the promised ready time, pay the driver per minute and deduct it from the restaurant payout', value: true, inputType: 'boolean' },
+  { key: 'orders.waitFee.graceMinutes', group: 'orders', label: 'Driver wait-time pay: free minutes the driver waits after the promised ready time (or after arriving, if later)', value: 5, inputType: 'number' },
+  { key: 'orders.waitFee.perMinute', group: 'orders', label: 'Driver wait-time pay: amount ($) per started minute beyond the grace period', value: 0.5, inputType: 'number' },
+  { key: 'orders.waitFee.maxPerOrder', group: 'orders', label: 'Driver wait-time pay: maximum per order ($)', value: 10, inputType: 'number' },
   { key: 'orders.freeCancelUntil', group: 'orders', label: 'Customers cancel free until status', value: 'ACCEPTED', inputType: 'select' },
   { key: 'orders.cancellationFeeMaxPctOfFood', group: 'orders', label: 'Max late-cancellation fee (% of food cost)', value: 100, inputType: 'number' },
   { key: 'orders.tipEditableMinutes', group: 'orders', label: 'Tip editable after delivery (min)', value: 60, inputType: 'number', isPublic: true },
   { key: 'orders.tipPresets', group: 'orders', label: 'Tip presets (%)', value: [10, 15, 20], inputType: 'json', isPublic: true },
   { key: 'orders.maxScheduleDays', group: 'orders', label: 'Max days ahead for scheduled orders', value: 3, inputType: 'number', isPublic: true },
   { key: 'orders.quotedEtaBufferMin', group: 'orders', label: 'ETA buffer added to quotes (min)', value: 5, inputType: 'number' },
-  { key: 'orders.acceptCashPayments', group: 'orders', label: 'Allow cash payments', value: false, inputType: 'boolean' },
   { key: 'orders.partialApprovalMinutes', group: 'orders', label: 'Auto-approve item removal if customer silent (min)', value: 10, inputType: 'number' },
   { key: 'orders.driverCancelCompensation', group: 'orders', label: 'Driver compensation when order cancelled after assignment ($)', value: 3, inputType: 'number' },
   { key: 'orders.lateEtaExtensionMin', group: 'orders', label: 'ETA extension applied when an order is late (min)', value: 10, inputType: 'number' },
@@ -67,6 +73,11 @@ export const SETTING_DEFINITIONS: any[] = [
   { key: 'automation.scheduled.driveMinutes', group: 'automation', label: 'Scheduled orders: minutes before the scheduled time the food should be ready (drive time)', value: 20, inputType: 'number' },
   { key: 'automation.driver.autoArrive', group: 'automation', label: 'Automation: mark the driver as arrived (restaurant / customer) from GPS', value: true, inputType: 'boolean' },
   { key: 'automation.driver.autoArriveMeters', group: 'automation', label: 'Automation: arrival radius in metres', value: 80, inputType: 'number' },
+  { key: 'dispatch.preReadyMinutes', group: 'dispatch', label: 'Start searching for a driver this many minutes BEFORE the food is due (ready 3:20 pm and 5 min => the search starts at 3:15 pm). 0 = only when the kitchen marks the order ready', value: 5, inputType: 'number' },
+  { key: 'dispatch.stacking.enabled', group: 'dispatch', label: 'En-route stacking: a driver already delivering an order can be offered a second order whose pickup is near that drop-off (when free drivers are busy or limited). Never more than 2 orders per driver', value: true, inputType: 'boolean' },
+  { key: 'dispatch.stacking.maxOrdersPerDriver', group: 'dispatch', label: 'En-route stacking: maximum orders one driver may carry at the same time (hard limit 2)', value: 2, inputType: 'number' },
+  { key: 'dispatch.stacking.maxPickupFromDropKm', group: 'dispatch', label: 'En-route stacking: the new restaurant must be within this many km of the first order drop-off', value: 3, inputType: 'number' },
+  { key: 'dispatch.stacking.maxLateMin', group: 'dispatch', label: 'En-route stacking: skip the driver if they would reach the new restaurant more than this many minutes after the food is ready', value: 10, inputType: 'number' },
   { key: 'dispatch.autoAssign', group: 'dispatch', label: 'Auto-assign drivers', value: true, inputType: 'boolean' },
   { key: 'dispatch.maxInitialRadiusKm', group: 'dispatch', label: 'Initial search radius (km)', value: 4, inputType: 'number' },
   { key: 'dispatch.readyMatchWindowMin', group: 'dispatch', label: 'Driver should arrive ≤ N min before food is ready', value: 2, inputType: 'number' },
@@ -86,9 +97,6 @@ export const SETTING_DEFINITIONS: any[] = [
   { key: 'dispatch.escalatedRetrySec', group: 'dispatch', label: 'Retry interval while an order is escalated to the dispatcher (sec)', value: 45, inputType: 'number' },
   // ---- payments ----
   { key: 'payments.provider', group: 'payments', label: 'Payment provider', value: 'stripe', inputType: 'select' },
-  { key: 'payments.stripe.publishableKey', group: 'payments', label: 'Stripe publishable key', value: '', inputType: 'text', isPublic: true },
-  { key: 'payments.stripe.secretKey', group: 'payments', label: 'Stripe secret key', value: '', inputType: 'password', isSecret: true },
-  { key: 'payments.stripe.webhookSecret', group: 'payments', label: 'Stripe webhook secret', value: '', inputType: 'password', isSecret: true },
   { key: 'payments.applePayEnabled', group: 'payments', label: 'Apple Pay', value: true, inputType: 'boolean', isPublic: true },
   { key: 'payments.googlePayEnabled', group: 'payments', label: 'Google Pay', value: true, inputType: 'boolean', isPublic: true },
   { key: 'payments.walletEnabled', group: 'payments', label: 'FORKSY wallet / credits', value: true, inputType: 'boolean', isPublic: true },
@@ -97,11 +105,25 @@ export const SETTING_DEFINITIONS: any[] = [
   { key: 'payments.instantPayoutFeeMin', group: 'payments', label: 'Instant cash-out min fee ($)', value: 0.5, inputType: 'number' },
   { key: 'payments.payoutWeekday', group: 'payments', label: 'Payout day (0=Sun..6=Sat)', value: 3, inputType: 'number' },
   { key: 'payments.reconciliationToleranceCad', group: 'payments', label: 'Reconciliation gap tolerance ($)', value: 1, inputType: 'number' },
+  { key: 'payments.topUpMin', group: 'payments', label: 'Wallet top-up: minimum amount ($)', value: 5, inputType: 'number', isPublic: true },
+  { key: 'payments.topUpMax', group: 'payments', label: 'Wallet top-up: maximum amount ($)', value: 500, inputType: 'number', isPublic: true },
+  { key: 'payments.abandonedIntentMinutes', group: 'payments', label: 'Cancel card holds (PaymentIntents) that never became an order after this many minutes', value: 60, inputType: 'number' },
   { key: 'payments.dailyPayoutsEnabled', group: 'payments', label: 'Pay DAILY-schedule restaurants automatically every day', value: true, inputType: 'boolean' },
+  // ---- integrations (edited in Admin > System > Integrations; secrets are encrypted at rest and never returned by any API) ----
+  { key: 'integrations.stripe.secretKey', group: 'integrations', label: 'Stripe secret key (sk_test_ / sk_live_ / rk_)', value: '', inputType: 'password', isSecret: true },
+  { key: 'integrations.stripe.publishableKey', group: 'integrations', label: 'Stripe publishable key (pk_test_ / pk_live_)', value: '', inputType: 'text' },
+  { key: 'integrations.stripe.webhookSecret', group: 'integrations', label: 'Stripe webhook signing secret (whsec_)', value: '', inputType: 'password', isSecret: true },
+  { key: 'integrations.stripe.connectEnabled', group: 'integrations', label: 'Stripe Connect payouts enabled (drivers and restaurants are paid through Stripe Connect)', value: true, inputType: 'boolean' },
+  { key: 'integrations.stripe.currency', group: 'integrations', label: 'Stripe currency', value: 'cad', inputType: 'text' },
+  { key: 'integrations.stripe.platformCountry', group: 'integrations', label: 'Stripe platform country (connected accounts are created in this country)', value: 'CA', inputType: 'text' },
+  { key: 'integrations.mapbox.accessToken', group: 'integrations', label: 'Mapbox server access token (sk. or pk.; used by the API only)', value: '', inputType: 'password', isSecret: true },
+  { key: 'integrations.mapbox.publicToken', group: 'integrations', label: 'Mapbox public token (pk.; optional, for future browser maps)', value: '', inputType: 'text' },
+  { key: 'integrations.mapbox.country', group: 'integrations', label: 'Mapbox address search: country (ISO 3166 alpha-2, comma separated)', value: 'ca', inputType: 'text' },
+  { key: 'integrations.mapbox.bbox', group: 'integrations', label: 'Mapbox address search: bounding box "minLng,minLat,maxLng,maxLat" (Greater Toronto Area); empty = whole country', value: '-80.35,43.35,-78.9,44.2', inputType: 'text' },
+  { key: 'integrations.mapbox.proximity', group: 'integrations', label: 'Mapbox address search: default proximity "lng,lat" (Mississauga)', value: '-79.6441,43.589', inputType: 'text' },
   // ---- maps ----
   { key: 'maps.provider', group: 'maps', label: 'Maps provider', value: 'google', inputType: 'select' },
   { key: 'maps.googleApiKey', group: 'maps', label: 'Google Maps API key', value: '', inputType: 'password', isSecret: true },
-  { key: 'maps.mapboxToken', group: 'maps', label: 'Mapbox token', value: '', inputType: 'password', isSecret: true },
   { key: 'maps.driverLocationIntervalSec', group: 'maps', label: 'Driver location refresh (sec)', value: 5, inputType: 'number', isPublic: true },
   // ---- notifications ----
   { key: 'notifications.smsProvider', group: 'notifications', label: 'SMS provider', value: 'twilio', inputType: 'select' },
@@ -112,23 +134,20 @@ export const SETTING_DEFINITIONS: any[] = [
   { key: 'notifications.twilioFrom', group: 'notifications', label: 'Twilio from number', value: '', inputType: 'text' },
   { key: 'notifications.sendgridApiKey', group: 'notifications', label: 'SendGrid API key', value: '', inputType: 'password', isSecret: true },
   { key: 'notifications.emailFrom', group: 'notifications', label: 'From email', value: 'no-reply@forksy.ca', inputType: 'text' },
-  { key: 'notifications.fcmServerKey', group: 'notifications', label: 'FCM server key', value: '', inputType: 'password', isSecret: true },
+  // push: platform kill switches, VAPID (generated once on first boot, stored encrypted) and FCM HTTP v1 (docs/notifications.md)
+  { key: 'notifications.push.enabled', group: 'notifications', label: 'Push notifications: master switch for the whole platform (browser + native)', value: true, inputType: 'boolean' },
+  { key: 'notifications.push.webEnabled', group: 'notifications', label: 'Push notifications: browser push (Web Push / VAPID)', value: true, inputType: 'boolean' },
+  { key: 'notifications.push.fcmEnabled', group: 'notifications', label: 'Push notifications: native apps (FCM)', value: true, inputType: 'boolean' },
+  { key: 'notifications.vapid.keys', group: 'notifications', label: 'Web Push (VAPID) key pair - generated automatically on first boot and stored encrypted; replacing it logs every browser out of push (env VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY win)', value: '', inputType: 'password', isSecret: true },
+  { key: 'notifications.vapid.publicKey', group: 'notifications', label: 'Web Push (VAPID) public key (information only)', value: '', inputType: 'text' },
+  { key: 'notifications.vapid.subject', group: 'notifications', label: 'Web Push (VAPID) contact: mailto:you@example.com or https://your.site', value: 'mailto:support@forksy.ca', inputType: 'text' },
+  { key: 'notifications.fcm.serviceAccountJson', group: 'notifications', label: 'FCM HTTP v1 service-account JSON (Firebase console > Service accounts); env FCM_SERVICE_ACCOUNT_JSON wins', value: '', inputType: 'textarea', isSecret: true },
+  { key: 'notifications.retention.inAppDays', group: 'notifications', label: 'Delete READ in-app notifications after N days (unread ones after 365)', value: 90, inputType: 'number' },
+  { key: 'notifications.retention.deliveryDays', group: 'notifications', label: 'Delete push / SMS / e-mail delivery log rows after N days', value: 30, inputType: 'number' },
+  { key: 'notifications.templateSeedVersion', group: 'notifications', label: 'Internal: notification templates seeded up to this version (do not change)', value: 0, inputType: 'number' },
   {
-    key: 'notifications.matrix', group: 'notifications', label: 'Notification matrix (event -> audience -> channels)', inputType: 'json',
-    value: {
-      'order.placed': { CUSTOMER: ['PUSH', 'EMAIL', 'IN_APP'], RESTAURANT: ['PUSH', 'IN_APP'] },
-      'order.accepted': { CUSTOMER: ['PUSH', 'IN_APP'] },
-      'order.rejected': { CUSTOMER: ['PUSH', 'SMS', 'IN_APP'] },
-      'driver.offer': { DRIVER: ['PUSH', 'IN_APP'] },
-      'driver.assigned': { CUSTOMER: ['PUSH', 'IN_APP'], RESTAURANT: ['IN_APP'] },
-      'order.ready': { CUSTOMER: ['PUSH', 'IN_APP'], DRIVER: ['PUSH', 'IN_APP'] },
-      'order.picked_up': { CUSTOMER: ['PUSH', 'IN_APP'] },
-      'order.delivered': { CUSTOMER: ['PUSH', 'EMAIL', 'IN_APP'], DRIVER: ['PUSH', 'IN_APP'], RESTAURANT: ['IN_APP'] },
-      'order.late': { CUSTOMER: ['PUSH', 'IN_APP'], RESTAURANT: ['PUSH', 'IN_APP'], DRIVER: ['PUSH'], ADMIN: ['IN_APP'] },
-      'order.no_driver': { CUSTOMER: ['PUSH', 'IN_APP'], RESTAURANT: ['IN_APP'], ADMIN: ['IN_APP'] },
-      'document.expiring': { RESTAURANT: ['EMAIL'], DRIVER: ['PUSH', 'EMAIL'], ADMIN: ['IN_APP'] },
-      'payout.sent': { RESTAURANT: ['EMAIL'], DRIVER: ['PUSH', 'EMAIL'] },
-    },
+    key: 'notifications.matrix', group: 'notifications', label: 'Notification matrix (event -> audience -> channels). Defaults come from the event registry; edit in System > Notification Matrix', inputType: 'json',
+    value: defaultMatrix(),
   },
   // ---- taxes ----
   { key: 'taxes.defaultTaxClass', group: 'taxes', label: 'Default tax class code', value: 'HST_ON', inputType: 'text' },
@@ -239,6 +258,24 @@ export const SETTING_DEFINITIONS: any[] = [
   { key: 'compliance.dataRequestDays', group: 'compliance', label: 'PIPEDA data request response window (days)', value: 30, inputType: 'number' },
   { key: 'compliance.auditRetentionYears', group: 'compliance', label: 'Audit log retention (years)', value: 7, inputType: 'number' },
   { key: 'compliance.requireMarketingConsent', group: 'compliance', label: 'CASL: marketing needs opt-in', value: true, inputType: 'boolean' },
+  // ---- ordering assistant (docs/assistant.md) ----
+  { key: 'assistant.enabled', group: 'assistant', label: 'Ordering assistant (bot): master switch for the FORKSY website bot and every restaurant bot', value: true, inputType: 'boolean', isPublic: true },
+  { key: 'assistant.embed.enabled', group: 'assistant', label: 'Ordering assistant: allow restaurants to embed the bot on their own websites', value: true, inputType: 'boolean' },
+  { key: 'assistant.maxMessagesPerSession', group: 'assistant', label: 'Ordering assistant: maximum messages in one chat session', value: 200, inputType: 'number' },
+  { key: 'assistant.sessionTtlHours', group: 'assistant', label: 'Ordering assistant: a chat session (and its cart) expires after this many hours of inactivity', value: 24, inputType: 'number' },
+  { key: 'assistant.handoffTtlMinutes', group: 'assistant', label: 'Ordering assistant: how long the one-time checkout hand-off link to the FORKSY website stays valid (min)', value: 30, inputType: 'number' },
+  // the central bot of the FORKSY website (edited in Admin > Assistant > Central bot; values are re-validated whenever they are read)
+  { key: 'assistant.central.enabled', group: 'assistant', label: 'Central assistant (FORKSY website bot) enabled', value: true, inputType: 'boolean' },
+  { key: 'assistant.central.name', group: 'assistant', label: 'Central assistant: name (max 40)', value: 'FORKSY Assistant', inputType: 'text' },
+  { key: 'assistant.central.greeting', group: 'assistant', label: 'Central assistant: greeting (max 200)', value: "Hi! I'm the FORKSY assistant. Tell me what you're craving and I'll find a restaurant, or say \"order from <restaurant>\".", inputType: 'textarea' },
+  { key: 'assistant.central.color', group: 'assistant', label: 'Central assistant: accent colour (#RRGGBB, empty = default)', value: '', inputType: 'text' },
+  { key: 'assistant.central.logoUrl', group: 'assistant', label: 'Central assistant: logo (an upload from POST /uploads; empty = none)', value: '', inputType: 'text' },
+  { key: 'assistant.central.faqs', group: 'assistant', label: 'Central assistant: FAQs about FORKSY itself ([{q, a}], max 20)', value: [], inputType: 'json' },
+  // ---- bot training tool (docs/assistant-training.md)
+  { key: 'assistant.training.requireApproval', group: 'assistant', label: 'Bot training: a restaurant publish needs FORKSY approval first (staff can always publish directly)', value: false, inputType: 'boolean' },
+  { key: 'assistant.training.holdPhrases', group: 'assistant', label: 'Bot training: phrases that hold an entry for FORKSY review (allergen-safety guarantees, medical claims); built-in patterns always apply too', value: ["100% safe","100 percent safe","completely safe","totally safe","guaranteed nut free","guaranteed gluten free","guaranteed dairy free","guaranteed allergen free","no allergens","allergen free","allergy safe","safe for celiacs","safe for coeliacs","safe for people with allergies","safe for diabetics","no cross contamination","no cross-contamination","cure for","clinically proven","doctor approved"], inputType: 'json' },
+  { key: 'assistant.training.blockPhrases', group: 'assistant', label: 'Bot training: phrases that are refused outright (profanity / abuse); built-in patterns always apply too', value: ["fuck","shit","bitch","asshole","bastard","cunt","dickhead","slut","whore","retard","faggot","nigger","nigga"], inputType: 'json' },
+  { key: 'assistant.central.chips', group: 'assistant', label: 'Central assistant: starter chips ([{label, query}], max 6; empty = built-in defaults)', value: [], inputType: 'json' },
 ];
 
 export const FEATURE_FLAG_DEFINITIONS = [
@@ -256,8 +293,24 @@ export const FEATURE_FLAG_DEFINITIONS = [
   { key: 'auto_refund_rules', enabled: true, description: 'Self-serve automatic refund/credit rules' },
 ];
 
+/** Legacy settings that moved into the "integrations" group (value is carried over once, then the old row is deleted). */
+const MOVED_KEYS: Record<string, string> = {
+  'payments.stripe.secretKey': 'integrations.stripe.secretKey',
+  'payments.stripe.publishableKey': 'integrations.stripe.publishableKey',
+  'payments.stripe.webhookSecret': 'integrations.stripe.webhookSecret',
+  'maps.mapboxToken': 'integrations.mapbox.accessToken',
+};
+/** Settings that no longer exist (cash payments were removed: every payment goes through Stripe). */
+const REMOVED_KEYS = ['orders.acceptCashPayments'];
+
+/** Seal a secret before it is stored (AES-256-GCM, see common/secretbox.ts). Empty stays empty. */
+export function sealSecret(value: any): any {
+  return typeof value === 'string' && value !== '' ? seal(value) : value;
+}
+
 @Injectable()
 export class SettingsService implements OnModuleInit {
+  private readonly logger = new Logger('Settings');
   private cache = new Map<string, any>();
   private loadedAt = 0;
 
@@ -287,6 +340,27 @@ export class SettingsService implements OnModuleInit {
     const existing = new Set((await this.repo.find({ select: ['key'] })).map((s) => s.key));
     const missing = SETTING_DEFINITIONS.filter((d) => !existing.has(d.key));
     if (missing.length) await this.repo.insert(missing);
+    // one-off: carry legacy Stripe / Mapbox values into the integrations group, drop the removed rows
+    for (const [oldKey, newKey] of Object.entries(MOVED_KEYS)) {
+      const old = await this.repo.findOne({ where: { key: oldKey } });
+      if (!old) continue;
+      const target = await this.repo.findOne({ where: { key: newKey } });
+      const has = (v: any) => typeof v === 'string' && v !== '';
+      if (target && !has(target.value) && has(old.value)) {
+        target.value = target.isSecret ? (old.value.startsWith('enc1:') ? old.value : seal(old.value)) : old.value;
+        await this.repo.save(target);
+      }
+      await this.repo.delete({ key: oldKey });
+    }
+    for (const k of REMOVED_KEYS) await this.repo.delete({ key: k });
+    // one-off: secrets used to be stored in clear text. Seal every secret that still is.
+    const secrets = await this.repo.find({ where: { isSecret: true } });
+    for (const r of secrets) {
+      if (typeof r.value === 'string' && r.value !== '' && !r.value.startsWith('enc1:')) {
+        r.value = seal(r.value);
+        await this.repo.save(r);
+      }
+    }
     const existingFlags = new Set((await this.flags.find({ select: ['key'] })).map((f) => f.key));
     const missingFlags = FEATURE_FLAG_DEFINITIONS.filter((d) => !existingFlags.has(d.key));
     if (missingFlags.length) await this.flags.insert(missingFlags);
@@ -294,8 +368,19 @@ export class SettingsService implements OnModuleInit {
 
   async reload() {
     const all = await this.repo.find();
-    this.cache = new Map(all.map((s) => [s.key, s.value]));
+    this.cache = new Map(all.map((s) => [s.key, s.isSecret ? this.open(s) : s.value]));
     this.loadedAt = Date.now();
+  }
+
+  /** Secrets are sealed at rest; the in-memory cache (used by every sync get()) holds the plaintext. */
+  private open(s: Setting): any {
+    if (typeof s.value !== 'string' || !s.value.startsWith('enc1:')) return s.value;
+    try {
+      return unseal(s.value);
+    } catch {
+      this.logger.error(`Secret setting "${s.key}" cannot be decrypted (was DATA_ENCRYPTION_KEY changed?) - treated as not configured`);
+      return '';
+    }
   }
 
   /** Sync read from cache (refreshed on every write and every 60 s). */
@@ -307,7 +392,7 @@ export class SettingsService implements OnModuleInit {
   async set(key: string, value: any) {
     let s = await this.repo.findOne({ where: { key } });
     if (!s) s = this.repo.create({ key, group: key.split('.')[0] });
-    s.value = value;
+    s.value = s.isSecret ? sealSecret(value) : value;
     await this.repo.save(s);
     this.cache.set(key, value);
     return s;
@@ -322,7 +407,8 @@ export class SettingsService implements OnModuleInit {
 
   async list(group?: string) {
     const rows = await this.repo.find({ where: group ? { group } : {}, order: { group: 'ASC', key: 'ASC' } });
-    return rows.map((r) => this.mask(r));
+    // the "integrations" group is edited on its own page (format checks, super admin only, test connection); it is not listed here
+    return rows.filter((r) => r.group !== 'integrations').map((r) => this.mask(r));
   }
 
   mask(r: Setting) {

@@ -19,6 +19,7 @@ import { AuditInterceptor } from './audit/audit.interceptor';
 // platform services (global)
 import { AuditModule } from './audit/audit.module';
 import { SettingsModule } from './settings/settings.module';
+import { IntegrationsModule } from './integrations/integrations.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { UploadsModule } from './uploads/uploads.module';
@@ -39,6 +40,8 @@ import { SupportModule } from './support/support.module';
 import { MarketingModule } from './marketing/marketing.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { RatingsModule } from './ratings/ratings.module';
+import { AssistantModule } from './assistant/assistant.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -79,6 +82,7 @@ import { RatingsModule } from './ratings/ratings.module';
 
     AuditModule,
     SettingsModule,
+    IntegrationsModule,
     RealtimeModule,
     NotificationsModule,
     UploadsModule,
@@ -98,6 +102,8 @@ import { RatingsModule } from './ratings/ratings.module';
     MarketingModule,
     AnalyticsModule,
     RatingsModule,
+    AssistantModule,
+    PaymentsModule,
   ],
   providers: [
     // order matters: authenticate -> account type -> staff permission -> restaurant role

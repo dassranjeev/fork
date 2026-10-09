@@ -3,12 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self' blob: http://localhost:4000; connect-src 'self' http://localhost:4000; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self' blob: http://localhost:4000; connect-src 'self' http://localhost:4000 ws://localhost:4000; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <script src="/frame-guard.js"></script>
+<link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/brand/icon-32.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>FORKSY driver - delivery confirmation demo</title>
 <style>
-  :root { --bg:#0f1420; --card:#171d2c; --line:#2a3350; --text:#e6e9f2; --muted:#8c96b2; --accent:#f95a16; --ok:#22c55e; --bad:#ef4444; }
+  :root { --bg:#0f1420; --card:#171d2c; --line:#2a3350; --text:#e6e9f2; --muted:#8c96b2; --accent:#ff6917; --ok:#22c55e; --bad:#ef4444; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
   header { padding:12px 16px; border-bottom:1px solid var(--line); }
@@ -28,6 +29,21 @@
   .msg { padding:9px 11px; border-radius:8px; margin-top:10px; border:1px solid; white-space:pre-wrap; overflow-wrap:anywhere; }
   .msg.ok { background:#123b24; border-color:#14532d; } .msg.err { background:#3b1a1a; border-color:#7f1d1d; }
   #preview { max-width:100%; max-height:220px; border-radius:8px; margin-top:8px; }
+  .offer { background:#2a1606; border:2px solid var(--accent); border-radius:14px; padding:14px; animation:pulse 1.4s infinite; }
+  .offer.hl { outline:3px solid #fff; }
+  .offer h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent); margin:0 0 6px; }
+  .offer .big { font-size:22px; font-weight:700; overflow-wrap:anywhere; }
+  .offer .count { font-size:34px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .bar { height:8px; background:#3b2410; border-radius:999px; overflow:hidden; margin:8px 0 12px; } .bar > div { height:100%; width:100%; background:var(--accent); }
+  .offer .kv { grid-template-columns:100px 1fr; }
+  button.ghost { background:transparent; border:1px solid var(--line); color:var(--text); }
+  @keyframes pulse { 0% { box-shadow:0 0 0 0 rgba(255,105,23,.55); } 70% { box-shadow:0 0 0 12px rgba(255,105,23,0); } 100% { box-shadow:0 0 0 0 rgba(255,105,23,0); } }
+  @media (prefers-reduced-motion: reduce) { .offer { animation:none; } }
+  .nlist { list-style:none; margin:8px 0 0; padding:0; display:grid; gap:6px; max-height:300px; overflow:auto; }
+  .nitem { border:1px solid var(--line); border-radius:8px; padding:8px 10px; cursor:pointer; background:#0d1220; }
+  .nitem.unread { border-color:var(--accent); } .nitem .ntop { display:flex; justify-content:space-between; gap:8px; } .nitem .nbody { color:var(--muted); font-size:13px; overflow-wrap:anywhere; }
+  .badge { display:inline-block; min-width:20px; padding:0 6px; border-radius:999px; background:var(--accent); color:#fff; font-size:12px; text-align:center; text-transform:none; letter-spacing:0; }
+  .note { padding:9px 11px; border-radius:8px; border:1px solid var(--line); background:var(--card); }
   .kv { display:grid; grid-template-columns:110px 1fr; gap:3px 10px; font-size:14px; } .kv dt { color:var(--muted); } .kv dd { margin:0; overflow-wrap:anywhere; }
 </style>
 </head>
@@ -37,13 +53,36 @@
   <p>Test harness for what the driver app shows when completing a delivery. Not a product UI. See docs/proof-of-delivery.md.</p>
 </header>
 <main>
+  <section class="offer hide" id="offerCard" role="alert" aria-live="assertive" data-ringing="">
+    <h2>New delivery offer</h2>
+    <div class="big" id="offerRestaurant"></div>
+    <div class="muted" id="offerCode"></div>
+    <div class="count" id="offerCountdown">0s</div>
+    <div class="bar"><div id="offerBar"></div></div>
+    <dl class="kv"><dt>To pickup</dt><dd id="offerPickup"></dd><dt>To drop-off</dt><dd id="offerDrop"></dd><dt>Estimated pay</dt><dd id="offerPay"></dd></dl>
+    <div class="row" style="margin-top:12px"><button id="offerAccept">Accept</button><button class="alt" id="offerDecline">Decline</button></div>
+    <div class="row" style="margin-top:8px"><button class="ghost" id="offerSilence">Silence the ring</button><button class="ghost hide" id="soundFix">Sound is blocked - tap to enable</button></div>
+  </section>
+  <div class="note hide" id="offerNote" role="status"></div>
+
   <section class="card" id="loginCard">
     <h2>1. Log in as a driver</h2>
     <label>Email</label><input id="email" value="driver6@demo.forksy.ca" autocomplete="off">
     <label>Password</label><input id="password" type="password" value="Demo@12345">
     <label>API base URL</label><input id="api" value="http://localhost:4000/api/v1">
-    <div class="row" style="margin-top:10px"><button id="btnLogin">Log in</button></div>
+    <div class="row" style="margin-top:10px"><button id="btnLogin">Log in</button><button class="alt hide" id="btnOnline">Go online</button><button class="alt hide" id="btnLogout">Log out</button></div>
     <div id="who" class="muted" style="margin-top:6px"></div>
+  </section>
+
+  <section class="card hide" id="notifyCard">
+    <h2>Notifications <span class="badge hide" id="notifBadge"><span id="notifUnread">0</span></span> <span class="muted" style="text-transform:none;letter-spacing:0;float:right" id="liveState">Offline</span></h2>
+    <div id="pushStatus" class="muted">Checking...</div>
+    <div class="row" style="margin-top:8px"><button class="hide" id="btnPushOn">Turn on notifications</button><button class="alt hide" id="btnPushOff">Turn off</button><button class="alt hide" id="btnPushTest">Send test notification</button></div>
+    <div id="pushMsg" class="msg hide"></div>
+    <div class="muted" style="font-size:12px;margin-top:8px" id="soundState"></div>
+    <div class="row" style="margin-top:12px;align-items:center"><strong style="flex:1">Inbox</strong><button class="alt hide" id="btnReadAll" style="flex:0 0 auto;padding:6px 12px">Mark all read</button></div>
+    <ul class="nlist" id="notifList"></ul>
+    <div class="muted hide" id="notifEmpty">No notifications yet.</div>
   </section>
 
   <section class="card hide" id="tripCard">
@@ -84,6 +123,8 @@
     <div id="result" class="msg hide"></div>
   </section>
 </main>
+<script src="/socket.io.min.js"></script>
+<script src="/notify-lite.js"></script>
 <script src="/driver-demo.js"></script>
 </body>
 </html>

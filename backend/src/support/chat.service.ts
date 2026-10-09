@@ -383,6 +383,8 @@ export class ChatService {
     this.toAgents('chat.new', item);
     await this.dispatchWaiting();
     const fresh = (await this.sessions.findOne({ where: { id: session.id } })) ?? session;
+    // nobody picked it up yet: staff with support access get a (push) notification even when the console is closed
+    if (fresh.status === 'WAITING') this.notifications.notifyStaff('chat.waiting', { who: req.type === 'CUSTOMER' ? 'A customer' : req.type === 'DRIVER' ? 'A driver' : 'A restaurant' }, { sessionId: fresh.id }).catch(() => undefined);
     return this.liveResponse(fresh, false);
   }
 

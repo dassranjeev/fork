@@ -4,7 +4,7 @@ import { CustomerController, CurrentUser } from '../common/decorators';
 import { AuthUser } from '../common/auth.types';
 import { CartService } from './cart.service';
 import { CheckoutService } from './checkout.service';
-import { AddCartItemDto, CheckoutQuoteDto, ReplaceCartDto, SetPromoDto, UpdateCartItemDto } from './dto';
+import { AddCartItemDto, CheckoutQuoteDto, PaymentIntentDto, ReplaceCartDto, SetPromoDto, UpdateCartItemDto } from './dto';
 
 /** /customer/cart - single-restaurant cart with server-side availability validation (spec §6). */
 @CustomerController('cart')
@@ -57,5 +57,20 @@ export class CustomerCheckoutController {
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   quote(@CurrentUser() user: AuthUser, @Body() dto: CheckoutQuoteDto) {
     return this.checkout.quote(user.id, dto);
+  }
+}
+
+/**
+ * /customer/payments - on-page Stripe payments. Step 1 of paying: the server prices the cart and creates the PaymentIntent
+ * (manual capture); the page confirms it with the Stripe Payment Element, then POST /customer/orders { paymentIntentId }.
+ */
+@CustomerController('payments')
+export class CustomerPaymentsController {
+  constructor(private checkout: CheckoutService) {}
+
+  @Post('intent')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  intent(@CurrentUser() user: AuthUser, @Body() dto: PaymentIntentDto) {
+    return this.checkout.createPaymentIntent(user.id, dto);
   }
 }

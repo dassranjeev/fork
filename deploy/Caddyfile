@@ -1,0 +1,13 @@
+# Automatic HTTPS (Let's Encrypt). Point both DNS names at this server first.
+{$APP_DOMAIN} {
+	encode gzip
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	reverse_proxy web:80
+}
+
+{$API_DOMAIN} {
+	encode gzip
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	# websockets (Socket.IO) are proxied automatically
+	reverse_proxy api:4000
+}

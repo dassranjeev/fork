@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react/offline";
+import { useLocation, useSearchParams } from "react-router-dom";
+import { useAlerts } from "../../lib/notify";
 import RateCustomerPanel from "../ratings/RateCustomerPanel";
 import { Badge, Button, DataTable, ErrorState, FilterSelect, FormModal, ListToolbar, Loading, Modal, Segmented, Select, StatusBadge, TextArea, TextInput, Timeline, useConfirm } from "../../ui";
 import { fmtDateTime, fmtTime, money, ORDER_STATUSES, titleCase } from "../../lib/format";
@@ -22,32 +24,12 @@ const REJECT_REASONS = [
   { value: "OTHER", label: "Other" },
 ];
 
-function beep() {
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    const ctx = new Ctx();
-    [880, 660, 880].forEach((f, i) => {
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.frequency.value = f;
-      o.connect(g);
-      g.connect(ctx.destination);
-      g.gain.value = 0.15;
-      o.start(ctx.currentTime + i * 0.22);
-      o.stop(ctx.currentTime + i * 0.22 + 0.15);
-    });
-  } catch {
-    /* audio blocked */
-  }
-}
-
 /** Loads open orders + their items (the list endpoint has no items). */
 function useLiveOrders() {
   const { restaurantId } = usePortal();
   const [orders, setOrders] = useState(null);
   const [error, setError] = useState(null);
   const cache = useRef(new Map());
-  const seen = useRef(null);
   const seq = useRef(0);
 
   const load = useCallback(async () => {
@@ -71,9 +53,6 @@ function useLiveOrders() {
         })
       );
       if (id !== seq.current) return;
-      const newIds = full.filter((o) => o.status === "PLACED").map((o) => o.id);
-      if (seen.current && newIds.some((x) => !seen.current.has(x))) beep();
-      seen.current = new Set(newIds);
       setOrders(full);
       setError(null);
     } catch (e) {
@@ -83,7 +62,6 @@ function useLiveOrders() {
 
   useEffect(() => {
     setOrders(null);
-    seen.current = null;
     load();
     const t = setInterval(load, 20000);
     return () => clearInterval(t);
@@ -166,8 +144,9 @@ export function OrderItems({ order, onRemove, removing }) {
   );
 }
 
-function OrderCard({ order, reload }) {
+function OrderCard({ order, reload, highlight }) {
   const api = useApi();
+  const { acknowledge } = useAlerts();
   const confirm = useConfirm();
   const { run, isBusy } = useAction();
   const [reject, setReject] = useState(false);
@@ -190,13 +169,46 @@ function OrderCard({ order, reload }) {
     if (res.ok) reload();
   };
   const edge = s === "PLACED" ? "#dc2626" : s === "READY" ? "#16a34a" : "#eab308";
+  const cancelReq = order.meta?.cancelRequest?.status === "PENDING" ? order.meta.cancelRequest : null;
+  const answerCancel = async (approve) => {
+    const r = await confirm({
+      title: approve ? "Approve the cancellation?" : "Decline the cancellation?",
+      message: approve ? "FORKSY support can then cancel this order and the customer is refunded." : "The order stays active and you keep preparing it.",
+      confirmText: approve ? "Approve" : "Decline",
+      danger: approve,
+      prompt: { label: "Note for FORKSY (optional)", type: "text" },
+    });
+    if (!r.confirmed) return;
+    const res = await run("cancel-answer", () => api.post(`/restaurant/orders/${order.id}/cancel-request/respond`, { approve, note: r.value || undefined }), approve ? "Approved" : "Declined");
+    if (res.ok) {
+      acknowledge(order.id, "cancel");
+      reload();
+    }
+  };
 
   return (
-    <div className="card radius-12 shadow-sm mb-12" style={{ borderLeft: `4px solid ${edge}` }}>
+    <div id={`order-${order.id}`} tabIndex={-1} data-highlight={highlight ? "1" : undefined} className="card radius-12 shadow-sm mb-12" style={{ borderLeft: `4px solid ${edge}`, outline: "none", ...(highlight ? { boxShadow: "0 0 0 3px #2563eb" } : null) }}>
       <div className="card-body p-16">
+        {cancelReq && (
+          <div className="alert alert-warning radius-8 py-8 px-12 mb-12 text-sm" data-testid="cancel-request">
+            <div className="fw-semibold">FORKSY support asks to cancel this order</div>
+            <div className="mb-8">{cancelReq.reason}</div>
+            <div className="d-flex gap-2">
+              <Button variant="danger" loading={isBusy("cancel-answer")} onClick={() => answerCancel(true)}>
+                Approve cancellation
+              </Button>
+              <Button variant="outline" loading={isBusy("cancel-answer")} onClick={() => answerCancel(false)}>
+                Decline
+              </Button>
+            </div>
+          </div>
+        )}
         <div className="d-flex justify-content-between align-items-start gap-2 mb-8">
           <div>
             <div className="fw-bold text-lg">{order.code}</div>
+            {order.driverArrivedRestaurantAt && !order.pickedUpAt && ["PREPARING", "READY", "ACCEPTED", "DRIVER_ASSIGNED"].includes(order.status) && (
+              <Badge tone="warning">Driver is here and waiting - hand the order over to avoid wait charges</Badge>
+            )}
             <div className="text-secondary-light text-xs d-flex align-items-center gap-1">
               <Icon icon={order.type === "PICKUP" ? "solar:shop-2-outline" : "solar:delivery-outline"} /> {ORDER_TYPE_LABEL[order.type] || titleCase(order.type)} · placed {fmtTime(order.createdAt)}
             </div>
@@ -282,10 +294,28 @@ function OrderCard({ order, reload }) {
   );
 }
 
-function LiveBoard() {
+function LiveBoard({ focusId, focusKey, onMissing }) {
   const { orders, error, reload } = useLiveOrders();
-  useRealtimeReload(reload);
+  useRealtimeReload(reload, ["order.new", "order.status", "store.updated", "order.cancel_requested"]);
   useTick(15000);
+  const [hl, setHl] = useState(null);
+  const found = orders && focusId ? orders.some((o) => o.id === focusId) : null;
+  useEffect(() => {
+    if (!focusId || found === null) return undefined;
+    if (!found) {
+      onMissing(focusId);
+      return undefined;
+    }
+    setHl(focusId);
+    const el = document.getElementById(`order-${focusId}`);
+    if (el) {
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      el.focus({ preventScroll: true });
+    }
+    const t = setTimeout(() => setHl(null), 8000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusId, focusKey, found]);
   if (error && !orders) return <ErrorState error={error} onRetry={reload} />;
   if (!orders) return <Loading />;
   return (
@@ -305,7 +335,7 @@ function LiveBoard() {
                 No orders
               </div>
             ) : (
-              list.map((o) => <OrderCard key={o.id} order={o} reload={reload} />)
+              list.map((o) => <OrderCard key={o.id} order={o} reload={reload} highlight={hl === o.id} />)
             )}
           </div>
         );
@@ -334,7 +364,13 @@ function OrderDetailModal({ id, onClose }) {
             <div className="mt-12 text-sm">
               <div className="d-flex justify-content-between"><span>Subtotal</span><span>{money(o.subtotal)}</span></div>
               <div className="d-flex justify-content-between"><span>Commission ({o.commissionPct}%)</span><span>-{money(o.commissionAmount)}</span></div>
-              <div className="d-flex justify-content-between fw-semibold"><span>Your payout</span><span>{money(o.restaurantPayout)}</span></div>
+              {Number(o.driverWaitFee) > 0 && (
+                <div className="d-flex justify-content-between text-danger-600">
+                  <span>Driver wait charge ({o.driverWaitMinutes} min)</span>
+                  <span>-{money(o.driverWaitFee)}</span>
+                </div>
+              )}
+              <div className="d-flex justify-content-between fw-semibold"><span>Your payout</span><span>{money(Number(o.restaurantPayout) - Number(o.driverWaitFee || 0))}</span></div>
             </div>
             {(o.cancelReason || o.rejectReason) && <div className="text-danger-600 text-sm mt-8">Reason: {o.cancelReason || o.rejectReason}</div>}
             {["DELIVERED", "COLLECTED"].includes(o.status) && <RateCustomerPanel order={o} />}
@@ -386,6 +422,16 @@ function History() {
 
 export default function Orders() {
   const [tab, setTab] = useState("live");
+  const [params] = useSearchParams();
+  const location = useLocation();
+  const orderParam = params.get("order");
+  const { acknowledge } = useAlerts();
+  const [detail, setDetail] = useState(null);
+  // opening an order (from the alarm banner, a notification or a push) acknowledges its alarm
+  useEffect(() => {
+    if (orderParam) acknowledge(orderParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderParam, location.key]);
   return (
     <PortalPage
       title="Orders"
@@ -400,7 +446,8 @@ export default function Orders() {
         />
       }
     >
-      {tab === "live" ? <LiveBoard /> : <History />}
+      {tab === "live" ? <LiveBoard focusId={orderParam} focusKey={location.key} onMissing={setDetail} /> : <History />}
+      <OrderDetailModal id={detail} onClose={() => setDetail(null)} />
     </PortalPage>
   );
 }

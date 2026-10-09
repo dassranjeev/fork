@@ -11,6 +11,7 @@ const Invoices = React.lazy(() => import("./Invoices"));
 const Hst = React.lazy(() => import("./Hst"));
 const Refunds = React.lazy(() => import("./Refunds"));
 const Parties = React.lazy(() => import("./Parties"));
+const PayoutAccounts = React.lazy(() => import("./PayoutAccounts"));
 
 const P = ["finance", "view"];
 
@@ -29,6 +30,7 @@ export const routes = [
   { path: "finance/hst", element: <Hst />, perm: P },
   { path: "finance/refunds", element: <Refunds />, perm: P },
   { path: "finance/parties", element: <Parties />, perm: P },
+  { path: "finance/payout-accounts", element: <PayoutAccounts />, perm: P },
 ];
 
 export const menu = [
@@ -43,6 +45,7 @@ export const menu = [
       { label: "Payout batches", to: "/finance/batches" },
       { label: "All payouts", to: "/finance/payouts" },
       { label: "Statements", to: "/finance/statements" },
+      { label: "Payout accounts", to: "/finance/payout-accounts" },
       { label: "Bank and holds", to: "/finance/parties" },
     ],
   },

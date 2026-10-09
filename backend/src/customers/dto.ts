@@ -147,8 +147,21 @@ export class CheckoutQuoteDto {
   @IsOptional() @Matches(/^[A-Za-z0-9 #*\-_./]{1,40}$/, { message: 'accessCode: up to 40 letters, digits, space and # * - _ . /' }) accessCode?: string;
 }
 
+/** POST /customer/payments/intent: the checkout quote fields + the card options. The amount is NEVER taken from the client. */
+export class PaymentIntentDto extends CheckoutQuoteDto {
+  /** keep "this card" for next time (Stripe setup_future_usage) */
+  @IsOptional() @Transform(({ obj }) => obj.saveCard) @IsBoolean() saveCard?: boolean;
+  /** pay with a saved card (pm_...) */
+  @IsOptional() @IsString() @Matches(/^pm_[A-Za-z0-9_]{6,100}$/, { message: 'paymentMethodId is not valid' }) paymentMethodId?: string;
+  /** update this still-unconfirmed intent instead of creating a new one (the cart / tip changed) */
+  @IsOptional() @IsString() @Matches(/^pi_[A-Za-z0-9_]{6,100}$/, { message: 'intentId is not valid' }) intentId?: string;
+}
+
 export class PlaceOrderDto extends CheckoutQuoteDto {
   @IsIn(Object.values(PaymentMethod)) paymentMethod: PaymentMethod;
+  /** Stripe PaymentIntent confirmed on the page (Payment Element). Required for any card amount. */
+  @IsOptional() @IsString() @Matches(/^pi_[A-Za-z0-9_]{6,100}$/, { message: 'paymentIntentId is not valid' }) paymentIntentId?: string;
+  /** DEVELOPMENT MOCK ONLY (ignored when Stripe is configured) */
   @IsOptional() @IsString() @MaxLength(200) paymentToken?: string;
   @IsOptional() @IsString() @MaxLength(40) giftCardCode?: string;
   @IsOptional() @IsBoolean() contactless?: boolean;

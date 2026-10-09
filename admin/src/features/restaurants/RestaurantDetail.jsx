@@ -6,11 +6,13 @@ import { Avatar, Badge, ErrorState, Loading, PageHeader, StatusBadge, Tabs } fro
 import OpenPanelButton from "./OpenPanelButton";
 import { MenuAccessCard, MenuAccessBadge } from "./MenuAccess";
 import OrderAutomationCard from "../portal/Automation";
+import AssistantCard from "./AssistantCard";
 import { http } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 
 const adminHttp = { get: (u) => http.get(u), patch: (u, b) => http.patch(u, b) };
 import { RestaurantActions, PRE_LIVE } from "./shared";
+import PayoutAccountBadge from "../finance/PayoutAccountBadge";
 import { CommissionTab, DocumentsTab, HoursTab, LocationTab, MembersTab, MenuTab, OverviewTab, PerformanceTab, ReviewsTab } from "./DetailTabs";
 
 export default function RestaurantDetail() {
@@ -33,8 +35,10 @@ export default function RestaurantDetail() {
   const tabs = [
     { key: "overview", label: "Overview", content: (
         <>
+          {r.merchantId && can("finance", "view") && <div className="mb-16 d-flex align-items-center gap-2 flex-wrap"><span className="text-sm text-secondary-light">Payout account (Stripe Connect):</span><PayoutAccountBadge partyType="RESTAURANT" partyId={r.merchantId} /></div>}
           <OverviewTab r={r} reload={reload} />
           <OrderAutomationCard api={adminHttp} path={`/admin/restaurants/${r.id}/automation`} canEdit={can("restaurants", "edit")} className="mt-24" />
+          <AssistantCard r={r} className="mt-24" />
         </>
       ),
     },

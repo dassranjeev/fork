@@ -5,6 +5,7 @@ import { randomInt } from 'crypto';
 import { DriverProfile, Merchant, Restaurant, RestaurantMember, User } from '../database/entities';
 import { PartyType, RestaurantRole } from '../common/enums';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StripeClientService } from '../integrations/stripe-client.service';
 import { maskAccount, r2 } from './finance.util';
 
 export interface PartyInfo {
@@ -18,6 +19,13 @@ export interface PartyInfo {
   holdReason: string | null;
   stripeAccountId: string | null;
   schedule: string;
+  /** Stripe Connect payout account: NOT_STARTED | PENDING | RESTRICTED | ENABLED */
+  connectStatus: string;
+  connectInfo: Record<string, any> | null;
+  /** payouts go through Stripe Connect (Stripe key configured and Connect switched on) */
+  connectRequired: boolean;
+  /** the party can be paid right now (Connect ENABLED when required, otherwise the legacy verified bank) */
+  payoutReady: boolean;
 }
 
 @Injectable()
@@ -29,7 +37,14 @@ export class PartiesService {
     @InjectRepository(RestaurantMember) private members: Repository<RestaurantMember>,
     @InjectRepository(User) private users: Repository<User>,
     private notifications: NotificationsService,
+    private stripeClient: StripeClientService,
   ) {}
+
+  /** Real payouts need a connected Stripe account in ENABLED state; the legacy bank check only applies to the dev mock. */
+  private connectRequired(): boolean {
+    const c = this.stripeClient.config();
+    return !!c.secretKey && c.connectEnabled;
+  }
 
   async info(partyType: PartyType, partyId: string): Promise<PartyInfo> {
     if (partyType === PartyType.RESTAURANT) {
@@ -37,17 +52,23 @@ export class PartiesService {
       if (!m) throw new NotFoundException('Merchant not found');
       const locs = await this.restaurants.find({ where: { merchantId: partyId }, select: ['id', 'payoutSchedule'] });
       const verified = !!m.bank?.verified;
+      const req = this.connectRequired();
+      const ready = req ? m.stripeAccountStatus === 'ENABLED' : verified;
       return {
         partyType,
         partyId,
         name: m.businessName,
-        bankOk: verified,
+        bankOk: ready,
         bankVerified: verified,
-        bankMasked: maskAccount(m.bank?.accountLast4),
+        bankMasked: maskAccount(m.bank?.accountLast4 ?? m.stripeAccountInfo?.bankLast4),
         hold: !!m.payoutHold,
         holdReason: m.payoutHoldReason,
         stripeAccountId: m.stripeAccountId,
         schedule: locs.some((l) => l.payoutSchedule === 'DAILY') ? 'DAILY' : 'WEEKLY',
+        connectStatus: m.stripeAccountStatus ?? 'NOT_STARTED',
+        connectInfo: m.stripeAccountInfo ?? null,
+        connectRequired: req,
+        payoutReady: ready,
       };
     }
     if (partyType === PartyType.DRIVER) {
@@ -55,17 +76,24 @@ export class PartiesService {
       if (!d) throw new NotFoundException('Driver not found');
       const hasBank = !!(d.bank?.accountLast4 || d.bank?.debitCardLast4);
       const hold = d.meta?.payoutHold as { reason?: string } | undefined;
+      const req = this.connectRequired();
+      const bankVerified = hasBank && d.meta?.bankVerification?.status !== 'PENDING';
+      const ready = req ? d.stripeAccountStatus === 'ENABLED' : hasBank;
       return {
         partyType,
         partyId,
         name: d.user ? `${d.user.firstName} ${d.user.lastName}`.trim() : partyId,
-        bankOk: hasBank,
-        bankVerified: hasBank && d.meta?.bankVerification?.status !== 'PENDING',
-        bankMasked: maskAccount(d.bank?.accountLast4 ?? d.bank?.debitCardLast4),
+        bankOk: ready,
+        bankVerified,
+        bankMasked: maskAccount(d.bank?.accountLast4 ?? d.bank?.debitCardLast4 ?? d.stripeAccountInfo?.bankLast4),
         hold: !!hold,
         holdReason: hold?.reason ?? null,
         stripeAccountId: d.stripeAccountId,
         schedule: d.payoutSchedule,
+        connectStatus: d.stripeAccountStatus ?? 'NOT_STARTED',
+        connectInfo: d.stripeAccountInfo ?? null,
+        connectRequired: req,
+        payoutReady: ready,
       };
     }
     throw new BadRequestException('partyType must be RESTAURANT or DRIVER');
@@ -157,6 +185,7 @@ export class PartiesService {
       name: i.name,
       bank: bank ? { institution: bank.institution ?? null, transit: bank.transit ?? null, account: maskAccount(bank.accountLast4), holder: bank.holder ?? null, debitCard: maskAccount(bank.debitCardLast4) } : null,
       verified: i.bankVerified,
+      payoutAccount: { required: i.connectRequired, status: i.connectStatus, ready: i.payoutReady, hasAccount: !!i.stripeAccountId, payoutsEnabled: !!i.connectInfo?.payoutsEnabled, requirementsDue: i.connectInfo?.requirementsDue ?? [], bankLast4: i.connectInfo?.bankLast4 ?? null, syncedAt: i.connectInfo?.syncedAt ?? null },
       verification: verification ? { status: verification.status, initiatedAt: verification.initiatedAt ?? null, verifiedAt: verification.verifiedAt ?? null, attempts: verification.attempts ?? 0 } : null,
     };
   }
