@@ -1,0 +1,25 @@
+# Gitleaks config for FORKSY.
+# The only allow-listed material is deliberately fake: the Stripe/Mapbox test fixtures used by the
+# payments end-to-end test (they point at a local fake Stripe server and are not real credentials).
+# Real secrets must never be committed - they live in git-ignored .env files or the encrypted
+# Integrations settings.
+title = "FORKSY gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "fake credentials used by local test fixtures"
+# Old template Google API key (public, owner confirmed) in an early commit; the file is long gone.
+commits = [
+  "0544d95cc489ec16c1b273101720c94c1fa0de94",
+]
+paths = [
+  '''backend/test/payments-e2e\.mjs''',
+  '''backend/test/fakes/.*''',
+]
+regexes = [
+  '''sk_test_fake[A-Za-z0-9]*''',
+  '''whsec_fake[A-Za-z0-9]*''',
+  '''pk_test_fake[A-Za-z0-9]*''',
+]

@@ -2,8 +2,8 @@ node_modules/
 dist/
 build/
 coverage/
-uploads/
-private-uploads/
+backend/uploads/
+backend/private-uploads/
 
 # secrets / local config
 .env
