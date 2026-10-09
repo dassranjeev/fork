@@ -102,6 +102,37 @@ The API checks its own configuration and refuses to boot rather than run insecur
 short `JWT_SECRET` / `DATA_ENCRYPTION_KEY`; `CORS_ORIGINS` or `PUBLIC_URL` not `https://`; `ENFORCE_2FA` not `true`; a well-known `DB_PASSWORD` or
 admin password; Stripe keys missing or not live; demo accounts present in the database; pending migrations. There is deliberately no override flag.
 
+## Alternative: the website on Vercel, the API on a container host
+
+The **API cannot run on Vercel**: it needs WebSockets (Socket.IO: live chat, driver offers, notifications), long-running background timers and cron
+jobs (dispatch offer loop, order automation, payouts), a writable disk for uploads, and in-memory state. Vercel's serverless functions keep none
+of these. What does work on Vercel is the static website (admin console, restaurant portal and customer website are one React build). So split it:
+
+- **API + PostgreSQL** on something that runs a container or a long-lived Node process: the VPS stack above, or Render / Railway / Fly.io with a
+  managed Postgres. Follow the first-deployment steps for `backend/.env.production` and run `node dist/database/migrate` and the seed once.
+- **Website** on Vercel, imported from this repository:
+  - **Root Directory:** `admin`. **Application Preset:** *Create React App*. Do **not** pick *Services* (it would try to deploy the API as functions).
+  - Build command `npm run build` and output directory `build` (the defaults). `admin/vercel.json` adds the catch-all rewrite the single-page apps
+    need (`/portal/...`, `/order/...` refreshes) and the security headers nginx sends in the Docker stack.
+  - **Environment variables** (Production). They are baked into the build, so changing one needs a redeploy:
+
+    ```
+    REACT_APP_API_URL=https://api.example.ca/api/v1
+    REACT_APP_WS_URL=https://api.example.ca
+    REACT_APP_CSP_CONNECT=https://api.example.ca wss://api.example.ca https://api.stripe.com https://m.stripe.network https://r.stripe.com
+    REACT_APP_CSP_IMG=https://api.example.ca https://*.stripe.com
+    REACT_APP_CSP_SCRIPT=https://js.stripe.com
+    REACT_APP_CSP_FRAME=https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com
+    DISABLE_ESLINT_PLUGIN=true
+    GENERATE_SOURCEMAP=false
+    INLINE_RUNTIME_CHUNK=false
+    ```
+
+    `DISABLE_ESLINT_PLUGIN=true` matters: Vercel sets `CI=true`, and Create React App then fails the build on lint warnings.
+  - On the API side set `CORS_ORIGINS` and `WEB_URL` to the Vercel address (or your custom domain), `PUBLIC_URL` to the API's own https URL, and
+    point the Stripe webhook at the API, not at Vercel.
+- Vercel's free **Hobby** plan is for non-commercial use only; a live marketplace needs **Pro**.
+
 ## What is not covered here
 
 - **One API instance.** Running several would need shared storage for the upload volumes and sticky sessions (or a Socket.IO adapter) for realtime.
