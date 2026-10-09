@@ -70,7 +70,7 @@ Useful URLs once running:
 `backend/.env` (see `backend/.env.example`):
 
 - `PORT`, `PUBLIC_URL`, `CORS_ORIGINS`
-- `DB_*` connection settings; `DB_SYNC=true` creates tables from entities automatically (development only; use migrations in production)
+- `DB_*` connection settings; `DB_SYNC=true` creates tables from entities automatically (development only). Production uses migrations (`node dist/database/migrate`, `DB_SYNC` is refused): see `docs/deployment.md`
 - `JWT_SECRET` (**change it**), `JWT_ACCESS_TTL`, `JWT_REFRESH_TTL_DAYS`, `ENFORCE_2FA`
 - `EXPOSE_OTP=true` returns one-time codes in API responses for development; **turn off in production**
 - `SEED_SUPERADMIN_EMAIL` / `SEED_SUPERADMIN_PASSWORD`, `SEED_DEMO`
@@ -132,6 +132,7 @@ Customers 31 to 50 and restaurants 13 to 26 include Brampton data. These are dev
 - Complete workflow (diagrams, who does what, what is automatic): [`docs/workflow.html`](docs/workflow.html) (open in a browser)
 - Branding (logo, icons, colour, wordmark font, app-store icon sets): [`docs/branding.md`](docs/branding.md)
 - Feature guides: [`docs/proof-of-delivery.md`](docs/proof-of-delivery.md), [`docs/ratings.md`](docs/ratings.md)
+- Deployment guide (Docker, migrations, first Super Admin, backups, updates): [`docs/deployment.md`](docs/deployment.md)
 - Design contract and module ownership: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
 Route prefixes: `/auth` (all apps), `/admin`, `/restaurant`, `/driver`, `/customer`, `/public`, plus `/orders/:id/tracking` and `/orders/:id/messages` shared by all parties. Real-time events use Socket.IO on the same port as the API.
@@ -139,7 +140,8 @@ Route prefixes: `/auth` (all apps), `/admin`, `/restaurant`, `/driver`, `/custom
 ## Development notes
 
 - Type-check the backend: `cd backend && npm run typecheck`
-- Production builds: `npm run build` in `backend/` and `admin/`
+- Production builds: `npm run build` in `backend/` and `admin/`. Deploying (Docker stack, migrations, first admin, backups, updates): [`docs/deployment.md`](docs/deployment.md)
+- Changed an entity? Add a migration: `npm run migration:generate -- src/database/migrations/<Name>` (CI fails when entities and migrations disagree; see the deployment guide)
 - The seed is idempotent: re-running adds only what is missing. Demo data (people, restaurants, orders) is created only when `SEED_DEMO=true`.
 - The login endpoint is rate limited to 10 requests per minute per IP; scripted tests should log in once and reuse the token.
 - Dispatch needs a recent driver location (default within 120 seconds). Seeded drivers have no live GPS, so send `POST /driver/location` as a driver (the driver app will do this every few seconds) to receive offers.
@@ -148,7 +150,8 @@ Route prefixes: `/auth` (all apps), `/admin`, `/restaurant`, `/driver`, `/custom
 
 ## Known limitations
 
-- **No customer or driver mobile apps yet.** The API, real-time events and the `chat-demo.html` test page are ready for them. Browser-based customer ordering is not included.
+- **No native customer or driver mobile apps yet.** The API, real-time events, the customer website (`/order`) and the `chat-demo.html` / `driver-demo.html` test pages are ready for them.
+- **The Docker deployment has not been run end to end** (no Docker where it was prepared). The migrate, seed and production-boot procedure was run against a clean PostgreSQL with plain Node; the Dockerfiles, `docker-compose.yml` and the CI migration check were syntax-checked only. See `docs/deployment.md`.
 - **Payments are mocked in development until the Stripe TEST keys are added** (the full Stripe flow - on-page payments, webhooks, Connect payouts - is implemented and tested against a fake Stripe server, not yet against the real Stripe API; see `docs/payments.md`; in production the API refuses to start without live keys). SMS, email and push use mock or log-only adapters until provider keys are added; real delivery has not been verified.
 - Not yet built in the portal and admin: menu CSV import, document upload screens, tablet activation, editing a promotion after creation.
 - Several admin actions were exercised by hand only on the main paths (for example refund approvals, bank verification and payout release were rendered but not run end to end).

@@ -26,6 +26,8 @@ export default () => ({
     ssl: process.env.DB_SSL === 'true',
     /** auto-create / update tables from entities. Dev only - the production gate refuses DB_SYNC=true. */
     synchronize: (process.env.DB_SYNC ?? (isProd ? 'false' : 'true')) === 'true',
+    /** run pending migrations when the API connects. Off by default: production runs `node dist/database/migrate` first (see docs/deployment.md). */
+    migrationsRun: process.env.DB_MIGRATIONS_RUN === 'true',
     logging: process.env.DB_LOGGING === 'true',
     poolMax: parseInt(process.env.DB_POOL_MAX ?? '20', 10),
     /** hard cap for any single SQL statement (ms) - protects against expensive analytics / injection-driven pg_sleep */

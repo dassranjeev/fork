@@ -1,0 +1,119 @@
+# Deployment guide (single-host Docker stack)
+
+Everything needed to run FORKSY on one server with Docker: PostgreSQL, the API, the website / admin console / restaurant portal, and automatic HTTPS.
+Security requirements are in [SECURITY.md](SECURITY.md) (section 5, the production checklist). Payments setup is in [payments.md](payments.md) and
+[integrations.md](integrations.md).
+
+## What runs
+
+| Service | Image | Purpose |
+|---|---|---|
+| `db` | `postgres:16-alpine` | the database (volume `dbdata`) |
+| `migrate` | the API image | **one-shot**: applies pending database migrations, then exits |
+| `api` | the API image (`backend/Dockerfile`) | NestJS API + Socket.IO; starts only after `migrate` succeeded. Volumes `uploads`, `private-uploads` |
+| `web` | `admin/Dockerfile` (nginx) | static build of the Admin Console (`/`), Restaurant Portal (`/portal`) and customer website (`/order`) |
+| `proxy` | `caddy:2-alpine` | optional (`--profile proxy`): automatic Let's Encrypt HTTPS for `APP_DOMAIN` and `API_DOMAIN` |
+
+## First deployment
+
+You need a server with Docker + Docker Compose v2, two DNS names pointing at it (for example `app.example.ca` and `api.example.ca`), and your
+Stripe **live** keys.
+
+1. **Get the code** and copy the two environment templates:
+   ```bash
+   git clone https://github.com/dassranjeev/fork.git && cd fork
+   cp deploy/.env.example deploy/.env
+   cp backend/.env.production.example backend/.env.production
+   ```
+2. **Edit `deploy/.env`**: `APP_DOMAIN`, `API_DOMAIN`, and a long random `DB_PASSWORD`.
+3. **Edit `backend/.env.production`** and fill in every empty value. The ones the API will not start without:
+   - `JWT_SECRET` and `DATA_ENCRYPTION_KEY`: two different random strings of 32+ characters
+     (`node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`).
+   - `PUBLIC_URL`, `WEB_URL`, `CORS_ORIGINS`: the real `https://` URLs (they must match step 2).
+   - `SEED_SUPERADMIN_EMAIL` and a strong, unique `SEED_SUPERADMIN_PASSWORD`.
+   - **`STRIPE_SECRET_KEY` (`sk_live_...`), `STRIPE_PUBLISHABLE_KEY` (`pk_live_...`), `STRIPE_WEBHOOK_SECRET`.** The API refuses to start
+     without live Stripe keys, so for the *first* start they must be in this file. Later you can manage them on the Integrations page
+     (a value saved there wins over the file). Create the webhook endpoint in the Stripe dashboard first; the URL is
+     `https://<API_DOMAIN>/api/v1/webhooks/stripe` ([integrations.md](integrations.md) lists the events).
+4. **Build and start.** Compose starts `db`, then `migrate` (creates the schema), then `api`, then `web`:
+   ```bash
+   docker compose --env-file deploy/.env --profile proxy up -d --build
+   ```
+5. **Create the first Super Admin** (once). This also loads the foundation data (cities, zones, tax classes, commission tiers, cuisines,
+   settings). It does **not** create demo restaurants, drivers or customers:
+   ```bash
+   docker compose --env-file deploy/.env run --rm --no-deps api node dist/database/seed
+   ```
+6. **Sign in** at `https://<APP_DOMAIN>` with the Super Admin from step 3. Because `ENFORCE_2FA=true`, the sign-in asks you to set up an
+   authenticator app first. Then change anything you want under Settings, add your restaurants, and open **System > Integrations** to check
+   Stripe (**Test connection**).
+7. You can now delete the two `SEED_SUPERADMIN_*` lines from `backend/.env.production`.
+
+Health check: `https://<API_DOMAIN>/api/v1/health` returns 200.
+
+## Database schema and migrations
+
+Production never auto-creates tables: `DB_SYNC=true` is refused. The schema lives in `backend/src/database/migrations/` (the baseline is
+`...-InitialSchema.ts`, all tables) and is applied by `node dist/database/migrate`, which is what the `migrate` service runs. It is safe to run
+repeatedly and from several machines at once: a Postgres advisory lock lets one runner work, and all pending migrations run in one transaction
+(all or nothing). A migration history is kept in the `schema_migrations` table.
+
+If the API is started while migrations are pending it stops with *"the database schema is not up to date"* instead of failing on the first query.
+(`DB_MIGRATIONS_RUN=true` applies them when the API connects; leave it off when you run more than one API instance.)
+
+**For developers: changing an entity** (adding or altering a column, table, index, enum) now also needs a migration:
+
+```bash
+cd backend
+npm run migration:run                                              # your dev DB must be at the current migrations
+npm run migration:generate -- src/database/migrations/AddFooToBar  # writes <timestamp>-AddFooToBar.ts from the difference
+# read the generated file, then commit it together with the entity change
+npm run migration:check                                            # must print "No changes in database schema were found"
+```
+
+CI runs `migration:run` on an empty PostgreSQL and then `migration:check`, so a pull request that changes entities without a migration fails.
+In development nothing changes: `DB_SYNC=true` (the default outside production) still builds your local tables from the entities, and
+`npm run seed` still loads the demo data. Other commands: `npm run migration:show` (what has run), `npm run migration:revert` (undo the last one;
+for production prefer a database backup restore).
+
+Two entity-writing rules that keep `migration:check` quiet: do not set `enumName` on enum columns, and write fractional numeric defaults through
+`MoneyColumn` / `PctColumn` (they handle it). Both caused endless "differences" while the baseline was created.
+
+## Updating a running system
+
+```bash
+git pull
+docker compose --env-file deploy/.env --profile proxy up -d --build   # rebuilds, runs pending migrations, restarts api + web
+```
+
+Take a database backup before every update that contains a new migration (below).
+
+## Backups
+
+- **Database:** `docker compose exec db pg_dump -U forksy -Fc forksy > forksy-$(date +%F).dump` (adjust user / database to `deploy/.env`). Store
+  copies off the server and test a restore regularly: `pg_restore --clean --if-exists -d forksy file.dump`.
+- **Uploaded files:** the `uploads` volume (public images) and `private-uploads` (proof-of-delivery photos; keep per the retention setting).
+- **Secrets:** keep a copy of `deploy/.env` and `backend/.env.production` in a password manager. If `DATA_ENCRYPTION_KEY` is lost, the stored
+  integration secrets and two-factor seeds cannot be decrypted.
+
+## Refusing to start: what the messages mean
+
+The API checks its own configuration and refuses to boot rather than run insecurely. The message lists every problem. Typical ones: a missing or
+short `JWT_SECRET` / `DATA_ENCRYPTION_KEY`; `CORS_ORIGINS` or `PUBLIC_URL` not `https://`; `ENFORCE_2FA` not `true`; a well-known `DB_PASSWORD` or
+admin password; Stripe keys missing or not live; demo accounts present in the database; pending migrations. There is deliberately no override flag.
+
+## What is not covered here
+
+- **One API instance.** Running several would need shared storage for the upload volumes and sticky sessions (or a Socket.IO adapter) for realtime.
+  Neither is set up.
+- **Volumetric DDoS** is not something the application can stop; put Cloudflare (or similar) in front and set `TRUST_PROXY=2`.
+- **Object storage / CDN** for images, malware scanning and managed Postgres with point-in-time recovery are listed as recommendations in
+  [SECURITY.md](SECURITY.md).
+
+## What has been verified
+
+On a clean PostgreSQL (plain Node, no Docker): the baseline migration creates all tables and matches the entities exactly (`migration:check`: no
+changes); `migrate` is repeatable; the API in `NODE_ENV=production` refuses to start before migrating and starts healthy after migrate + seed with
+demo data off (one Super Admin, 4 cities, 9 zones, 0 restaurants, audit-log trigger installed). The Dockerfiles, `docker-compose.yml` and the CI
+job were written and syntax-checked but **have not been run end to end**: Docker was not available where this was prepared. The first
+`docker compose up` is the real test; send the log if anything fails.

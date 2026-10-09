@@ -9,6 +9,7 @@ backend/private-uploads/
 .env
 .env.*
 !.env.example
+!.env.production.example
 
 # embedded Postgres data + logs
 tools/pg/data/

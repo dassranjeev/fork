@@ -10,7 +10,15 @@
     "start:prod": "node dist/main",
     "seed": "ts-node -r tsconfig-paths/register src/database/seed.ts",
     "seed:ratings": "ts-node -r tsconfig-paths/register src/database/seed-ratings.ts",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typeorm": "typeorm-ts-node-commonjs -d src/database/data-source.ts",
+    "migration:generate": "npm run typeorm -- migration:generate --pretty",
+    "migration:run": "npm run typeorm -- migration:run -t all",
+    "migration:revert": "npm run typeorm -- migration:revert",
+    "migration:show": "npm run typeorm -- migration:show",
+    "migration:check": "npm run typeorm -- migration:generate --check src/database/migrations/Check",
+    "migrate:prod": "node dist/database/migrate",
+    "seed:prod": "node dist/database/seed"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

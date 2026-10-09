@@ -42,6 +42,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { RatingsModule } from './ratings/ratings.module';
 import { AssistantModule } from './assistant/assistant.module';
 import { PaymentsModule } from './payments/payments.module';
+import { MIGRATIONS_GLOB, MIGRATIONS_TABLE } from './database/migrations.config';
 
 @Module({
   imports: [
@@ -58,6 +59,9 @@ import { PaymentsModule } from './payments/payments.module';
         ssl: c.get('db.ssl') ? { rejectUnauthorized: false } : false,
         entities: ALL_ENTITIES,
         synchronize: c.get('db.synchronize'),
+        migrations: [MIGRATIONS_GLOB],
+        migrationsTableName: MIGRATIONS_TABLE,
+        migrationsRun: c.get('db.migrationsRun'),
         logging: c.get('db.logging'),
         autoLoadEntities: false,
         // connection pool + per-statement guard rails (slow / injected pg_sleep / runaway analytics queries are killed by the DB)

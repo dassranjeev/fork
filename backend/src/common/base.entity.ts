@@ -6,6 +6,12 @@ export const numeric = {
   from: (v?: string | null) => (v === null || v === undefined ? v : parseFloat(v)),
 };
 
+/**
+ * Fractional numeric defaults are written as raw SQL: TypeORM re-quotes a plain number default ('1.99') and it never compares equal to
+ * what Postgres reports (1.99), so the schema diff / migration:check would never come back empty. Whole numbers are unaffected.
+ */
+const numericDefault = (n: number) => (Number.isInteger(n) ? n : () => String(n));
+
 /** Money column: numeric(12,2), CAD dollars. */
 export const MoneyColumn = (opts: { nullable?: boolean; default?: number } = {}) =>
   Column({
@@ -14,7 +20,7 @@ export const MoneyColumn = (opts: { nullable?: boolean; default?: number } = {})
     scale: 2,
     transformer: numeric,
     nullable: opts.nullable ?? false,
-    ...(opts.nullable ? {} : { default: opts.default ?? 0 }),
+    ...(opts.nullable ? {} : { default: numericDefault(opts.default ?? 0) }),
   });
 
 /** Percentage / rate column: numeric(6,3). */
@@ -25,7 +31,7 @@ export const PctColumn = (opts: { nullable?: boolean; default?: number } = {}) =
     scale: 3,
     transformer: numeric,
     nullable: opts.nullable ?? false,
-    ...(opts.nullable ? {} : { default: opts.default ?? 0 }),
+    ...(opts.nullable ? {} : { default: numericDefault(opts.default ?? 0) }),
   });
 
 /** Latitude / longitude column. */

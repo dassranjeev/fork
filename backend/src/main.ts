@@ -43,6 +43,27 @@ function productionGate() {
 /** DB-level production checks: no demo accounts / no known default admin password may exist. */
 async function productionDbGate(ds: DataSource, app: NestExpressApplication) {
   if (process.env.NODE_ENV !== 'production') return;
+  // DB_SYNC is refused in production, so the schema comes from migrations: fail with a clear message instead of "relation users does not exist"
+  let pendingMigrations = false;
+  let migrationCheckError = '';
+  try {
+    pendingMigrations = await ds.showMigrations();
+  } catch (e: any) {
+    migrationCheckError = e?.message ?? String(e);
+  }
+  if (pendingMigrations || migrationCheckError) {
+    // eslint-disable-next-line no-console
+    console.error(
+      [
+        '',
+        '=== FORKSY refuses to start: the database schema is not up to date ===',
+        migrationCheckError ? `  - could not read the migrations table: ${migrationCheckError}` : '  - there are pending migrations',
+        '  - run  node dist/database/migrate  first (docker compose: docker compose run --rm migrate), or set DB_MIGRATIONS_RUN=true',
+        '',
+      ].join(String.fromCharCode(10)),
+    );
+    process.exit(1);
+  }
   const problems: string[] = [];
   const demo = await ds.query(`SELECT COUNT(*)::int AS n FROM users WHERE email ILIKE '%@demo.forksy.ca' OR email ILIKE '%@demo-restaurant.ca'`);
   if (demo[0]?.n > 0) problems.push(`${demo[0].n} demo accounts (@demo.forksy.ca / @demo-restaurant.ca) exist in the production database - purge the demo data`);

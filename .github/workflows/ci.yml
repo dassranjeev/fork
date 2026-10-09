@@ -21,6 +21,46 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
 
+  # The production schema comes from migrations, so they must exactly match the entities: apply them to an empty database and
+  # fail if TypeORM still sees a difference. Fix: npm run migration:generate -- src/database/migrations/<Name>  (commit the file)
+  migrations:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: forksy
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d forksy"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: forksy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - name: Apply all migrations to an empty database
+        run: npm run migration:run
+      - name: Entities and migrations must agree
+        run: npm run migration:check
+
   admin:
     runs-on: ubuntu-latest
     defaults:

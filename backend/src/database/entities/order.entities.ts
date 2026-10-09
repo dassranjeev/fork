@@ -235,7 +235,7 @@ export class Order extends BaseEntity {
   contactless: boolean;
 
   /** How the customer wants the handover; decides which proof of delivery is required (see docs/proof-of-delivery.md). */
-  @Column({ type: 'enum', enum: DropoffMethod, enumName: 'orders_dropoffmethod_enum', default: DropoffMethod.HAND_TO_ME })
+  @Column({ type: 'enum', enum: DropoffMethod, default: DropoffMethod.HAND_TO_ME })
   dropoffMethod: DropoffMethod;
 
   /** Delivery instructions for the DRIVER (max 300, plain text). Not the kitchen note (customerNotes). */

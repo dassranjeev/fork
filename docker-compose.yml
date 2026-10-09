@@ -1,8 +1,22 @@
 # FORKSY - single-host production stack.
 #   cp deploy/.env.example deploy/.env      (edit every value)
 #   cp backend/.env.production.example backend/.env.production   (edit every value)
-#   docker compose --env-file deploy/.env up -d --build
+#   docker compose --env-file deploy/.env up -d --build      (db -> migrate (schema) -> api -> web)
+#   first run only, create the Super Admin:   docker compose --env-file deploy/.env run --rm --no-deps api node dist/database/seed
+#   full guide: docs/deployment.md
 # TLS: enable the "proxy" profile (Caddy gets certificates automatically):  docker compose --profile proxy up -d
+# Settings shared by the API and the one-shot migrate service (same image, same environment).
+x-api-base: &api-base
+  build: ./backend
+  image: forksy-api:latest
+  env_file: backend/.env.production
+  environment:
+    DB_HOST: db
+    DB_PORT: 5432
+    DB_USER: ${DB_USER:-forksy}
+    DB_PASSWORD: ${DB_PASSWORD}
+    DB_NAME: ${DB_NAME:-forksy}
+
 services:
   db:
     image: postgres:16-alpine
@@ -19,19 +33,24 @@ services:
       timeout: 5s
       retries: 10
 
-  api:
-    build: ./backend
-    restart: unless-stopped
-    env_file: backend/.env.production
-    environment:
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_USER: ${DB_USER:-forksy}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: ${DB_NAME:-forksy}
+  # One-shot: applies pending database migrations, then exits. The API starts only after it succeeded.
+  # Also the way to run one-off commands with the API image:  docker compose run --rm --no-deps api node dist/database/seed
+  migrate:
+    <<: *api-base
+    restart: "no"
+    command: ["node", "dist/database/migrate"]
     depends_on:
       db:
         condition: service_healthy
+
+  api:
+    <<: *api-base
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     volumes:
       - uploads:/app/uploads
       - private-uploads:/app/private-uploads

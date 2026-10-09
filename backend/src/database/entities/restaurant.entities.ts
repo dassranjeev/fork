@@ -194,7 +194,7 @@ export class Restaurant extends BaseEntity {
 
   /** May the restaurant add / update / remove its own menu items? Decided by FORKSY staff (see MenuAccessService). */
   @Index()
-  @Column({ type: 'enum', enum: MenuEditStatus, enumName: 'restaurants_menueditstatus_enum', default: MenuEditStatus.NOT_ALLOWED })
+  @Column({ type: 'enum', enum: MenuEditStatus, default: MenuEditStatus.NOT_ALLOWED })
   menuEditStatus: MenuEditStatus;
 
   @Column({ type: 'timestamptz', nullable: true })

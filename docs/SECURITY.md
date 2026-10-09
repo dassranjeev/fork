@@ -165,7 +165,7 @@ console adapters) log a warning at boot and are impossible when `NODE_ENV=produc
 
 **TLS and edge** – terminate TLS 1.2+/1.3 at the edge (HSTS is sent by the app in production); redirect HTTP→HTTPS; run the app on a private network only reachable from the proxy/LB; block direct access to port 4000 (origin lock: allow only Cloudflare IP ranges or use Authenticated Origin Pulls).
 
-**Database** – migrations instead of `synchronize`; a runtime role *without* `SUPERUSER`/`CREATEDB`/`CREATE` (a separate migration role); `statement_timeout` is already set by the app; TLS `verify-full`; PgBouncer; automated encrypted backups with point-in-time recovery and a *tested* restore; private subnet; disk encryption. The audit table is append-only via trigger – keep it that way.
+**Database** – migrations instead of `synchronize` (implemented: `node dist/database/migrate`, the API refuses to start while any are pending, see [deployment.md](deployment.md)); a runtime role *without* `SUPERUSER`/`CREATEDB`/`CREATE` (a separate migration role); `statement_timeout` is already set by the app; TLS `verify-full`; PgBouncer; automated encrypted backups with point-in-time recovery and a *tested* restore; private subnet; disk encryption. The audit table is append-only via trigger – keep it that way.
 
 **Secrets** – cloud secrets manager (rotate JWT secret = logs everybody out; rotate `DATA_ENCRYPTION_KEY` needs re-sealing of TOTP seeds); never log them (the app does not).
 
