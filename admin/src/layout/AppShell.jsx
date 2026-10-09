@@ -40,15 +40,46 @@ function useOutside(ref, handler) {
   }, [ref, handler]);
 }
 
+const MENU_CSS = `
+.fk-menu-panel{z-index:1040;overflow:hidden;background:var(--bs-body-bg,#fff);color:var(--bs-body-color,inherit);border:1px solid var(--bs-border-color-translucent,rgba(0,0,0,.12));text-align:start}
+.fk-menu-panel .dropdown-item{display:flex;width:100%;clear:both;font-weight:400;text-align:inherit;text-decoration:none;white-space:nowrap;background:transparent;border:0;cursor:pointer}
+.fk-menu-panel .dropdown-item:focus-visible,.fk-menu-btn:focus-visible{outline:2px solid var(--primary-600,#f97316);outline-offset:2px}
+`;
+
+/**
+ * Header menu (profile). Deliberately NOT Bootstrap's `dropdown-menu` class: Bootstrap's document-level keydown handler claims every
+ * .dropdown-menu and throws on Tab / Escape when the menu was not opened by Bootstrap's own JS. Escape closes and gives the focus back to
+ * the trigger, Tab out of the widget closes, items are real links / buttons; clicking an item closes it.
+ */
 function Dropdown({ trigger, children, width = 320, align = "end" }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef();
+  const ref = useRef(null);
+  const btn = useRef(null);
   useOutside(ref, () => setOpen(false));
+  const onKeyDown = (e) => {
+    if (e.key === "Escape" && open) {
+      e.stopPropagation();
+      setOpen(false);
+      if (btn.current) btn.current.focus();
+    }
+  };
+  const onBlur = (e) => {
+    // keyboard focus left the whole widget: close (focus stays where the user moved it)
+    if (open && e.relatedTarget && ref.current && !ref.current.contains(e.relatedTarget)) setOpen(false);
+  };
+  const trig = React.cloneElement(trigger, {
+    ref: btn,
+    "aria-haspopup": "true",
+    "aria-expanded": open,
+    className: `${trigger.props.className || ""} fk-menu-btn`.trim(),
+    onClick: () => setOpen((o) => !o),
+  });
   return (
-    <div className="position-relative" ref={ref}>
-      <div onClick={() => setOpen((o) => !o)}>{trigger}</div>
+    <div className="position-relative" ref={ref} onKeyDown={onKeyDown} onBlur={onBlur}>
+      <style>{MENU_CSS}</style>
+      {trig}
       {open && (
-        <div className={`dropdown-menu show p-0 radius-12 shadow header-dropdown`} style={{ position: "absolute", [align === "start" ? "left" : "right"]: 0, top: 48, width, maxWidth: "calc(100vw - 24px)", zIndex: 1040 }} onClick={() => setOpen(false)}>
+        <div className="fk-menu-panel p-0 radius-12 shadow header-dropdown" style={{ position: "absolute", [align === "start" ? "left" : "right"]: 0, top: 48, width, maxWidth: "calc(100vw - 24px)" }} onClick={() => setOpen(false)}>
           {children}
         </div>
       )}

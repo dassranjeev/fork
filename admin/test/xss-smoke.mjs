@@ -25,6 +25,9 @@
  *        ADMIN_EMAIL / ADMIN_PASSWORD  OWNER_EMAIL / OWNER_PASSWORD  CUSTOMER_EMAIL / CUSTOMER_PASSWORD (storefront)  NO_STOREFRONT=1 to skip it
  *        PLAYWRIGHT_DIR  folder whose node_modules contains `playwright` (default: resolve normally, then CWD)
  *        HEADED=1 to watch it, MAX_DETAIL=2 detail pages per list page, CSP_ONLY=1 / NOCSP_ONLY=1
+ *        STOREFRONT_ONLY=1 / CHAT_ONLY=1 to run just that part, SF_URLS=/order/wallet,/order/account to limit the storefront pages
+ * Robustness: every sweep gets its own freshly launched browser (a long-lived headless Chromium on a memory-starved machine
+ * gets its renderers killed: "Page crashed"); if a renderer still dies, the page is re-opened and that URL retried once (WARN).
  * Exit code 0 = all clean, 1 = a payload executed / error found.
  */
 import { createRequire } from "node:module";
@@ -143,7 +146,38 @@ async function newContext(browser, session, { csp, store = "admin" }) {
   return ctx;
 }
 
+/** Opens a page and wires the listeners the checks read. Returns a stand-in that always points at the CURRENT page, so a crashed renderer can be replaced without the callers noticing. */
+async function openPage(ctx, state, wire = () => {}) {
+  const open = async () => {
+    const p = await ctx.newPage();
+    state.crashed = false;
+    p.on("crash", () => {
+      state.crashed = true;
+      state.crashes = (state.crashes || 0) + 1;
+      console.log("  WARN renderer crashed (" + state.mode + "/" + state.acct + ")");
+    });
+    p.on("dialog", async (d) => {
+      state.dialogs.push(d.type() + ":" + d.message().slice(0, 40));
+      await d.dismiss().catch(() => {});
+    });
+    p.on("pageerror", (e) => state.pageErrors.push(String(e.message || e)));
+    p.on("console", (m) => {
+      const t = m.text();
+      if (/Content Security Policy|Refused to/i.test(t)) state.csp.push(t.slice(0, 220));
+    });
+    wire(p);
+    state.page = p;
+  };
+  state.reopen = async () => {
+    await state.page?.close({ runBeforeUnload: false }).catch(() => {});
+    await open();
+  };
+  await open();
+  return new Proxy({}, { get: (_, k) => { const p = state.page; const v = p[k]; return typeof v === "function" ? v.bind(p) : v; } });
+}
+
 async function checkPage(page, url, label, state, opts = {}) {
+  if (state.crashed) await state.reopen();
   state.xss = false;
   const errsBefore = state.pageErrors.length;
   const dlgBefore = state.dialogs.length;
@@ -190,6 +224,12 @@ async function checkPage(page, url, label, state, opts = {}) {
     else pass(`${state.mode}/${state.acct} ${label}${escaped ? " (payload text shown escaped)" : ""} len=${text}`);
     return escaped;
   } catch (e) {
+    if ((state.crashed || /crash/i.test(String(e))) && !opts.stay && !opts.retried) {
+      // a renderer died (not a page bug: the same URL passes on a fresh page): replace the page and retry once
+      await state.reopen();
+      console.log("  WARN retrying " + label + " on a fresh page");
+      return checkPage(page, url, label, state, { ...opts, retried: true });
+    }
     fail(`${state.mode}/${state.acct} ${label}: ${String(e).slice(0, 160)}`);
     return false;
   }
@@ -198,24 +238,16 @@ async function checkPage(page, url, label, state, opts = {}) {
 async function sweepAccount(browser, acc, session, mode) {
   const csp = mode === "csp";
   const ctx = await newContext(browser, session, { csp });
-  const page = await ctx.newPage();
   const state = { mode, acct: acc.name, dialogs: [], pageErrors: [], csp: [], xss: false };
-  page.on("dialog", async (d) => {
-    state.dialogs.push(`${d.type()}:${d.message().slice(0, 40)}`);
-    await d.dismiss().catch(() => {});
-  });
-  page.on("pageerror", (e) => state.pageErrors.push(String(e.message || e)));
-  page.on("console", (m) => {
-    const t = m.text();
-    if (/Content Security Policy|Refused to/i.test(t)) state.csp.push(t.slice(0, 220));
-  });
   const allowedHosts = new Set([new URL(BASE).host, new URL(API).host, "tile.openstreetmap.org"]);
   state.foreign = new Set();
-  page.on("request", (r) => {
-    const u = new URL(r.url());
-    if (!/^https?:|^wss?:/.test(u.protocol)) return;
-    if (![...allowedHosts].some((h) => u.host === h || u.host.endsWith("." + h))) state.foreign.add(u.host);
-  });
+  const page = await openPage(ctx, state, (p) =>
+    p.on("request", (r) => {
+      const u = new URL(r.url());
+      if (!/^https?:|^wss?:/.test(u.protocol)) return;
+      if (![...allowedHosts].some((h) => u.host === h || u.host.endsWith("." + h))) state.foreign.add(u.host);
+    })
+  );
   await page.goto(BASE + acc.start, { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => document.querySelectorAll("a[href^='/']").length > 6, null, { timeout: 15000 }).catch(() => {});
   await page.waitForTimeout(500);
@@ -257,6 +289,7 @@ async function sweepAccount(browser, acc, session, mode) {
       await checkPage(page, "/notifications", `/notifications (${tab})`, state, { stay: true });
     }
   }
+  if (state.crashes) console.log(`  [${mode}/${acc.name}] renderer crashes recovered: ${state.crashes}`);
   if (state.foreign.size) fail(`${mode}/${acc.name}: requests to third-party hosts: ${[...state.foreign].join(", ")}`);
   else pass(`${mode}/${acc.name}: no third-party network requests`);
   if (state.csp.length) {
@@ -299,7 +332,7 @@ async function chatDemo(browser, mode) {
   const page = await ctx.newPage();
   const dialogs = [];
   const errs = [];
-  page.on("dialog", (d) => (dialogs.push(d.message()), d.dismiss()));
+  page.on("dialog", (d) => (dialogs.push(d.message()), d.dismiss().catch(() => {})));
   page.on("pageerror", (e) => errs.push(String(e)));
   await page.goto(`${BASE}/chat-demo.html`);
   await page.fill("#password", "x").catch(() => {});
@@ -310,7 +343,7 @@ async function chatDemo(browser, mode) {
   const xss = await page.evaluate(() => window.__xss);
   const bad = await page.evaluate(() => document.querySelectorAll("[onerror],[onload],[ontoggle],script:not([src]),iframe,svg[onload]").length);
   const shown = await page.evaluate(() => document.body.innerText.includes("<img src=x onerror"));
-  if (xss !== undefined || bad || dialogs.length) fail(`${mode} chat-demo.html: executed/dangerous DOM (xss=${xss}, bad=${bad}, dialogs=${dialogs.length})`);
+  if (xss !== undefined || bad || dialogs.length) fail(`${mode} chat-demo.html: executed/dangerous DOM (xss=${xss}, bad=${bad}, dialogs=${dialogs.length}${dialogs.length ? " [" + dialogs.join(" | ").slice(0, 160) + "]" : ""}, errs=${errs.join(" | ").slice(0, 160)})`);
   else pass(`${mode} chat-demo.html clean (payload text shown escaped: ${shown})`);
   await ctx.close();
 }
@@ -362,30 +395,28 @@ async function storefrontSweep(browser, session, mode) {
     if (route.request().method() === "OPTIONS") return pre(route);
     return json(route, { data: [{ id: "00000000-0000-4000-8000-0000000000aa", kind: "web", app: "customer", platform: "web", label: P[0], createdAt: new Date().toISOString(), lastSeenAt: new Date().toISOString(), current: false }] });
   });
-  const page = await ctx.newPage();
+  // the real Stripe.js must never be fetched by this test (no network dependence, nothing third-party to stall a page)
+  await ctx.route(/^https:\/\/([a-z0-9-]+\.)*stripe\.(com|network)\//, (route) => route.abort());
   const state = { mode, acct: "customer", dialogs: [], pageErrors: [], csp: [], xss: false };
-  page.on("dialog", async (d) => {
-    state.dialogs.push(d.type() + ":" + d.message().slice(0, 40));
-    await d.dismiss().catch(() => {});
-  });
-  page.on("pageerror", (e) => state.pageErrors.push(String(e.message || e)));
-  page.on("console", (m) => {
-    const t = m.text();
-    if (/Content Security Policy|Refused to/i.test(t)) state.csp.push(t.slice(0, 220));
-  });
+  const page = await openPage(ctx, state);
   // real ids for the pages that need one
   const hdr = { authorization: "Bearer " + session.accessToken };
   const orders = await (await fetch(API + "/customer/orders?limit=1", { headers: hdr })).json().catch(() => ({}));
   const orderId = orders && orders.data && orders.data[0] && orders.data[0].id;
-  const urls = ["/order", "/order?q=pizza", "/order/r/maple-corner-convenience", "/order/r/napoli-wood-fired-pizza-city-centre", "/order/orders", "/order/login", "/order/login?tab=register", "/order/checkout", "/order/wallet", "/order/notifications", "/order/account", "/order/payouts/return?status=complete&for=driver", "/order/handoff"];
+  let urls = ["/order", "/order?q=pizza", "/order/r/maple-corner-convenience", "/order/r/napoli-wood-fired-pizza-city-centre", "/order/orders", "/order/login", "/order/login?tab=register", "/order/checkout", "/order/wallet", "/order/notifications", "/order/account", "/order/payouts/return?status=complete&for=driver", "/order/handoff"];
   if (orderId) urls.push("/order/track/" + orderId);
+  if (env("SF_URLS", "")) urls = env("SF_URLS", "").split(",");
   for (const u of urls) {
     const escaped = await checkPage(page, u, u, state);
     void escaped;
   }
   // the hand-off result screen (token + restaurant param), then the assistant panel with payload replies
   await checkPage(page, "/order/handoff?token=" + "z".repeat(40) + "&restaurant=maple-corner-convenience", "/order/handoff?token=... (summary screen)", state);
-  await page.goto(BASE + "/order/r/maple-corner-convenience", { waitUntil: "domcontentloaded" });
+  if (state.crashed) await state.reopen();
+  await page.goto(BASE + "/order/r/maple-corner-convenience", { waitUntil: "domcontentloaded" }).catch(async () => {
+    await state.reopen();
+    await page.goto(BASE + "/order/r/maple-corner-convenience", { waitUntil: "domcontentloaded" });
+  });
   await page.waitForSelector("[data-testid=bot-bubble]", { timeout: 10000 }).catch(() => {});
   await page.click("[data-testid=bot-bubble]").catch(() => {});
   await page.fill("[data-testid=bot-input]", "hello").catch(() => {});
@@ -406,6 +437,7 @@ async function storefrontSweep(browser, session, mode) {
   const path = new URL(page.url()).pathname;
   if (path !== "/order/handoff" && !path.startsWith("/order")) fail(mode + "/customer: hand-off url from the API navigated away: " + page.url());
   else pass(mode + "/customer: hand-off url from the API stays on /order (" + path + ")");
+  if (state.crashes) console.log("  [" + mode + "/customer] renderer crashes recovered: " + state.crashes);
   if (csp && state.csp.length) {
     const uniq = [...new Set(state.csp)];
     console.log("  [" + mode + "/customer] CSP console reports: " + uniq.length);
@@ -440,7 +472,18 @@ async function cspPolicyCheck() {
   else pass("connect-src: only the API, websocket and Stripe origins");
 }
 
-const browser = await chromium.launch({ headless: !env("HEADED", "") });
+// one freshly launched browser per sweep (see the header note about long-lived headless Chromium)
+const launch = () => chromium.launch({ headless: !env("HEADED", ""), args: ["--disable-gpu", "--disable-extensions"] });
+const withBrowser = async (fn) => {
+  const b = await launch();
+  try {
+    return await fn(b);
+  } catch (e) {
+    fail("sweep aborted: " + String(e).slice(0, 200));
+  } finally {
+    await b.close().catch(() => {});
+  }
+};
 try {
   await cspPolicyCheck();
   const sessions = {};
@@ -448,12 +491,13 @@ try {
   if (!env("NO_STOREFRONT", "")) sessions.customer = await login({ name: "customer", email: env("CUSTOMER_EMAIL", "customer1@demo.forksy.ca"), password: env("CUSTOMER_PASSWORD", "Demo@12345") });
   const modes = env("CSP_ONLY") ? ["csp"] : env("NOCSP_ONLY") ? ["nocsp"] : ["nocsp", "csp"];
   for (const mode of modes) {
-    for (const a of ACCOUNTS) await sweepAccount(browser, a, sessions[a.name], mode);
-    await chatDemo(browser, mode);
-    if (sessions.customer) await storefrontSweep(browser, sessions.customer, mode);
+    const only = env("STOREFRONT_ONLY", "") ? "storefront" : env("CHAT_ONLY", "") ? "chat" : "";
+    if (!only) for (const a of ACCOUNTS) await withBrowser((b) => sweepAccount(b, a, sessions[a.name], mode));
+    if (!only || only === "chat") await withBrowser((b) => chatDemo(b, mode));
+    if (sessions.customer && (!only || only === "storefront")) await withBrowser((b) => storefrontSweep(b, sessions.customer, mode));
   }
-} finally {
-  await browser.close();
+} catch (e) {
+  fail("fatal: " + String(e).slice(0, 200));
 }
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length} passed, ${failed.length} failed`);
