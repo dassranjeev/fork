@@ -59,7 +59,7 @@
     "@iconify-json/lucide": "^1.2.138",
     "@iconify-json/mage": "^1.2.4",
     "@iconify-json/radix-icons": "^1.2.6",
-    "@iconify/react": "^5.0.2",
+    "@iconify/react": "^6.0.2",
     "sass": "^1.71.1",
     "webpack": "^5.90.3"
   }
