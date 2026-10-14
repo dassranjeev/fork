@@ -1,4 +1,4 @@
-# FORKSY
+# FORKY
 
 A three-sided food delivery marketplace for Ontario, Canada (customers, restaurants and convenience stores, delivery drivers), in the style of SkipTheDishes, Uber Eats and DoorDash. This repository contains the **platform API**, the **Admin Console**, and the **Restaurant Portal**. The customer and driver mobile apps are not built yet; the API is ready for them.
 
@@ -36,7 +36,7 @@ tools/pg/    Embedded Postgres launcher for local development
 Requirements: Node.js 20 or newer (developed on Node 24), npm.
 
 ```bash
-# 1. Database (port 5432, user/password postgres/postgres, database "forksy")
+# 1. Database (port 5432, user/password postgres/postgres, database "forky")
 cd tools/pg && npm install && node start.mjs        # leave running
 
 # 2. Backend API
@@ -87,9 +87,9 @@ Most business rules (fees, dispatch timers and weights, chat hours, acceptance w
 
 | Role | Login | Password |
 |---|---|---|
-| Super admin | `admin@forksy.ca` | `Admin@12345` (from `SEED_SUPERADMIN_PASSWORD`) |
-| Customers | `customer1@demo.forksy.ca` ... `customer50@demo.forksy.ca` | `Demo@12345` |
-| Drivers | `driver1@demo.forksy.ca` ... `driver28@demo.forksy.ca` | `Demo@12345` |
+| Super admin | `admin@forky.ca` | `Admin@12345` (from `SEED_SUPERADMIN_PASSWORD`) |
+| Customers | `customer1@demo.forky.ca` ... `customer50@demo.forky.ca` | `Demo@12345` |
+| Drivers | `driver1@demo.forky.ca` ... `driver28@demo.forky.ca` | `Demo@12345` |
 | Restaurant owners | `owner1@demo-restaurant.ca` ... `owner26@demo-restaurant.ca` | `Demo@12345` |
 | Other store roles | `manager1@...`, `cashier1@...`, `kitchen1@...` (same domain and numbering) | `Demo@12345` |
 
@@ -99,7 +99,7 @@ Customers 31 to 50 and restaurants 13 to 26 include Brampton data. These are dev
 
 **Automation (minimal manual work).** After an order is placed nobody has to touch it: it is accepted automatically (the prep time includes the kitchen load), preparation starts automatically, it is marked ready when the prep time has elapsed, and the automatic driver search starts 5 minutes before the food is due (ready at 3:20 pm means the search starts at 3:15 pm; setting `dispatch.preReadyMinutes`, 0 = only when the kitchen marks it ready), so the driver arrives as the food is finished. Driver arrival at the restaurant and at the customer is detected from GPS (within 80 m). People step in only for physical actions (the driver's accept, pickup code and delivery proof) and for exceptions. Each restaurant can follow the platform default or force accept / start prep / ready on or off (portal Store Settings, or the admin restaurant page); platform defaults are under System, Platform Settings, group "automation". Every automatic step appears on the order timeline as "Auto: ...".
 
-**Cancellation window.** For 120 seconds after payment (setting `orders.customerCancelGraceSeconds`) the customer can cancel for free. During that time the order is held by FORKSY and is not given to the restaurant (no alert, not visible in the portal or kitchen display, no automation). When the window closes the order is sent to the restaurant and automatically accepted. After that customers cannot cancel; FORKSY staff can only cancel with the restaurant's approval: they send a cancellation request that the restaurant approves or declines in its portal, or they record who at the restaurant approved it by phone or chat. Orders already past pickup keep the existing support-approval rule.
+**Cancellation window.** For 120 seconds after payment (setting `orders.customerCancelGraceSeconds`) the customer can cancel for free. During that time the order is held by FORKY and is not given to the restaurant (no alert, not visible in the portal or kitchen display, no automation). When the window closes the order is sent to the restaurant and automatically accepted. After that customers cannot cancel; FORKY staff can only cancel with the restaurant's approval: they send a cancellation request that the restaurant approves or declines in its portal, or they record who at the restaurant approved it by phone or chat. Orders already past pickup keep the existing support-approval rule.
 
 **Order lifecycle.** `PLACED` (instant) > `ACCEPTED` > `PREPARING` > `READY` > `PICKED_UP` > `ON_THE_WAY` > `DELIVERED` (pickup orders end in `COLLECTED`). Cancelled and rejected orders release or refund the payment. Payment is authorised at placement and captured on delivery; the ledger settles restaurant, driver and platform shares at that point.
 
@@ -109,7 +109,7 @@ Customers 31 to 50 and restaurants 13 to 26 include Brampton data. These are dev
 
 **En-route stacking (two orders per driver).** When free drivers are busy or scarce, a driver who already has the first order in the car and is heading to its drop-off B can be offered a second order whose restaurant is close to B (default within 3 km) and that they can reach no more than 10 minutes after the food is ready. They collect it right after the first delivery, so the first customer is never delayed. A driver never carries more than **2 orders at a time**, whether the second order comes from an automatic offer or a manual assignment, and the offer shows "pick this up after you finish your current delivery". The driver's active trip returns the current order plus a queue, the second customer's ETA includes the first delivery, and the driver stays "on trip" until the last order ends. Settings `dispatch.stacking.*`. Free drivers are always preferred; stacking only gets offers when they are unavailable or decline.
 
-**Driver wait-time pay.** If a driver has to wait at the restaurant for more than 5 minutes after the promised ready time (the prep time when the order was accepted; if the driver arrives later, from the arrival), every further started minute is paid to the driver and deducted from the restaurant's payout (settings `orders.waitFee.*`: grace 5 min, $0.50 per minute, max $10 per order). The restaurant gets a warning while the driver waits, the charge shows on the order, the order timeline and the restaurant and driver statements, and staff can waive it (FORKSY then absorbs it and the driver keeps the pay).
+**Driver wait-time pay.** If a driver has to wait at the restaurant for more than 5 minutes after the promised ready time (the prep time when the order was accepted; if the driver arrives later, from the arrival), every further started minute is paid to the driver and deducted from the restaurant's payout (settings `orders.waitFee.*`: grace 5 min, $0.50 per minute, max $10 per order). The restaurant gets a warning while the driver waits, the charge shows on the order, the order timeline and the restaurant and driver statements, and staff can waive it (FORKY then absorbs it and the driver keeps the pay).
 
 **Driver acceptance score.** Each driver has an acceptance rate over a rolling 14 days: accepted offers divided by accepted plus declined plus expired, lightly smoothed for drivers with fewer than 5 offers. It updates on every response and hourly, is shown on the driver profile and in the admin (with offer history), and is a 20 percent weight in the ranking, so higher acceptance means earlier offers.
 

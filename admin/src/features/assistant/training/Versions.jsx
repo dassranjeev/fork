@@ -4,7 +4,7 @@ import { fmtDateTime } from "../../../lib/format";
 import { Badge, Button, Card, EmptyState, ErrorState, Loading, Modal, TextInput, useConfirm } from "../../../ui";
 import { problem } from "./kit";
 
-const SOURCE = { migration: "Created from FAQs", publish: "Published", rollback: "Rollback", faq: "FAQ editor", approval: "Approved by FORKSY" };
+const SOURCE = { migration: "Created from FAQs", publish: "Published", rollback: "Rollback", faq: "FAQ editor", approval: "Approved by FORKY" };
 
 /** Draft vs live, publish (with regression warning / approval), rollback, version history. */
 export default function Versions({ api, canEdit, staff, onChanged }) {
@@ -33,7 +33,7 @@ export default function Versions({ api, canEdit, staff, onChanged }) {
       const res = await api.post("/versions/publish", { note: note || undefined, confirmRegressions });
       setRegs(null);
       setNote("");
-      toast.success(res.status === "REQUESTED" ? "Sent to FORKSY for approval. The live bot does not change until it is approved." : `Published as version ${res.version}. The bot uses it now.`);
+      toast.success(res.status === "REQUESTED" ? "Sent to FORKY for approval. The live bot does not change until it is approved." : `Published as version ${res.version}. The bot uses it now.`);
       done();
     } catch (e) {
       const p = problem(e);
@@ -48,7 +48,7 @@ export default function Versions({ api, canEdit, staff, onChanged }) {
     if (!r.confirmed) return;
     try {
       const res = await api.post(`/versions/${ver.version}/rollback`, { note: r.value || undefined });
-      toast.success(res.status === "REQUESTED" ? "Sent to FORKSY for approval" : `Restored: now live as version ${res.version}`);
+      toast.success(res.status === "REQUESTED" ? "Sent to FORKY for approval" : `Restored: now live as version ${res.version}`);
       done();
     } catch (e) {
       toast.error(problem(e).message);
@@ -90,7 +90,7 @@ export default function Versions({ api, canEdit, staff, onChanged }) {
       <Card title="Publish" subtitle={`Live right now: version ${v.live}. Customers only ever see published versions.`} className="mb-20">
         {v.pendingRequest ? (
           <div className="alert alert-info radius-8 d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <span>Waiting for FORKSY approval since {fmtDateTime(v.pendingRequest.createdAt)} ({v.pendingRequest.counts?.entries ?? 0} answers).</span>
+            <span>Waiting for FORKY approval since {fmtDateTime(v.pendingRequest.createdAt)} ({v.pendingRequest.counts?.entries ?? 0} answers).</span>
             {canEdit && !staff && (
               <Button variant="light" onClick={() => cancel(v.pendingRequest.id)}>
                 Withdraw request
@@ -99,7 +99,7 @@ export default function Versions({ api, canEdit, staff, onChanged }) {
           </div>
         ) : null}
         {v.dirty ? <div className="alert alert-warning radius-8">You have unpublished changes in your draft.</div> : <div className="text-secondary-light mb-12">Your draft is the same as the live version. Nothing to publish.</div>}
-        {needsApproval && <div className="text-secondary-light text-sm mb-12">FORKSY reviews changes before they go live: pressing Publish sends a request.</div>}
+        {needsApproval && <div className="text-secondary-light text-sm mb-12">FORKY reviews changes before they go live: pressing Publish sends a request.</div>}
         {canEdit && (
           <div className="row align-items-end">
             <TextInput col={6} label="What changed? (optional note)" aria-label="Publish note" value={note} maxLength={300} onChange={setNote} />
@@ -137,7 +137,7 @@ export default function Versions({ api, canEdit, staff, onChanged }) {
                       v{x.version} {x.live && <Badge tone="success">Live</Badge>}
                     </td>
                     <td>{fmtDateTime(x.createdAt)}</td>
-                    <td>{x.publishedByName || "FORKSY"}</td>
+                    <td>{x.publishedByName || "FORKY"}</td>
                     <td>
                       {SOURCE[x.source] || x.source}
                       {x.restoredFrom ? ` (v${x.restoredFrom})` : ""}

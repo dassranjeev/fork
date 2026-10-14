@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * FAKE Stripe API server for FORKSY's automated tests (plain node:http, no dependencies besides the `stripe` package that is
+ * FAKE Stripe API server for FORKY's automated tests (plain node:http, no dependencies besides the `stripe` package that is
  * already a backend dependency - it is only used to sign webhook payloads exactly like Stripe does).
  *
  *   node backend/test/fakes/fake-stripe.mjs            (port 4242, override with PORT)
- *   STRIPE_API_BASE=http://localhost:4242  STRIPE_SECRET_KEY=sk_test_fake...   -> point the FORKSY API at it
+ *   STRIPE_API_BASE=http://localhost:4242  STRIPE_SECRET_KEY=sk_test_fake...   -> point the FORKY API at it
  *
- * It is NOT Stripe: it implements only the endpoints FORKSY calls, with realistic object shapes and state, so the code can be exercised
+ * It is NOT Stripe: it implements only the endpoints FORKY calls, with realistic object shapes and state, so the code can be exercised
  * end to end without keys. Anything that only the real Stripe does (3-D Secure UI, card networks, fraud rules, real balances) is
  * simulated crudely through the /_fake/* control routes below. Everything proven against this fake still has to be re-proven with
  * real Stripe TEST keys.
@@ -216,7 +216,7 @@ const routes = [];
 const route = (method, re, fn) => routes.push({ method, re, fn });
 
 // ---- platform account / balance
-route('GET', /^\/v1\/account$/, () => ({ id: 'acct_platform_fake', object: 'account', country: 'CA', charges_enabled: true, payouts_enabled: true, details_submitted: true, default_currency: 'cad', business_profile: { name: 'FORKSY (fake Stripe)' }, settings: { dashboard: { display_name: 'FORKSY test' } } }));
+route('GET', /^\/v1\/account$/, () => ({ id: 'acct_platform_fake', object: 'account', country: 'CA', charges_enabled: true, payouts_enabled: true, details_submitted: true, default_currency: 'cad', business_profile: { name: 'FORKY (fake Stripe)' }, settings: { dashboard: { display_name: 'FORKY test' } } }));
 route('GET', /^\/v1\/balance$/, () => ({ object: 'balance', livemode: false, available: [{ amount: S.config.platformBalance, currency: 'cad' }], pending: [{ amount: 0, currency: 'cad' }] }));
 route('GET', /^\/v1\/balance_transactions$/, (m, q) => {
   let rows = S.bts.filter((b) => (!q.created?.gte || b.created >= Number(q.created.gte)) && (!q.created?.lt || b.created < Number(q.created.lt)));
@@ -456,7 +456,7 @@ const server = http.createServer(async (req, res) => {
         return send(res, status, out);
       }
     }
-    return send(res, 404, { error: { type: 'invalid_request_error', code: 'resource_missing', message: `Unrecognized request URL (${req.method}: ${path}). The fake implements only what FORKSY calls.` } });
+    return send(res, 404, { error: { type: 'invalid_request_error', code: 'resource_missing', message: `Unrecognized request URL (${req.method}: ${path}). The fake implements only what FORKY calls.` } });
   } catch (e) {
     console.error('fake-stripe error', e);
     return send(res, 500, { error: { type: 'api_error', message: String(e.message) } });

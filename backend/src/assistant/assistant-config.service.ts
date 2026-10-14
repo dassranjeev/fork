@@ -15,7 +15,7 @@ export interface AssistantConfig {
   name: string;
   greeting: string;
   color: string | null;
-  /** logo set by FORKSY staff (own-origin upload) or null: the widget then shows the restaurant's own logo */
+  /** logo set by FORKY staff (own-origin upload) or null: the widget then shows the restaurant's own logo */
   logoUrl: string | null;
   faqs: { q: string; a: string }[];
   allowedOrigins: string[];
@@ -46,8 +46,8 @@ export interface CentralConfig {
   faqs: { q: string; a: string }[];
   chips: { label: string; query: string }[];
 }
-export const CENTRAL_NAME = 'FORKSY Assistant';
-export const CENTRAL_GREETING = "Hi! I'm the FORKSY assistant. Tell me what you're craving and I'll find a restaurant, or say \"order from <restaurant>\".";
+export const CENTRAL_NAME = 'FORKY Assistant';
+export const CENTRAL_GREETING = "Hi! I'm the FORKY assistant. Tell me what you're craving and I'll find a restaurant, or say \"order from <restaurant>\".";
 export const DEFAULT_CENTRAL_CHIPS = [
   { label: 'Open now', query: 'open now' },
   { label: 'Pizza', query: 'pizza' },
@@ -246,7 +246,7 @@ export class AssistantConfigService implements OnModuleInit, OnModuleDestroy {
     config.botKey = key;
     return {
       config: { enabled: config.enabled, name: config.name, greeting: config.greeting, color: config.color, logoUrl: config.logoUrl, faqs: await this.training().faqs(this.scopeOf(r)), allowedOrigins: config.allowedOrigins, botKey: config.botKey },
-      /** what guests see in the chat header: the logo set by FORKSY, else the restaurant's own logo (absolute URL) or null */
+      /** what guests see in the chat header: the logo set by FORKY, else the restaurant's own logo (absolute URL) or null */
       effectiveLogoUrl: this.absLogo(config.logoUrl) ?? this.absLogo(r.logoUrl) ?? this.defaultAvatar(),
       forcedOff: this.forcedOff(r),
       platformEnabled: this.platformEnabled(),
@@ -258,9 +258,9 @@ export class AssistantConfigService implements OnModuleInit, OnModuleDestroy {
 
   // ------------------------------------------------------------------ writes
   /** strict validation of the editable fields; returns what to merge into meta.assistant */
-  /** the FORKSY icon, served by the API: the default avatar when there is neither an admin logo nor a restaurant logo */
+  /** the FORKY icon, served by the API: the default avatar when there is neither an admin logo nor a restaurant logo */
   defaultAvatar(): string {
-    return `${this.config.get<string>('publicUrl')}/assistant/forksy-icon.png`;
+    return `${this.config.get<string>('publicUrl')}/assistant/forky-icon.png`;
   }
 
   /** make an upload path absolute; only http(s) / site-relative values survive */
@@ -285,7 +285,7 @@ export class AssistantConfigService implements OnModuleInit, OnModuleDestroy {
     }
     if (dto.logoUrl !== undefined) {
       if (dto.logoUrl === null || dto.logoUrl === '') patch.logoUrl = null;
-      else if (!isOwnLogoUrl(dto.logoUrl, this.config.get<string>('publicUrl') ?? '')) throw new BadRequestException('logoUrl must be an image uploaded to FORKSY (png, jpg or webp) through POST /uploads');
+      else if (!isOwnLogoUrl(dto.logoUrl, this.config.get<string>('publicUrl') ?? '')) throw new BadRequestException('logoUrl must be an image uploaded to FORKY (png, jpg or webp) through POST /uploads');
       else patch.logoUrl = dto.logoUrl.trim();
     }
     if (dto.allowedOrigins !== undefined) {
@@ -363,7 +363,7 @@ export class AssistantConfigService implements OnModuleInit, OnModuleDestroy {
     return { enabled: c.enabled, name: c.name, greeting: c.greeting, color: c.color, logoUrl: c.logoUrl, allowedOrigins: c.allowedOrigins, forcedOff: this.forcedOff(r), botKey: maskKey(c.botKey) };
   }
 
-  // ------------------------------------------------------------------ central bot (FORKSY website), stored as platform settings
+  // ------------------------------------------------------------------ central bot (FORKY website), stored as platform settings
   /** The central bot's configuration. Values come from settings (which the generic settings page can also edit), so they are re-validated on every read. */
   centralConfig(): CentralConfig {
     const g = <T>(k: string, d: T) => this.settings.get<T>(`assistant.central.${k}`, d);
@@ -385,7 +385,7 @@ export class AssistantConfigService implements OnModuleInit, OnModuleDestroy {
 
   /** chips of the central bot as the chat contract wants them (built-in defaults when none were configured) */
   centralScope() {
-    return { key: 'central', restaurantId: null, central: true, label: 'FORKSY website bot' };
+    return { key: 'central', restaurantId: null, central: true, label: 'FORKY website bot' };
   }
 
   centralStarterChips(): { label: string; payload: string }[] {
@@ -424,7 +424,7 @@ export class AssistantConfigService implements OnModuleInit, OnModuleDestroy {
     if (dto.color !== undefined) set.color = dto.color === null ? '' : dto.color.length === 4 ? `#${dto.color[1]}${dto.color[1]}${dto.color[2]}${dto.color[2]}${dto.color[3]}${dto.color[3]}`.toUpperCase() : dto.color.toUpperCase();
     if (dto.logoUrl !== undefined) {
       if (dto.logoUrl === null || dto.logoUrl === '') set.logoUrl = '';
-      else if (!isOwnLogoUrl(dto.logoUrl, this.config.get<string>('publicUrl') ?? '')) throw new BadRequestException('logoUrl must be an image uploaded to FORKSY (png, jpg or webp) through POST /uploads');
+      else if (!isOwnLogoUrl(dto.logoUrl, this.config.get<string>('publicUrl') ?? '')) throw new BadRequestException('logoUrl must be an image uploaded to FORKY (png, jpg or webp) through POST /uploads');
       else set.logoUrl = dto.logoUrl.trim();
     }
     if (dto.chips !== undefined) {
@@ -474,7 +474,7 @@ export class AssistantConfigService implements OnModuleInit, OnModuleDestroy {
     return !isProd() && cfg.allowedOrigins.includes(LOCAL_WILDCARD) && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(o);
   }
 
-  /** origins of the FORKSY web apps (env CORS_ORIGINS): allowed for the "site" modes */
+  /** origins of the FORKY web apps (env CORS_ORIGINS): allowed for the "site" modes */
   isSiteOrigin(origin: string): boolean {
     return corsAllowlist().map((x) => x.toLowerCase()).includes(origin.replace(/\/$/, '').toLowerCase());
   }

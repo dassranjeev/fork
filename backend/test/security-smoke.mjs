@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * FORKSY security smoke test - plain Node 18+, no dependencies.
+ * FORKY security smoke test - plain Node 18+, no dependencies.
  *
  *   node test/security-smoke.mjs [API_BASE_URL]            (default http://localhost:4000/api/v1)
  *
@@ -10,7 +10,7 @@
  *   nested bodies, hostile uploads, CORS, webhook authentication.
  *
  * It needs the demo seed accounts (customer1/2, driver1, owner1/2, kitchen1, analyst, admin). Override with env:
- *   DEMO_PASSWORD (default Demo@12345)  ADMIN_EMAIL / ADMIN_PASSWORD (default admin@forksy.ca / Admin@12345)
+ *   DEMO_PASSWORD (default Demo@12345)  ADMIN_EMAIL / ADMIN_PASSWORD (default admin@forky.ca / Admin@12345)
  * The login endpoint is limited to 10/min per IP, so the script logs in once per identity and waits out throttles.
  * Test data it creates is removed again. NEVER point it at production (it deliberately triggers lockouts and rate limits).
  */
@@ -19,7 +19,7 @@ import { createHmac } from 'node:crypto';
 const BASE = (process.argv[2] || process.env.API || 'http://localhost:4000/api/v1').replace(/\/$/, '');
 const ROOT = BASE.replace(/\/api\/v1$/, '');
 const PW = process.env.DEMO_PASSWORD || 'Demo@12345';
-const ADMIN = [process.env.ADMIN_EMAIL || 'admin@forksy.ca', process.env.ADMIN_PASSWORD || 'Admin@12345'];
+const ADMIN = [process.env.ADMIN_EMAIL || 'admin@forky.ca', process.env.ADMIN_PASSWORD || 'Admin@12345'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const results = [];
@@ -64,7 +64,7 @@ async function login(label, identifier, password) {
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 
 (async () => {
-  console.log(`FORKSY security smoke test against ${BASE}`);
+  console.log(`FORKY security smoke test against ${BASE}`);
   const health = await http('GET', '/health');
   if (health.status !== 200) { console.log('API not reachable: ' + health.text); process.exit(2); }
 
@@ -86,9 +86,9 @@ const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
   section('logging in (demo accounts)');
   const who = {};
   for (const [k, id, pw] of [
-    ['c1', 'customer1@demo.forksy.ca', PW], ['c2', 'customer2@demo.forksy.ca', PW], ['d1', 'driver1@demo.forksy.ca', PW],
+    ['c1', 'customer1@demo.forky.ca', PW], ['c2', 'customer2@demo.forky.ca', PW], ['d1', 'driver1@demo.forky.ca', PW],
     ['o1', 'owner1@demo-restaurant.ca', PW], ['o2', 'owner2@demo-restaurant.ca', PW], ['k1', 'kitchen1@demo-restaurant.ca', PW],
-    ['analyst', 'analyst@forksy.ca', PW], ['admin', ADMIN[0], ADMIN[1]],
+    ['analyst', 'analyst@forky.ca', PW], ['admin', ADMIN[0], ADMIN[1]],
   ]) who[k] = (await login(k, id, pw)) || {};
   const T = Object.fromEntries(Object.entries(who).map(([k, v]) => [k, v.token]));
   console.log('  tokens:', Object.entries(T).map(([k, v]) => `${k}:${v ? 'ok' : 'MISSING'}`).join(' '));
@@ -246,7 +246,7 @@ const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
   const adminId = who.admin?.user?.id || U;
   const forged = [
     ['alg=none', `${b64({ alg: 'none', typ: 'JWT' })}.${b64({ sub: adminId, type: 'SUPER_ADMIN', exp: 9999999999 })}.`],
-    ['signed with a well-known secret', (() => { const h = b64({ alg: 'HS256', typ: 'JWT' }); const p = b64({ sub: adminId, type: 'SUPER_ADMIN', iss: 'forksy-api', aud: 'forksy-clients', exp: 9999999999 }); return `${h}.${p}.${createHmac('sha256', 'change-me-to-a-long-random-string').update(h + '.' + p).digest('base64url')}`; })()],
+    ['signed with a well-known secret', (() => { const h = b64({ alg: 'HS256', typ: 'JWT' }); const p = b64({ sub: adminId, type: 'SUPER_ADMIN', iss: 'forky-api', aud: 'forky-clients', exp: 9999999999 }); return `${h}.${p}.${createHmac('sha256', 'change-me-to-a-long-random-string').update(h + '.' + p).digest('base64url')}`; })()],
     ['garbage', 'abc.def.ghi'],
   ];
   bad = [];

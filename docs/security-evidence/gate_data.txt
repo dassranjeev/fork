@@ -1,4 +1,4 @@
-=== FORKSY refuses to start: insecure production DATA ===
-  - 183 demo accounts (@demo.forksy.ca / @demo-restaurant.ca) exist in the production database - purge the demo data
-  - super admin admin@forksy.ca still has a known default password - change it first
+=== FORKY refuses to start: insecure production DATA ===
+  - 183 demo accounts (@demo.forky.ca / @demo-restaurant.ca) exist in the production database - purge the demo data
+  - super admin admin@forky.ca still has a known default password - change it first
 

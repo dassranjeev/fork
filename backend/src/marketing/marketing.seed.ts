@@ -10,16 +10,16 @@ const CMS_PAGES: { slug: string; title: string; body: string; category: CmsPage[
     title: 'Terms of Service',
     category: 'LEGAL',
     body:
-      'Welcome to FORKSY. By placing an order, creating an account, or using the FORKSY platform, you agree to these Terms of Service. ' +
-      'FORKSY connects customers, restaurants and independent delivery drivers in Ontario. Orders are subject to restaurant availability, ' +
-      'delivery zone coverage and applicable fees shown at checkout. Please contact support@forksy.ca with any questions.',
+      'Welcome to FORKY. By placing an order, creating an account, or using the FORKY platform, you agree to these Terms of Service. ' +
+      'FORKY connects customers, restaurants and independent delivery drivers in Ontario. Orders are subject to restaurant availability, ' +
+      'delivery zone coverage and applicable fees shown at checkout. Please contact support@forky.ca with any questions.',
   },
   {
     slug: 'privacy',
     title: 'Privacy Policy',
     category: 'LEGAL',
     body:
-      'FORKSY collects the personal information needed to process orders, payments and deliveries (name, contact details, delivery address, ' +
+      'FORKY collects the personal information needed to process orders, payments and deliveries (name, contact details, delivery address, ' +
       'order history and, where applicable, payment tokens). We do not sell personal information. Under Canadian privacy law (PIPEDA) you may ' +
       'request access to, correction of, or deletion of your personal information at any time from Account > Privacy.',
   },
@@ -29,7 +29,7 @@ const CMS_PAGES: { slug: string; title: string; body: string; category: CmsPage[
     category: 'LEGAL',
     body:
       'If an order arrives with a missing or incorrect item, is significantly late, or is cancelled by the restaurant, you may be eligible for ' +
-      'a refund or FORKSY wallet credit. Report an issue from Order Details within 48 hours of delivery and our support team (or an automatic ' +
+      'a refund or FORKY wallet credit. Report an issue from Order Details within 48 hours of delivery and our support team (or an automatic ' +
       'rule, for smaller amounts) will resolve it, usually within minutes.',
   },
   {
@@ -37,7 +37,7 @@ const CMS_PAGES: { slug: string; title: string; body: string; category: CmsPage[
     title: 'Driver Partner Agreement',
     category: 'LEGAL',
     body:
-      'As an independent contractor delivering for FORKSY, you are responsible for your own vehicle, insurance and applicable taxes (a T4A is ' +
+      'As an independent contractor delivering for FORKY, you are responsible for your own vehicle, insurance and applicable taxes (a T4A is ' +
       'issued annually). You are paid per completed delivery (base + distance + applicable boosts) plus 100% of tips, on the weekly payout cycle ' +
       'described in your driver dashboard, or instantly via cash-out for a small fee.',
   },
@@ -46,8 +46,8 @@ const CMS_PAGES: { slug: string; title: string; body: string; category: CmsPage[
     title: 'Merchant Agreement',
     category: 'LEGAL',
     body:
-      'This agreement governs your restaurant\'s participation on FORKSY. FORKSY charges a commission on each order (see your Commission tier) ' +
-      'and remits the balance on the weekly payout cycle, along with a statement and invoice for FORKSY HST. You are responsible for menu ' +
+      'This agreement governs your restaurant\'s participation on FORKY. FORKY charges a commission on each order (see your Commission tier) ' +
+      'and remits the balance on the weekly payout cycle, along with a statement and invoice for FORKY HST. You are responsible for menu ' +
       'accuracy, food safety, and honouring accepted orders within the promised prep time.',
   },
   {
@@ -56,8 +56,8 @@ const CMS_PAGES: { slug: string; title: string; body: string; category: CmsPage[
     category: 'LEGAL',
     language: 'fr',
     body:
-      "Bienvenue sur FORKSY. En passant une commande ou en utilisant la plateforme FORKSY, vous acceptez les presentes conditions d'utilisation. " +
-      "FORKSY met en relation des clients, des restaurants et des livreurs independants en Ontario.",
+      "Bienvenue sur FORKY. En passant une commande ou en utilisant la plateforme FORKY, vous acceptez les presentes conditions d'utilisation. " +
+      "FORKY met en relation des clients, des restaurants et des livreurs independants en Ontario.",
   },
   {
     slug: 'privacy',
@@ -65,7 +65,7 @@ const CMS_PAGES: { slug: string; title: string; body: string; category: CmsPage[
     category: 'LEGAL',
     language: 'fr',
     body:
-      'FORKSY recueille les renseignements personnels necessaires au traitement des commandes, des paiements et des livraisons. ' +
+      'FORKY recueille les renseignements personnels necessaires au traitement des commandes, des paiements et des livraisons. ' +
       'Conformement a la LPRPDE, vous pouvez demander en tout temps l\'acces, la correction ou la suppression de vos renseignements personnels.',
   },
 ];
@@ -74,7 +74,7 @@ const FAQS: { question: string; answer: string; audience: Faq['audience']; categ
   // customers
   { question: 'How do I track my order?', answer: 'Open Orders > the active order to see live status and, once a driver is assigned, their location on the map.', audience: 'CUSTOMER', category: 'Orders', sortOrder: 1 },
   { question: 'What if an item is missing or wrong?', answer: 'Report it from Order Details within 48 hours. Eligible issues are refunded or credited automatically, usually within minutes.', audience: 'CUSTOMER', category: 'Orders', sortOrder: 2 },
-  { question: 'How do I use a promo code or gift card?', answer: 'Enter your promo code at checkout, or redeem a gift card from Wallet > Redeem gift card to add its balance to your FORKSY wallet.', audience: 'CUSTOMER', category: 'Payments', sortOrder: 3 },
+  { question: 'How do I use a promo code or gift card?', answer: 'Enter your promo code at checkout, or redeem a gift card from Wallet > Redeem gift card to add its balance to your FORKY wallet.', audience: 'CUSTOMER', category: 'Payments', sortOrder: 3 },
   { question: 'How does the referral programme work?', answer: 'Share your referral code from Account > Referrals. When a friend places and receives their first delivered order, you both receive a wallet credit.', audience: 'CUSTOMER', category: 'Referrals', sortOrder: 4 },
   { question: 'Comment suivre ma commande ?', answer: 'Ouvrez Commandes > la commande active pour voir le statut en direct et la position du livreur.', audience: 'CUSTOMER', category: 'Orders', sortOrder: 1, language: 'fr' },
   // drivers
@@ -83,13 +83,13 @@ const FAQS: { question: string; answer: string; audience: Faq['audience']; categ
   { question: 'What do I do if I feel unsafe?', answer: 'Use the SOS button in the driver app at any time. It alerts our operations team immediately with your location.', audience: 'DRIVER', category: 'Safety', sortOrder: 3 },
   // restaurants
   { question: 'How do I update my menu or mark an item out of stock?', answer: 'Go to Menu Management in the restaurant portal. Toggling an item to 86/out-of-stock hides it immediately and can auto-restock at a set time.', audience: 'RESTAURANT', category: 'Menu', sortOrder: 1 },
-  { question: 'How do self-serve promotions work?', answer: 'Create a % off, BOGO, free item or free delivery promo from Promotions in your portal. Depending on your settings it may need FORKSY approval before it goes live.', audience: 'RESTAURANT', category: 'Marketing', sortOrder: 2 },
+  { question: 'How do self-serve promotions work?', answer: 'Create a % off, BOGO, free item or free delivery promo from Promotions in your portal. Depending on your settings it may need FORKY approval before it goes live.', audience: 'RESTAURANT', category: 'Marketing', sortOrder: 2 },
   { question: 'When do I get paid?', answer: 'Payouts follow the weekly cycle in Finance > Payouts, with a statement and HST invoice for each period.', audience: 'RESTAURANT', category: 'Payouts', sortOrder: 3 },
 ];
 
 const BANNERS: { title: string; subtitle?: string; imageUrl: string; link?: string; sortOrder: number }[] = [
-  { title: 'Welcome to FORKSY', subtitle: 'New here? Get 10% off your first order with WELCOME10.', imageUrl: 'https://images.forksy.ca/banners/welcome.jpg', link: 'promo:WELCOME10', sortOrder: 1 },
-  { title: 'Free delivery this week', subtitle: 'Use code FREEDEL on orders over $20.', imageUrl: 'https://images.forksy.ca/banners/free-delivery.jpg', link: 'promo:FREEDEL', sortOrder: 2 },
+  { title: 'Welcome to FORKY', subtitle: 'New here? Get 10% off your first order with WELCOME10.', imageUrl: 'https://images.forky.ca/banners/welcome.jpg', link: 'promo:WELCOME10', sortOrder: 1 },
+  { title: 'Free delivery this week', subtitle: 'Use code FREEDEL on orders over $20.', imageUrl: 'https://images.forky.ca/banners/free-delivery.jpg', link: 'promo:FREEDEL', sortOrder: 2 },
 ];
 
 /** Platform-funded promo codes. Always usable in every environment (safe, low-value demo codes). */

@@ -78,8 +78,8 @@ export class AssistantService {
    * Decide which bot a request talks to and whether the caller's Origin may use it.
    *  - botKey            -> embedded bot of ONE restaurant; Origin must be in THAT restaurant's allowedOrigins
    *                         (no Origin header is accepted only outside production, for curl / local tests)
-   *  - restaurantSlug    -> the main website's bot scoped to a restaurant (Origin must be a FORKSY web origin, or absent)
-   *  - neither           -> the central FORKSY bot (same origin rule)
+   *  - restaurantSlug    -> the main website's bot scoped to a restaurant (Origin must be a FORKY web origin, or absent)
+   *  - neither           -> the central FORKY bot (same origin rule)
    */
   async resolveScope(input: { botKey?: string; restaurantSlug?: string }, req: any): Promise<Scope> {
     const origin = this.originOf(req);
@@ -105,7 +105,7 @@ export class AssistantService {
       if (!this.cfg.isActive(r)) throw new ForbiddenException('This assistant is turned off.');
       return { mode: 'site', restaurant: r, cfg: this.cfg.effective(r), canScope: false, origin };
     }
-    if (!this.cfg.centralConfig().enabled) throw new ForbiddenException('The FORKSY assistant is currently turned off.');
+    if (!this.cfg.centralConfig().enabled) throw new ForbiddenException('The FORKY assistant is currently turned off.');
     return { mode: 'site', restaurant: null, cfg: null, canScope: true, origin };
   }
 
@@ -120,7 +120,7 @@ export class AssistantService {
       name: s.cfg!.name,
       greeting: s.cfg!.greeting,
       color: s.cfg!.color,
-      /** the logo FORKSY set for this assistant, else the restaurant's own logo, else null */
+      /** the logo FORKY set for this assistant, else the restaurant's own logo, else null */
       logoUrl: this.cfg.absLogo(s.cfg!.logoUrl) ?? this.knowledge.absUrl(s.restaurant.logoUrl) ?? this.cfg.defaultAvatar(),
       restaurant: { id: s.restaurant.id, slug: s.restaurant.slug, name: s.restaurant.name, logoUrl: this.knowledge.absUrl(s.restaurant.logoUrl) },
       mode: s.mode,
@@ -215,7 +215,7 @@ export class AssistantService {
     }
     const directory: DirectoryEntry[] | null = !kb && canScope ? await this.knowledge.directory() : null;
 
-    // ---- logged-in customers: the FORKSY server cart is the source of truth for this restaurant
+    // ---- logged-in customers: the FORKY server cart is the source of truth for this restaurant
     const loggedIn = !!customer;
     let realSig = '';
     let replaced: string | null = null;
@@ -286,7 +286,7 @@ export class AssistantService {
       }
     }
 
-    // ---- logged-in: mirror cart changes into the customer's real FORKSY cart (same effect as POST /customer/cart/replace)
+    // ---- logged-in: mirror cart changes into the customer's real FORKY cart (same effect as POST /customer/cart/replace)
     const after = JSON.stringify([draft.cart, draft.orderNote]);
     if (customer && draft.restaurantId && activeKb && (before !== after || this.signature(draft.cart) !== realSig)) {
       try {
@@ -295,12 +295,12 @@ export class AssistantService {
           if (real.restaurantId === draft.restaurantId && real.items.length) await this.cart.clear(customer.id);
         } else if (this.signature(draft.cart) !== realSig) {
           await this.cart.replace(customer.id, { restaurantId: draft.restaurantId, items: draft.cart.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity, modifierOptionIds: l.modifierOptionIds, notes: l.notes })) });
-          if (replaced) result = { ...result, text: `${result.text}\n(Your earlier FORKSY cart from ${replaced} was replaced, because a cart holds one restaurant at a time.)` };
+          if (replaced) result = { ...result, text: `${result.text}\n(Your earlier FORKY cart from ${replaced} was replaced, because a cart holds one restaurant at a time.)` };
         }
       } catch (e) {
         const msg = e instanceof HttpException ? ((e.getResponse() as any)?.message ?? e.message) : 'unknown error';
         this.logger.warn(`could not mirror assistant cart to customer cart: ${msg}`);
-        result = { ...result, text: `${result.text}\n(I couldn't update your FORKSY cart: ${Array.isArray(msg) ? msg.join(', ') : msg}.)` };
+        result = { ...result, text: `${result.text}\n(I couldn't update your FORKY cart: ${Array.isArray(msg) ? msg.join(', ') : msg}.)` };
       }
     }
 
@@ -413,7 +413,7 @@ export class AssistantService {
     return { ok: true };
   }
 
-  // ================================================================== hand-off to the FORKSY website
+  // ================================================================== hand-off to the FORKY website
   async handoff(dto: { sessionId: string; botKey?: string }, req: any) {
     const customer = await this.optionalCustomer(req);
     const scope = await this.resolveScope({ botKey: dto.botKey }, req);
@@ -433,7 +433,7 @@ export class AssistantService {
   }
 
   /**
-   * The visitor arrived on FORKSY with a hand-off token and is logged in: load the session cart into their REAL cart.
+   * The visitor arrived on FORKY with a hand-off token and is logged in: load the session cart into their REAL cart.
    * The token is single use (claimed with one atomic UPDATE) and every line is re-validated against the live menu.
    */
   async importHandoff(user: AuthUser, token: string) {

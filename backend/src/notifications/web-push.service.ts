@@ -167,7 +167,7 @@ export class WebPushService {
     const s = (process.env.VAPID_SUBJECT || this.settings.get<string>('notifications.vapid.subject') || '').trim();
     if (/^(mailto:\S+@\S+|https:\/\/\S+)$/.test(s)) return s;
     const mail = this.settings.get<string>('general.supportEmail');
-    return mail && /^\S+@\S+$/.test(mail) ? `mailto:${mail}` : 'mailto:support@forksy.ca';
+    return mail && /^\S+@\S+$/.test(mail) ? `mailto:${mail}` : 'mailto:support@forky.ca';
   }
 
   async publicKey(): Promise<string | null> {

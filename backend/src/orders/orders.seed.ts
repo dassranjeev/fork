@@ -243,14 +243,14 @@ async function loadContext(ds: DataSource): Promise<Ctx | null> {
     .map((r) => ({ r, items: menuItems.filter((i) => i.restaurantId === r.id), commissionTier: r.commissionTierId ? tierById.get(r.commissionTierId) ?? null : null }))
     .filter((x) => x.items.length > 0 && x.r.lat != null && x.r.lng != null);
 
-  const users = await ds.getRepository(User).find({ where: { email: Like('customer%@demo.forksy.ca') } });
+  const users = await ds.getRepository(User).find({ where: { email: Like('customer%@demo.forky.ca') } });
   const addresses = users.length ? await ds.getRepository(Address).find({ where: { customerId: In(users.map((u) => u.id)) } }) : [];
   const customers = users
     .sort((a, b) => a.email!.localeCompare(b.email!, 'en', { numeric: true }))
     .map((u) => ({ id: u.id, firstName: u.firstName ?? 'Customer', addresses: addresses.filter((a) => a.customerId === u.id && a.lat != null && a.lng != null) }))
     .filter((c) => c.addresses.length > 0);
 
-  const demoDriverUsers = await ds.getRepository(User).find({ where: { email: Like('driver%@demo.forksy.ca') } });
+  const demoDriverUsers = await ds.getRepository(User).find({ where: { email: Like('driver%@demo.forky.ca') } });
   const drivers = demoDriverUsers.length
     ? (await ds.getRepository(DriverProfile).find({ where: { userId: In(demoDriverUsers.map((u) => u.id)), status: DriverStatus.ACTIVE } })).sort((a, b) => {
         const ea = demoDriverUsers.find((u) => u.id === a.userId)!.email!;

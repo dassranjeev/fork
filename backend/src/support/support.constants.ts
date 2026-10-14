@@ -112,11 +112,11 @@ export const CUSTOMER_ISSUE_TYPES: {
 export const AUTO_MESSAGES = {
   en: {
     credit: (amount: string, code: string, why: string) =>
-      `We are sorry about order ${code}. ${why} We added ${amount} in FORKSY credit to your wallet right away; it is yours to use on any order. This was decided automatically based on our refund policy. If you would like a person to look at it again, just reply to this ticket or tap "Talk to a person" and an agent will review it.`,
+      `We are sorry about order ${code}. ${why} We added ${amount} in FORKY credit to your wallet right away; it is yours to use on any order. This was decided automatically based on our refund policy. If you would like a person to look at it again, just reply to this ticket or tap "Talk to a person" and an agent will review it.`,
     refund: (amount: string, code: string, why: string) =>
       `We are sorry about order ${code}. ${why} We are refunding ${amount} to your original payment method; banks usually post it within 5 to 10 business days. This was decided automatically based on our refund policy. You can ask a person to review it at any time by replying to this ticket.`,
     both: (refund: string, credit: string, code: string, why: string) =>
-      `We are sorry order ${code} was late. ${why} We are refunding ${refund} (your delivery fee, to your original payment method, usually 5 to 10 business days) and added ${credit} in FORKSY credit to your wallet now. This was decided automatically. Reply any time to have a person review it.`,
+      `We are sorry order ${code} was late. ${why} We are refunding ${refund} (your delivery fee, to your original payment method, usually 5 to 10 business days) and added ${credit} in FORKY credit to your wallet now. This was decided automatically. Reply any time to have a person review it.`,
     review: (code: string) =>
       `Thanks for letting us know about order ${code}. A support agent is reviewing the details (order timeline, delivery location and photos) and will reply as soon as possible. You do not need to do anything else; you can add photos or details by replying here.`,
     evidenceReview: (code: string) =>
@@ -125,11 +125,11 @@ export const AUTO_MESSAGES = {
   },
   fr: {
     credit: (amount: string, code: string, why: string) =>
-      `Nous sommes desoles pour la commande ${code}. ${why} Nous avons ajoute ${amount} de credit FORKSY a votre portefeuille immediatement. Cette decision a ete prise automatiquement selon notre politique de remboursement. Pour qu'une personne revoie votre dossier, repondez simplement a ce billet.`,
+      `Nous sommes desoles pour la commande ${code}. ${why} Nous avons ajoute ${amount} de credit FORKY a votre portefeuille immediatement. Cette decision a ete prise automatiquement selon notre politique de remboursement. Pour qu'une personne revoie votre dossier, repondez simplement a ce billet.`,
     refund: (amount: string, code: string, why: string) =>
       `Nous sommes desoles pour la commande ${code}. ${why} Nous remboursons ${amount} sur votre mode de paiement d'origine; comptez habituellement de 5 a 10 jours ouvrables. Decision automatique; repondez a ce billet pour demander une revision par une personne.`,
     both: (refund: string, credit: string, code: string, why: string) =>
-      `Nous sommes desoles du retard de la commande ${code}. ${why} Nous remboursons ${refund} (frais de livraison, sur votre mode de paiement d'origine, de 5 a 10 jours ouvrables) et avons ajoute ${credit} de credit FORKSY. Decision automatique; repondez pour une revision par une personne.`,
+      `Nous sommes desoles du retard de la commande ${code}. ${why} Nous remboursons ${refund} (frais de livraison, sur votre mode de paiement d'origine, de 5 a 10 jours ouvrables) et avons ajoute ${credit} de credit FORKY. Decision automatique; repondez pour une revision par une personne.`,
     review: (code: string) =>
       `Merci de nous avoir signale un probleme avec la commande ${code}. Un agent examine les details et vous repondra rapidement. Vous pouvez ajouter des photos ou des precisions en repondant ici.`,
     evidenceReview: (code: string) =>

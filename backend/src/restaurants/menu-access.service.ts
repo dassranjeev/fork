@@ -10,7 +10,7 @@ import { RealtimeService } from '../realtime/realtime.module';
 import { SettingsService } from '../settings/settings.service';
 
 /**
- * Menu self-service is controlled by FORKSY staff, restaurant by restaurant.
+ * Menu self-service is controlled by FORKY staff, restaurant by restaurant.
  *  - ALLOWED      the restaurant may add / update / remove menu items, categories and modifiers
  *  - NOT_ALLOWED  read-only menu (it can still 86 / restock items, which is day-to-day operations)
  *  - REQUESTED    the restaurant asked for access; staff decide
@@ -75,7 +75,7 @@ export class MenuAccessService implements OnModuleInit {
       throw new ForbiddenException({
         statusCode: 403,
         code: 'MENU_EDIT_NOT_ALLOWED',
-        message: row.menuEditStatus === MenuEditStatus.REQUESTED ? 'Your request to edit the menu is waiting for FORKSY approval.' : 'Editing the menu is turned off for this restaurant. Request access from FORKSY and an administrator will review it.',
+        message: row.menuEditStatus === MenuEditStatus.REQUESTED ? 'Your request to edit the menu is waiting for FORKY approval.' : 'Editing the menu is turned off for this restaurant. Request access from FORKY and an administrator will review it.',
         status: row.menuEditStatus,
       });
     }

@@ -34,7 +34,7 @@ const toCard = (e: DirectoryEntry): BotRestaurantCard => ({
 
 const list = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
-/** The central FORKSY bot: finds restaurants (name, cuisine, dish, diet, open now, delivery / pickup) and scopes the chat to one. */
+/** The central FORKY bot: finds restaurants (name, cuisine, dish, diet, open now, delivery / pickup) and scopes the chat to one. */
 export class CentralRun {
   private m: string;
   private dir: DirectoryEntry[];
@@ -49,17 +49,17 @@ export class CentralRun {
     if (quick) return this.quickReply(quick);
     const m = this.m;
     if (!m) return this.help();
-    if (isInjection(m)) return this.reply("I can't help with that. I'm the FORKSY ordering assistant: I help you find a restaurant and start an order.", this.starterChips(), 'refuse');
+    if (isInjection(m)) return this.reply("I can't help with that. I'm the FORKY ordering assistant: I help you find a restaurant and start an order.", this.starterChips(), 'refuse');
     if (/^(hi|hii|hello|hey|heya|hiya|yo|howdy|hola|bonjour|good (morning|afternoon|evening))\b[\s!.,]*$/.test(m)) return this.help(true);
     if (/^(thanks|thank you|thx|ty|cheers)\b/.test(m)) return this.reply("You're welcome! Tell me what you are craving and I'll find a restaurant.", this.starterChips(), 'thanks');
     if (/^(bye|goodbye|see you|cya)\b/.test(m)) return this.reply('Bye! Come back any time.', [], 'bye');
     const faq = this.matchFaq();
     if (faq) return this.reply(faq.a, this.starterChips(), 'faq');
-    if (isOffTopic(m)) return this.reply("That is outside what I can help with. I can find restaurants on FORKSY and help you order.", this.starterChips(), 'off-topic');
+    if (isOffTopic(m)) return this.reply("That is outside what I can help with. I can find restaurants on FORKY and help you order.", this.starterChips(), 'off-topic');
     if (/\b(where is my order|order status|refund|cancel my order|track(ing)? (my|the) order|my order (is )?(late|cold|wrong|missing)|existing order|past order|receipt)\b/.test(m)) {
-      return this.reply("I can only help you start a new order. For an order you already placed, open it in your FORKSY account and use Help.", this.starterChips(), 'support');
+      return this.reply("I can only help you start a new order. For an order you already placed, open it in your FORKY account and use Help.", this.starterChips(), 'support');
     }
-    if (/\b(human|real person|support|customer service|complain\w*|manager)\b/.test(m)) return this.reply("I'm an automated assistant. For account or order problems, use Help in your FORKSY account.", this.starterChips(), 'human');
+    if (/\b(human|real person|support|customer service|complain\w*|manager)\b/.test(m)) return this.reply("I'm an automated assistant. For account or order problems, use Help in your FORKY account.", this.starterChips(), 'human');
     if (/^(help|what can you do|how does this work)\b|\b(what can you do|how do i order|how does this work)\b/.test(m)) return this.help();
     if (/\b(cart|basket|checkout|check out|my order|clear|remove|add)\b/.test(m) && !/\b(from|at)\b/.test(m)) {
       const dish = this.dishSearch(m);
@@ -85,7 +85,7 @@ export class CentralRun {
     return { text, chips: uniqChips(chips), ...(intent ? { intent } : {}), ...extra };
   }
 
-  /** FAQ about FORKSY itself, written by FORKSY staff: fuzzy match of the question */
+  /** FAQ about FORKY itself, written by FORKY staff: fuzzy match of the question */
   private matchFaq(): { q: string; a: string } | null {
     const faqs = this.c.centralFaqs ?? [];
     const q = tokenize(this.m).filter((t) => !FILLER.has(t));
@@ -108,7 +108,7 @@ export class CentralRun {
 
   private help(greeting = false): BotResult {
     return this.reply(
-      `${greeting ? 'Hi! ' : ''}I'm the FORKSY ordering assistant. Tell me what you are craving ("pizza near me", "vegetarian, open now", "halal delivery") or a restaurant name, and I'll find it. Say "order from <restaurant>" and I'll build your cart with you.`,
+      `${greeting ? 'Hi! ' : ''}I'm the FORKY ordering assistant. Tell me what you are craving ("pizza near me", "vegetarian, open now", "halal delivery") or a restaurant name, and I'll find it. Say "order from <restaurant>" and I'll build your cart with you.`,
       this.starterChips(),
       'help',
     );
@@ -223,7 +223,7 @@ export class CentralRun {
     }
     const top = scored.slice(0, 6).map((x) => x.e);
     const noGeo = near && !this.c.geo ? " I can't see your location, so I'm showing the best matches instead of the closest." : '';
-    const text = `${scored.length} restaurant${scored.length > 1 ? 's' : ''} ${bits.length ? `for ${bits.join(', ')}` : 'on FORKSY'}${scored.length > 6 ? ' (showing 6)' : ''}: ${list(top.map((e) => `${e.name}${e.openNow ? '' : ' (closed now)'}`))}.${noGeo} Tap one to start an order.`;
+    const text = `${scored.length} restaurant${scored.length > 1 ? 's' : ''} ${bits.length ? `for ${bits.join(', ')}` : 'on FORKY'}${scored.length > 6 ? ' (showing 6)' : ''}: ${list(top.map((e) => `${e.name}${e.openNow ? '' : ' (closed now)'}`))}.${noGeo} Tap one to start an order.`;
     return this.reply(text, top.slice(0, 5).map((e) => chip(e.name, `restaurant:${e.slug}`)), 'find', { restaurants: top.map(toCard) });
   }
 }

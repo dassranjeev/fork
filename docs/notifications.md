@@ -1,6 +1,6 @@
 # Notifications (in-app, browser push, native push)
 
-Every person on the platform (customers, restaurants and stores, drivers, FORKSY staff) gets the right alert, live, on every surface, even when the tab is closed:
+Every person on the platform (customers, restaurants and stores, drivers, FORKY staff) gets the right alert, live, on every surface, even when the tab is closed:
 
 * **In-app**: every notification is stored (the notification center) and pushed live over Socket.IO (`notification` event) to the user's room.
 * **Browser push**: standard W3C Web Push + VAPID. No paid service, no vendor SDK. A service worker (`admin/public/sw.js`) shows the OS notification when no page of the app is in the foreground.

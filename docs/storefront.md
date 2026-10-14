@@ -1,6 +1,6 @@
 # Customer website (storefront)
 
-The FORKSY customer website: browse restaurants and stores, build a cart, check out, follow the order live. It also hosts the **centralized ordering assistant** (chat bubble) and is the landing page of the **checkout hand-off** from the assistant that merchants embed on their own websites.
+The FORKY customer website: browse restaurants and stores, build a cart, check out, follow the order live. It also hosts the **centralized ordering assistant** (chat bubble) and is the landing page of the **checkout hand-off** from the assistant that merchants embed on their own websites.
 
 It lives inside the existing React app (`admin/`), under **`/order`**, with its own layout (no admin sidebar), its own login session and its own HTTP client. Code: `admin/src/features/storefront/`, mounted by one line in `admin/src/App.js` (`<Route path="/order/*">`, lazy loaded: the admin console and the restaurant portal do not download it).
 
@@ -36,7 +36,7 @@ Order placement sends exactly the fields of `PlaceOrderDto`: `type` (`DELIVERY`/
 
 ## Sessions and storage keys
 
-The storefront does **not** use the admin client (`src/lib/api.js`): it has its own axios instance, its own token store and its own logout event (`lib/sfApi.js`, `lib/SfAuth.jsx`). Signing in to `/order` never signs in to `/`, and the other way round. Only CUSTOMER accounts can sign in (`app: "customer"`; admin, restaurant and driver accounts are refused). The admin console wipes every `forksy.*` key on logout; the storefront keys deliberately start with `sf.` so that never touches them.
+The storefront does **not** use the admin client (`src/lib/api.js`): it has its own axios instance, its own token store and its own logout event (`lib/sfApi.js`, `lib/SfAuth.jsx`). Signing in to `/order` never signs in to `/`, and the other way round. Only CUSTOMER accounts can sign in (`app: "customer"`; admin, restaurant and driver accounts are refused). The admin console wipes every `forky.*` key on logout; the storefront keys deliberately start with `sf.` so that never touches them.
 
 | Key | Storage | Content |
 |---|---|---|
@@ -120,7 +120,7 @@ Playwright scripts used for acceptance are kept out of the repo (scratch folder)
 
 The storefront is self-contained: the folder `admin/src/features/storefront/` imports only `errorMessage`, `clean`, `API_URL`, `WS_URL` from `src/lib/api.js` and `safeImgUrl`, `safeColor` from `src/lib/safe.js`. To ship it as its own site:
 
-1. Copy the folder and those two small helpers into a new React app (or a new CRA entry) that renders `<Storefront />` at `/` and use `BrowserRouter basename="/order"` (or change the `/order` prefixes). Copy the Remix icon font css, Inter font css and `forksy-logo.svg` from `admin/public/assets`.
+1. Copy the folder and those two small helpers into a new React app (or a new CRA entry) that renders `<Storefront />` at `/` and use `BrowserRouter basename="/order"` (or change the `/order` prefixes). Copy the Remix icon font css, Inter font css and `forky-logo.svg` from `admin/public/assets`.
 2. Set `REACT_APP_API_URL`, a strict CSP like `admin/public/index.html` (`connect-src` = the API origin, `img-src` = API origin + image CDN) and the clickjacking headers (`docs/security-frontend.md`).
 3. Backend: add the storefront origin to `CORS_ORIGINS` and set `WEB_URL` to it (the assistant builds `${WEB_URL}/order/handoff?token=...`; keep the `/order` path or change it in `assistant.service.ts`).
 4. Remove the `/order/*` route from the admin app so the console no longer ships it.

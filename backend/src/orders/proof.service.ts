@@ -252,7 +252,7 @@ export class ProofService implements OnModuleInit {
     } catch {
       /* falls through to the error below */
     }
-    if (!filename) throw new BadRequestException('The proof photo must be a JPEG or PNG uploaded through the FORKSY app (POST /uploads)');
+    if (!filename) throw new BadRequestException('The proof photo must be a JPEG or PNG uploaded through the FORKY app (POST /uploads)');
     const row = await this.registry.findOne({ where: { filename } });
     if (!row || row.userId !== driver.userId) throw new ForbiddenException('That photo was not uploaded by you');
     if (!['image/jpeg', 'image/png'].includes(row.mimetype)) throw new BadRequestException('Proof photos must be JPEG or PNG');

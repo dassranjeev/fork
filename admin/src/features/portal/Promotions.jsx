@@ -57,7 +57,7 @@ function PromoModal({ open, onClose, onSaved }) {
   const valid = f.name.trim() && (f.type !== "PERCENT" || (f.value > 0 && f.value <= 100)) && (f.type !== "FREE_ITEM" || f.menuItemId);
   return (
     <FormModal open onClose={onClose} title="New promotion" size="lg" onSubmit={submit} busy={!!busy} disabled={!valid}>
-      <p className="text-secondary-light text-sm">Promotions you create are funded by your restaurant and may need FORKSY approval before they go live.</p>
+      <p className="text-secondary-light text-sm">Promotions you create are funded by your restaurant and may need FORKY approval before they go live.</p>
       <div className="row">
         <TextInput col={8} label="Name" required value={f.name} onChange={set("name")} placeholder="e.g. Lunch special 15% off" />
         <Select col={4} label="Offer" allowEmpty={false} value={f.type} onChange={set("type")} options={TYPES} />

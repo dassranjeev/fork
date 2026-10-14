@@ -53,7 +53,7 @@ export default function CustomerList() {
 
   return (
     <>
-      <PageHeader title="Customers" subtitle="Everyone who has ordered, or signed up to order, on Forksy" crumbs={[{ label: "Customers" }]} />
+      <PageHeader title="Customers" subtitle="Everyone who has ordered, or signed up to order, on Forky" crumbs={[{ label: "Customers" }]} />
       <Card>
         <ListToolbar
           list={list}

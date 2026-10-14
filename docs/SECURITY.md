@@ -1,4 +1,4 @@
-# FORKSY – Security
+# FORKY – Security
 
 Scope of this document: the **backend** (`backend/`, NestJS + TypeORM + PostgreSQL + Socket.IO). The admin console
 (`admin/`) is hardened separately – see `docs/security-frontend.md`.
@@ -152,7 +152,7 @@ Everything else needs a JWT; every `/admin/*` handler (362) has an explicit `@Pe
 * `CORS_ORIGINS` are explicit `https://` origins (no localhost, no `*`), `PUBLIC_URL` is https
 * `STRIPE_SECRET_KEY` is a live key and `STRIPE_WEBHOOK_SECRET` is set
 * `ENFORCE_2FA=true`, `SEED_SUPERADMIN_PASSWORD` is not a known default, `DB_PASSWORD` is not a default
-* and, after connecting to the database: **no demo accounts** (`@demo.forksy.ca`, `@demo-restaurant.ca`) exist and **no super admin still has a known default password**.
+* and, after connecting to the database: **no demo accounts** (`@demo.forky.ca`, `@demo-restaurant.ca`) exist and **no super admin still has a known default password**.
 
 Verified: `security-evidence/gate_*.txt`. Development mock behaviours (mock payments, mock Certn, OTP in responses, SMS/email
 console adapters) log a warning at boot and are impossible when `NODE_ENV=production`.
@@ -210,7 +210,7 @@ console adapters) log a warning at boot and are impossible when `NODE_ENV=produc
 
 ## 9. Reporting a vulnerability
 
-Email **security@forksy.ca** (owner to confirm/create this mailbox and publish `/.well-known/security.txt`), PGP key on request. Please include steps to reproduce, affected URL/role and impact; do not access other users' data, do not run load tests against production. We acknowledge within 2 business days, triage within 5, and target fixes in 7 days (Critical) / 30 days (High). Good-faith research following these rules will not be pursued.
+Email **security@forky.ca** (owner to confirm/create this mailbox and publish `/.well-known/security.txt`), PGP key on request. Please include steps to reproduce, affected URL/role and impact; do not access other users' data, do not run load tests against production. We acknowledge within 2 business days, triage within 5, and target fixes in 7 days (Critical) / 30 days (High). Good-faith research following these rules will not be pursued.
 
 ## 10. Re-running the checks
 

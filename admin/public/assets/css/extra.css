@@ -205,7 +205,7 @@ table.dataTable td.dt-type-date {
   width: 100%;
 }
 
-/* ===================== FORKSY theme (brand orange) ===================== */
+/* ===================== FORKY theme (brand orange) ===================== */
 :root {
   --primary-50: #fff4ed;
   --primary-100: #ffe6d5;
@@ -224,7 +224,7 @@ table.dataTable td.dt-type-date {
 .btn-primary-600 { background-color: var(--primary-600); border-color: var(--primary-600); color: #fff; }
 .btn-primary-600:hover, .btn-primary-600:focus { background-color: var(--primary-700); border-color: var(--primary-700); color: #fff; }
 .sidebar-logo img { max-height: 44px; width: auto; }
-.forksy-pin, .forksy-dot { background: transparent; border: 0; }
+.forky-pin, .forky-dot { background: transparent; border: 0; }
 .leaflet-container { font-family: inherit; }
 .table.bordered-table td, .table.bordered-table th { vertical-align: middle; }
 .cursor-pointer { cursor: pointer; }

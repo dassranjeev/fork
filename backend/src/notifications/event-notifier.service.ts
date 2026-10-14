@@ -170,7 +170,7 @@ export class EventNotifierService {
     return this.safe('store.mode', async () => {
       if (e.from === e.to) return;
       const byRestaurant = e.actor?.type === ActorType.RESTAURANT;
-      const by = !e.actor ? 'automatically' : byRestaurant ? 'by your team' : 'by FORKSY';
+      const by = !e.actor ? 'automatically' : byRestaurant ? 'by your team' : 'by FORKY';
       const until = e.resumeAt ? ` It will reopen at ${clock(e.resumeAt)}.` : '';
       let event: string;
       let mode: string;

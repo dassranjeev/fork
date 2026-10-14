@@ -114,12 +114,12 @@ export function pushAdvice(state, app) {
   const restaurant = app === "restaurant";
   const sup = state.support || { ok: false };
   if (!sup.ok) {
-    if (sup.reason === "insecure") return { kind: "insecure", tone: "warning", title: "Notifications need a secure connection", text: "Open FORKSY over https to turn on notifications. You still see every alert inside the app.", dismissible: true };
-    if (sup.reason === "ios-install") return { kind: "ios", tone: "info", title: "Add FORKSY to your Home Screen first", text: sup.message, dismissible: true };
+    if (sup.reason === "insecure") return { kind: "insecure", tone: "warning", title: "Notifications need a secure connection", text: "Open FORKY over https to turn on notifications. You still see every alert inside the app.", dismissible: true };
+    if (sup.reason === "ios-install") return { kind: "ios", tone: "info", title: "Add FORKY to your Home Screen first", text: sup.message, dismissible: true };
     return { kind: "unsupported", tone: "neutral", title: "This browser cannot show background notifications", text: `${sup.message || "Your browser does not support push notifications."} You still see every alert inside the app.`, dismissible: true };
   }
   if (state.config && !state.config.enabled && !state.browserSubscribed) {
-    return { kind: "off", tone: "neutral", title: "Browser notifications are switched off by FORKSY", text: "You will still see every alert inside the app. They will work here again as soon as FORKSY switches them back on.", dismissible: true };
+    return { kind: "off", tone: "neutral", title: "Browser notifications are switched off by FORKY", text: "You will still see every alert inside the app. They will work here again as soon as FORKY switches them back on.", dismissible: true };
   }
   if (state.permission === "denied") {
     return {

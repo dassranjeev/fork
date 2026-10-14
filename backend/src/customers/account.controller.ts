@@ -153,7 +153,7 @@ export class CustomerCardsController {
   }
 }
 
-/** /customer/wallet - FORKSY wallet/credits balance + ledger, and gift card redemption. */
+/** /customer/wallet - FORKY wallet/credits balance + ledger, and gift card redemption. */
 @CustomerController('wallet')
 export class CustomerWalletController {
   constructor(private account: CustomerAccountService) {}

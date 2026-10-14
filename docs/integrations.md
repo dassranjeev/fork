@@ -35,7 +35,7 @@ public `GET /public/payments/config` (`{provider: stripe|mock|none, publishableK
 ## Mapbox address search
 
 Geocoding only (Mapbox **Search Box API**: suggest, retrieve, reverse). Routing and ETA are **not** done with Mapbox (they stay as they were). The Mapbox token never reaches a browser:
-the website and the admin call FORKSY, FORKSY calls Mapbox, so **no CSP change is needed for Mapbox**.
+the website and the admin call FORKY, FORKY calls Mapbox, so **no CSP change is needed for Mapbox**.
 
 | Route | |
 |---|---|

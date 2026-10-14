@@ -39,7 +39,7 @@ const MAX_CACHE = 2000;
 
 /**
  * Address search through Mapbox (Search Box API: suggest -> retrieve, plus reverse). The browser NEVER sees the Mapbox token:
- * the web / mobile apps call FORKSY's own /public/geocode/* routes, this service calls Mapbox.
+ * the web / mobile apps call FORKY's own /public/geocode/* routes, this service calls Mapbox.
  * Without a token every method answers { enabled:false } so clients fall back to manual entry / demo areas.
  * MAPBOX_API_BASE points it at a fake server (development / tests only, ignored in production).
  * Routing / ETA are NOT done with Mapbox (geocoding only).
@@ -191,7 +191,7 @@ export class MapboxService {
     return { enabled: true, error: e?.message ?? 'Address search is unavailable right now', suggestions: [] };
   }
 
-  /** Mapbox Search Box feature -> FORKSY address. */
+  /** Mapbox Search Box feature -> FORKY address. */
   toAddress(f: any): GeoAddress | null {
     if (!f) return null;
     const c = f.geometry?.coordinates;
@@ -222,7 +222,7 @@ export class MapboxService {
     if (!cfg.token) return { ok: false, reason: 'No Mapbox access token is configured', ...base };
     const t0 = Date.now();
     try {
-      const j = await this.call('/search/searchbox/v1/suggest', { q: '1 City Centre Dr Mississauga', session_token: 'forksy-connection-test', limit: 1, types: 'address', ...this.searchParams() });
+      const j = await this.call('/search/searchbox/v1/suggest', { q: '1 City Centre Dr Mississauga', session_token: 'forky-connection-test', limit: 1, types: 'address', ...this.searchParams() });
       const n = (j?.suggestions ?? []).length;
       if (!n) return { ok: false, reason: 'Mapbox answered but found no address for the test search (check the country / bounding box settings)', latencyMs: Date.now() - t0, ...base };
       return { ok: true, sample: String(j.suggestions[0].full_address ?? j.suggestions[0].name ?? ''), latencyMs: Date.now() - t0, ...base };

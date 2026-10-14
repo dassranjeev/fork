@@ -34,7 +34,7 @@ export function assertLatLng(lat?: number | null, lng?: number | null) {
 export const maskName = (first?: string | null, last?: string | null) => {
   const f = (first ?? '').trim();
   const l = (last ?? '').trim();
-  return f ? `${f}${l ? ` ${l[0]}.` : ''}` : 'FORKSY customer';
+  return f ? `${f}${l ? ` ${l[0]}.` : ''}` : 'FORKY customer';
 };
 
 export const fullName = (u?: { firstName?: string | null; lastName?: string | null } | null) =>

@@ -24,7 +24,7 @@ export interface TScope {
 export interface TActor {
   id: string;
   name: string;
-  /** a restaurant user (publishing may need approval) or FORKSY staff (always allowed to publish) */
+  /** a restaurant user (publishing may need approval) or FORKY staff (always allowed to publish) */
   type: 'restaurant' | 'staff';
   req?: any;
 }
@@ -35,7 +35,7 @@ export const STARTERS = [
   { key: 'allergies', title: 'Allergies', question: 'I have a food allergy, what should I do?', hint: 'Tell guests to speak to staff before ordering. Never promise a dish is allergen free.' },
   { key: 'catering', title: 'Catering', question: 'Do you do catering?', hint: 'Group sizes, how far ahead to order, who to contact.' },
   { key: 'hours-holiday', title: 'Holiday hours', question: 'Are you open on holidays?', hint: 'Your holiday schedule (normal opening hours are answered from your profile).' },
-  { key: 'payment', title: 'Payment methods', question: 'What payment methods do you accept?', hint: 'Payment happens online at checkout on FORKSY.' },
+  { key: 'payment', title: 'Payment methods', question: 'What payment methods do you accept?', hint: 'Payment happens online at checkout on FORKY.' },
   { key: 'dietary', title: 'Dietary options', question: 'Do you have vegetarian or vegan options?', hint: 'What you offer; the menu tags are used for details.' },
   { key: 'wifi', title: 'Wi-Fi', question: 'Do you have wifi?', hint: 'Whether dine-in guests get Wi-Fi.' },
 ];
@@ -70,7 +70,7 @@ export class TrainingService {
   }
 
   centralScope(): TScope {
-    return { key: CENTRAL_SCOPE, restaurantId: null, central: true, label: 'FORKSY website bot' };
+    return { key: CENTRAL_SCOPE, restaurantId: null, central: true, label: 'FORKY website bot' };
   }
 
   private async log(actor: TActor, scope: TScope, action: string, after: Record<string, unknown>) {
@@ -213,7 +213,7 @@ export class TrainingService {
   }
 
   async addAlias(scope: TScope, actor: TActor, body: { kind: 'item' | 'category'; alias: string; targetId?: string; targetName?: string }) {
-    if (scope.central || !scope.restaurantId) fail([{ field: 'kind', code: 'invalid', severity: 'block', message: 'Nicknames belong to a restaurant menu. The FORKSY website bot has no menu.' }]);
+    if (scope.central || !scope.restaurantId) fail([{ field: 'kind', code: 'invalid', severity: 'block', message: 'Nicknames belong to a restaurant menu. The FORKY website bot has no menu.' }]);
     const rawAlias = String(body.alias ?? '');
     const alias = stripPii(rawAlias).trim().slice(0, LIMITS.aliasChars + 1);
     const issues: FieldIssue[] = [];
@@ -685,7 +685,7 @@ export class TrainingService {
     const issues: FieldIssue[] = [];
     faqs.forEach((f, i) => {
       const v = validateEntry({ title: f.q.slice(0, LIMITS.titleChars), questions: [f.q], answer: f.a }, cfg, new Set());
-      for (const x of v.issues.filter((x) => x.severity !== 'warn')) issues.push({ ...x, field: `faqs[${i}].${x.field.startsWith('questions') ? 'q' : x.field === 'answer' ? 'a' : x.field}`, severity: 'block', message: x.severity === 'hold' ? `${x.message} Add it in Training instead, where FORKSY staff can review it.` : x.message });
+      for (const x of v.issues.filter((x) => x.severity !== 'warn')) issues.push({ ...x, field: `faqs[${i}].${x.field.startsWith('questions') ? 'q' : x.field === 'answer' ? 'a' : x.field}`, severity: 'block', message: x.severity === 'hold' ? `${x.message} Add it in Training instead, where FORKY staff can review it.` : x.message });
       clean.push({ q: v.entry.questions[0] ?? f.q, a: v.entry.answer });
     });
     if (issues.length) fail(issues);
@@ -737,7 +737,7 @@ export class TrainingService {
     const st = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', 'ALL'].includes(status) ? status : 'PENDING';
     const where = st === 'ALL' ? '' : `WHERE r.status = '${st}'`;
     const rows: any[] = await this.ds.query(
-      `SELECT r.id, r."scopeKey", r."restaurantId", r.kind, r.note, r.status, r."requestedByName", r.counts, r.regressions, r."decidedByName", r."decidedAt", r."decisionNote", r."resultVersion", r."createdAt", COALESCE(x.name, 'FORKSY website bot') AS "restaurantName"
+      `SELECT r.id, r."scopeKey", r."restaurantId", r.kind, r.note, r.status, r."requestedByName", r.counts, r.regressions, r."decidedByName", r."decidedAt", r."decisionNote", r."resultVersion", r."createdAt", COALESCE(x.name, 'FORKY website bot') AS "restaurantName"
        FROM assistant_kb_requests r LEFT JOIN restaurants x ON x.id = r."restaurantId" ${where} ORDER BY r."createdAt" DESC LIMIT $1 OFFSET $2`,
       [limit, (page - 1) * limit],
     );
@@ -795,10 +795,10 @@ export class TrainingService {
   /** entries / documents held by a guardrail, across all bots */
   async heldQueue() {
     const rows: any[] = await this.ds.query(
-      `SELECT d."scopeKey", d."restaurantId", COALESCE(x.name, 'FORKSY website bot') AS "restaurantName", 'entry' AS kind, e ->> 'id' AS id, e ->> 'title' AS title, e ->> 'answer' AS answer, e -> 'questions' AS questions, e -> 'held' AS held
+      `SELECT d."scopeKey", d."restaurantId", COALESCE(x.name, 'FORKY website bot') AS "restaurantName", 'entry' AS kind, e ->> 'id' AS id, e ->> 'title' AS title, e ->> 'answer' AS answer, e -> 'questions' AS questions, e -> 'held' AS held
        FROM assistant_kb_drafts d LEFT JOIN restaurants x ON x.id = d."restaurantId", jsonb_array_elements(d.content -> 'entries') e WHERE jsonb_typeof(e -> 'held') = 'object'
        UNION ALL
-       SELECT d."scopeKey", d."restaurantId", COALESCE(x.name, 'FORKSY website bot'), 'document', e ->> 'id', e ->> 'title', left(e ->> 'text', 800), '[]'::jsonb, e -> 'held'
+       SELECT d."scopeKey", d."restaurantId", COALESCE(x.name, 'FORKY website bot'), 'document', e ->> 'id', e ->> 'title', left(e ->> 'text', 800), '[]'::jsonb, e -> 'held'
        FROM assistant_kb_drafts d LEFT JOIN restaurants x ON x.id = d."restaurantId", jsonb_array_elements(d.content -> 'documents') e WHERE jsonb_typeof(e -> 'held') = 'object'
        LIMIT 200`,
     );
@@ -938,7 +938,7 @@ export class TrainingService {
   async exportJson(scope: TScope) {
     const d = await this.store.getDraft(scope.key);
     const { settings, entries, aliases, synonyms, documents } = d.content;
-    return { format: 'forksy-assistant-kb', version: 1, exportedAt: new Date().toISOString(), scope: scope.central ? 'central' : 'restaurant', settings, entries: entries.map(({ held, released, createdBy, ...e }) => e), aliases, synonyms, documents: documents.map(({ held, released, ...x }) => x) };
+    return { format: 'forky-assistant-kb', version: 1, exportedAt: new Date().toISOString(), scope: scope.central ? 'central' : 'restaurant', settings, entries: entries.map(({ held, released, createdBy, ...e }) => e), aliases, synonyms, documents: documents.map(({ held, released, ...x }) => x) };
   }
 
   async exportCsv(scope: TScope) {
@@ -986,7 +986,7 @@ export class TrainingService {
 
   async importJson(scope: TScope, actor: TActor, body: { data: any; mode?: string; replace?: boolean }) {
     const data = body.data;
-    if (!data || typeof data !== 'object' || data.format !== 'forksy-assistant-kb' || !Array.isArray(data.entries)) fail([{ field: 'data', code: 'invalid', severity: 'block', message: 'This is not a FORKSY bot export (format "forksy-assistant-kb"). Export your bot first and edit that file.' }]);
+    if (!data || typeof data !== 'object' || data.format !== 'forky-assistant-kb' || !Array.isArray(data.entries)) fail([{ field: 'data', code: 'invalid', severity: 'block', message: 'This is not a FORKY bot export (format "forky-assistant-kb"). Export your bot first and edit that file.' }]);
     if (data.entries.length > MAX_ENTRIES) fail([{ field: 'data.entries', code: 'too_many', severity: 'block', message: `At most ${MAX_ENTRIES} answers per import.` }]);
     const mode = body.mode === 'apply' ? 'apply' : 'preview';
     const rows = data.entries.map((e: any, i: number) => ({ index: i + 1, label: String(e?.title ?? `Answer ${i + 1}`).slice(0, 80), input: { title: e?.title, questions: e?.questions, answer: e?.answer, tags: e?.tags, active: e?.active, priority: e?.priority } }));

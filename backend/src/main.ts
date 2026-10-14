@@ -33,7 +33,7 @@ function productionGate() {
     dataEncryptionKey: process.env.DATA_ENCRYPTION_KEY ?? '',
   });
   if (problems.length) {
-    const msg = ['', '=== FORKSY refuses to start: insecure PRODUCTION configuration ===', ...problems.map((p) => `  - ${p}`), '', 'Fix the environment and restart. (See docs/SECURITY.md, "Production deployment checklist".)', ''].join('\n');
+    const msg = ['', '=== FORKY refuses to start: insecure PRODUCTION configuration ===', ...problems.map((p) => `  - ${p}`), '', 'Fix the environment and restart. (See docs/SECURITY.md, "Production deployment checklist".)', ''].join('\n');
     // eslint-disable-next-line no-console
     console.error(msg);
     process.exit(1);
@@ -56,7 +56,7 @@ async function productionDbGate(ds: DataSource, app: NestExpressApplication) {
     console.error(
       [
         '',
-        '=== FORKSY refuses to start: the database schema is not up to date ===',
+        '=== FORKY refuses to start: the database schema is not up to date ===',
         migrationCheckError ? `  - could not read the migrations table: ${migrationCheckError}` : '  - there are pending migrations',
         '  - run  node dist/database/migrate  first (docker compose: docker compose run --rm migrate), or set DB_MIGRATIONS_RUN=true',
         '',
@@ -65,8 +65,8 @@ async function productionDbGate(ds: DataSource, app: NestExpressApplication) {
     process.exit(1);
   }
   const problems: string[] = [];
-  const demo = await ds.query(`SELECT COUNT(*)::int AS n FROM users WHERE email ILIKE '%@demo.forksy.ca' OR email ILIKE '%@demo-restaurant.ca'`);
-  if (demo[0]?.n > 0) problems.push(`${demo[0].n} demo accounts (@demo.forksy.ca / @demo-restaurant.ca) exist in the production database - purge the demo data`);
+  const demo = await ds.query(`SELECT COUNT(*)::int AS n FROM users WHERE email ILIKE '%@demo.forky.ca' OR email ILIKE '%@demo-restaurant.ca'`);
+  if (demo[0]?.n > 0) problems.push(`${demo[0].n} demo accounts (@demo.forky.ca / @demo-restaurant.ca) exist in the production database - purge the demo data`);
   const admins: { email: string; passwordHash: string }[] = await ds.query(`SELECT email, "passwordHash" FROM users WHERE type = 'SUPER_ADMIN' AND "passwordHash" IS NOT NULL`);
   for (const a of admins) {
     for (const pw of KNOWN_DEFAULT_PASSWORDS) {
@@ -74,10 +74,16 @@ async function productionDbGate(ds: DataSource, app: NestExpressApplication) {
     }
   }
   // Stripe: keys can live in System > Integrations (database) or the environment
-  problems.push(...stripeProductionProblems(app.get(StripeClientService).config()));
+  // ALLOW_NO_STRIPE=true lets the API boot before payments are configured (card payments fail until keys are saved in System > Integrations)
+  if (process.env.ALLOW_NO_STRIPE === 'true') {
+    // eslint-disable-next-line no-console
+    console.warn('WARNING: ALLOW_NO_STRIPE=true - Stripe configuration is not enforced; payments will not work until keys are configured');
+  } else {
+    problems.push(...stripeProductionProblems(app.get(StripeClientService).config()));
+  }
   if (problems.length) {
     // eslint-disable-next-line no-console
-    console.error(['', '=== FORKSY refuses to start: insecure production DATA ===', ...problems.map((p) => `  - ${p}`), ''].join('\n'));
+    console.error(['', '=== FORKY refuses to start: insecure production DATA ===', ...problems.map((p) => `  - ${p}`), ''].join('\n'));
     process.exit(1);
   }
 }
@@ -123,7 +129,7 @@ async function bootstrap() {
     exposedHeaders: ['Retry-After', 'X-RateLimit-Limit', 'X-RateLimit-Remaining'],
     maxAge: 600,
   });
-  app.setGlobalPrefix('api/v1', { exclude: [{ path: 'uploads/(.*)', method: RequestMethod.GET }, { path: 'assistant/widget.js', method: RequestMethod.GET }, { path: 'assistant/forksy-icon.png', method: RequestMethod.GET }] });
+  app.setGlobalPrefix('api/v1', { exclude: [{ path: 'uploads/(.*)', method: RequestMethod.GET }, { path: 'assistant/widget.js', method: RequestMethod.GET }, { path: 'assistant/forky-icon.png', method: RequestMethod.GET }] });
 
   // ---- request size limits: 100 kb by default; only the menu CSV import may send more ---------------
   const small = config.get<string>('limits.jsonBody')!;
@@ -151,7 +157,7 @@ async function bootstrap() {
   // ---- API docs: dev only (SWAGGER_ENABLED=true to force on) -----------------------------------------
   if (config.get<boolean>('security.swaggerEnabled')) {
     const doc = new DocumentBuilder()
-      .setTitle('FORKSY API')
+      .setTitle('FORKY API')
       .setDescription(
         'Food delivery platform API.\n\n- `/auth/*` all apps\n- `/admin/*` Admin Console (staff + super admin)\n- `/restaurant/*` Restaurant portal & tablet KDS\n- `/driver/*` Driver app\n- `/customer/*` Customer app & website\n- `/public/*` no auth\n- WebSocket (Socket.IO) on the same port: see `RealtimeService` for rooms & events.',
       )
@@ -188,6 +194,6 @@ async function bootstrap() {
   if (!isProd) {
     log.warn('Development mode: OTP codes in responses and demo accounts are active. NEVER run this configuration in production.');
   }
-  log.log(`FORKSY API running on http://localhost:${port}/api/v1${config.get('security.swaggerEnabled') ? '  (docs: /docs)' : ''}`);
+  log.log(`FORKY API running on http://localhost:${port}/api/v1${config.get('security.swaggerEnabled') ? '  (docs: /docs)' : ''}`);
 }
 bootstrap();

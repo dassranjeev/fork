@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * FORKSY hands-off order regression test: REAL HTTP against a running API (+ read-only SQL on driver_offers).
+ * FORKY hands-off order regression test: REAL HTTP against a running API (+ read-only SQL on driver_offers).
  *
  * Proves the automated order flow: auto-accept -> auto-start prep -> auto-ready -> automatic driver offers -> GPS arrival detection ->
  * pickup code -> PIN delivery. Also exercises the per-restaurant automation overrides (GET/PATCH /restaurant/automation).
@@ -11,8 +11,8 @@
  *   ADMIN_PASSWORD=<seeded super-admin password> DEMO_PASSWORD=<seeded demo-account password> \
  *   PGPASSWORD=<postgres password> node backend/test/dispatch-regression.mjs
  *
- * Optional env: SLUG (restaurant, default napoli-wood-fired-pizza-city-centre), ADMIN_EMAIL (default admin@forksy.ca),
- *   PGHOST / PGPORT / PGUSER / PGDATABASE (defaults localhost / 5432 / postgres / forksy).
+ * Optional env: SLUG (restaurant, default napoli-wood-fired-pizza-city-centre), ADMIN_EMAIL (default admin@forky.ca),
+ *   PGHOST / PGPORT / PGUSER / PGDATABASE (defaults localhost / 5432 / postgres / forky).
  *
  * Notes
  *  - Takes about 2-4 minutes (the kitchen prep timer is real).
@@ -29,7 +29,7 @@ const { Client } = require('pg');
 
 const API = (process.env.API || 'http://localhost:4000/api/v1').replace(/\/$/, '');
 const SLUG = process.env.SLUG || 'napoli-wood-fired-pizza-city-centre';
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@forksy.ca';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@forky.ca';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
 if (!ADMIN_PASSWORD || !DEMO_PASSWORD || !process.env.PGPASSWORD) {
@@ -76,16 +76,16 @@ async function place(customerToken) {
   return { oid: po.j?.id, po, restId };
 }
 
-const pg = new Client({ host: process.env.PGHOST || 'localhost', port: Number(process.env.PGPORT || 5432), user: process.env.PGUSER || 'postgres', password: process.env.PGPASSWORD, database: process.env.PGDATABASE || 'forksy' });
+const pg = new Client({ host: process.env.PGHOST || 'localhost', port: Number(process.env.PGPORT || 5432), user: process.env.PGUSER || 'postgres', password: process.env.PGPASSWORD, database: process.env.PGDATABASE || 'forky' });
 
 async function main() {
   await pg.connect();
   const S = {};
   S.admin = (await login(ADMIN_EMAIL, ADMIN_PASSWORD)).accessToken;
-  S.c1 = (await login('customer1@demo.forksy.ca', DEMO_PASSWORD, 'customer')).accessToken;
-  const d6 = await login('driver6@demo.forksy.ca', DEMO_PASSWORD, 'driver'); S.d6 = d6.accessToken; S.d6id = d6.user.driverId;
-  const d21 = await login('driver21@demo.forksy.ca', DEMO_PASSWORD, 'driver'); S.d21 = d21.accessToken; S.d21id = d21.user.driverId;
-  const driverByEmail = { 'driver6@demo.forksy.ca': { token: S.d6, id: S.d6id }, 'driver21@demo.forksy.ca': { token: S.d21, id: S.d21id } };
+  S.c1 = (await login('customer1@demo.forky.ca', DEMO_PASSWORD, 'customer')).accessToken;
+  const d6 = await login('driver6@demo.forky.ca', DEMO_PASSWORD, 'driver'); S.d6 = d6.accessToken; S.d6id = d6.user.driverId;
+  const d21 = await login('driver21@demo.forky.ca', DEMO_PASSWORD, 'driver'); S.d21 = d21.accessToken; S.d21id = d21.user.driverId;
+  const driverByEmail = { 'driver6@demo.forky.ca': { token: S.d6, id: S.d6id }, 'driver21@demo.forky.ca': { token: S.d21, id: S.d21id } };
   const driverFor = async (email) => driverByEmail[email] || (async () => { const l = await login(email, DEMO_PASSWORD, 'driver'); return { token: l.accessToken, id: l.user.driverId }; })();
 
   // fixtures: no customer cancel window (so the order is sent to the kitchen at once); 1 minute prep. Both restored in finally.

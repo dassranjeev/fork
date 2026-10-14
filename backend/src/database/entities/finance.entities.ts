@@ -235,7 +235,7 @@ export class Refund extends BaseEntity {
   auto: boolean;
 }
 
-/** Monthly / weekly commission invoice to a restaurant (includes FORKSY's HST). */
+/** Monthly / weekly commission invoice to a restaurant (includes FORKY's HST). */
 @Entity('invoices')
 export class Invoice extends BaseEntity {
   @Index({ unique: true })

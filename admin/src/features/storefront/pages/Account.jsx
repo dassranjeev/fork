@@ -10,9 +10,9 @@ import { useSfAuth } from "../lib/SfAuth";
 const CAT = {
   orders: { title: "Orders", text: "Order placed, accepted, being prepared, ready, cancelled or running late." },
   delivery: { title: "Delivery and drivers", text: "Your driver is assigned, has arrived, and how your order was handed over." },
-  payments: { title: "Payments and refunds", text: "Refunds, FORKSY credit and payment problems." },
-  support: { title: "Support", text: "Replies from FORKSY Support to your chats and tickets." },
-  promotions: { title: "Offers and news", text: "Deals and news from FORKSY. Marketing messages only with your consent." },
+  payments: { title: "Payments and refunds", text: "Refunds, FORKY credit and payment problems." },
+  support: { title: "Support", text: "Replies from FORKY Support to your chats and tickets." },
+  promotions: { title: "Offers and news", text: "Deals and news from FORKY. Marketing messages only with your consent." },
   system: { title: "Account and safety", text: "Security and account messages." },
 };
 const ZONES = ["America/Toronto", "America/Halifax", "America/St_Johns", "America/Winnipeg", "America/Regina", "America/Edmonton", "America/Vancouver"];
@@ -71,20 +71,20 @@ function PushDevice({ prefs, onMaster, onChanged }) {
       )}
       {st.kind === "platform-off" && (
         <Notice tone="warn">
-          <span data-testid="push-state">Push notifications are switched off by FORKSY right now. You still get everything in the app and by email where you chose it.</span>
+          <span data-testid="push-state">Push notifications are switched off by FORKY right now. You still get everything in the app and by email where you chose it.</span>
         </Notice>
       )}
       {st.kind === "denied" && (
         <Notice tone="warn" icon="notification-off-line">
           <span data-testid="push-state">
-            <b>Notifications are blocked for this site in your browser.</b> To turn them on, open the site settings from the lock icon next to the address (or the browser menu: Settings, Privacy, Site settings, Notifications), set FORKSY to Allow, then reload this page.
+            <b>Notifications are blocked for this site in your browser.</b> To turn them on, open the site settings from the lock icon next to the address (or the browser menu: Settings, Privacy, Site settings, Notifications), set FORKY to Allow, then reload this page.
           </span>
         </Notice>
       )}
       {st.kind === "other" && (
         <>
           <Notice tone="info">
-            <span data-testid="push-state">This browser is currently set up for notifications of a different FORKSY account (a shared computer?). You can switch it to yours.</span>
+            <span data-testid="push-state">This browser is currently set up for notifications of a different FORKY account (a shared computer?). You can switch it to yours.</span>
           </Notice>
           <button type="button" className="sf-btn sf-btn-primary" onClick={enable} disabled={busy} data-testid="push-enable">
             {busy ? <Spinner size={16} /> : null} Use this browser for my notifications
@@ -331,7 +331,7 @@ function Notifications() {
           {saved}
         </span>
       </div>
-      <p className="sf-muted">Choose how FORKSY keeps you posted about your orders.</p>
+      <p className="sf-muted">Choose how FORKY keeps you posted about your orders.</p>
       {error && <ErrorBox message={error} onRetry={load} />}
 
       <PushDevice prefs={prefs} onMaster={(v) => save({ pushEnabled: v }, "master")} onChanged={() => setBump((n) => n + 1)} />

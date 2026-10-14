@@ -18,7 +18,7 @@ export default function Restaurants() {
   const toggle = async (r, forcedOff) => {
     const res = await confirm({
       title: forcedOff ? `Turn off the assistant for ${r.name}?` : `Allow the assistant for ${r.name} again?`,
-      message: forcedOff ? "The bot stops answering on the restaurant's website and on FORKSY at once, and the restaurant cannot switch it back on." : "The restaurant's bot follows its own on/off setting again.",
+      message: forcedOff ? "The bot stops answering on the restaurant's website and on FORKY at once, and the restaurant cannot switch it back on." : "The restaurant's bot follows its own on/off setting again.",
       confirmText: forcedOff ? "Turn off" : "Allow again",
       danger: forcedOff,
     });
@@ -94,7 +94,7 @@ export default function Restaurants() {
               options={[
                 { value: "active", label: "Active" },
                 { value: "disabled", label: "Off (by restaurant)" },
-                { value: "forced_off", label: "Off (by FORKSY)" },
+                { value: "forced_off", label: "Off (by FORKY)" },
               ]}
               placeholder="All bots"
             />

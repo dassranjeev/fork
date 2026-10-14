@@ -92,7 +92,7 @@ Mutations are audit-logged. `DRIVER_STATUS_CHANGED` event emitted on status chan
 | DELETE | `/shifts/:id` | - | cancelled shift |
 | GET | `/incentives` | - | active incentives applicable to me |
 | GET | `/ratings` | - | performance rates (as before) plus the rating summary: `{rating or null, ratingLabel, ratingCount, minCountToShow, smoothedRolling, smoothedAllTime, rawAverage, rolling{days,count,average,smoothed}, last30{count,average}, distribution{1..5}, positiveTags[], negativeTags[], trend[{week,count,avg}], recent[{rating,tags,comment,customer (first name only),createdAt}], recentReviews (same list, legacy name)}`; `rating` is `null` with `ratingLabel:'New'` until 5 ratings |
-| POST | `/trip/:orderId/rate-customer` | `{rating 1-5, tags[] (ADDRESS_HARD_TO_FIND, NO_ANSWER, RUDE, ABUSIVE, UNSAFE, LONG_WAIT, FRIENDLY, GOOD_TIPPER, CLEAR_INSTRUCTIONS, EASY_HANDOFF), note? <=500}` | `{ok,orderId,rating,tags}`. Only the order's own FORKSY driver, after DELIVERED, within `ratings.partnerWindowDays` (3), once per order (409). Private: the customer and their average are never returned. Rate limited 10/min |
+| POST | `/trip/:orderId/rate-customer` | `{rating 1-5, tags[] (ADDRESS_HARD_TO_FIND, NO_ANSWER, RUDE, ABUSIVE, UNSAFE, LONG_WAIT, FRIENDLY, GOOD_TIPPER, CLEAR_INSTRUCTIONS, EASY_HANDOFF), note? <=500}` | `{ok,orderId,rating,tags}`. Only the order's own FORKY driver, after DELIVERED, within `ratings.partnerWindowDays` (3), once per order (409). Private: the customer and their average are never returned. Rate limited 10/min |
 | GET | `/heat-map` | - | zone demand/supply (same as admin) |
 | POST | `/sos` | orderId?,lat?,lng?,message? | SosAlert; ops get `sos.alert` |
 | GET | `/sos` | - | my SOS history |

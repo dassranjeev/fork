@@ -10,12 +10,12 @@ let n = 0, bad = 0; const ck = (m, ok, d) => { n++; if (!ok) bad++; console.log(
   const J = async (p, b) => (await fetch(API + p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) })).json();
   const lo = await J('/auth/login', { identifier: 'owner2@demo-restaurant.ca', password: 'Demo@12345', app: 'restaurant' });
   await new Promise((r) => setTimeout(r, 1500));
-  const la = await J('/auth/login', { identifier: 'admin@forksy.ca', password: 'Admin@12345' });
+  const la = await J('/auth/login', { identifier: 'admin@forky.ca', password: 'Admin@12345' });
   const rid = lo.user.restaurantIds[0];
   const b = await chromium.launch();
   const run = async (tokens, url, open, label) => {
     const ctx = await b.newContext({ viewport: { width: 1440, height: 1000 } });
-    await ctx.addInitScript(([a, r]) => { localStorage.setItem('forksy.access', a); localStorage.setItem('forksy.refresh', r); }, [tokens.accessToken, tokens.refreshToken]);
+    await ctx.addInitScript(([a, r]) => { localStorage.setItem('forky.access', a); localStorage.setItem('forky.refresh', r); }, [tokens.accessToken, tokens.refreshToken]);
     await ctx.route(/\/api\/v1\/(restaurant|admin)\/assistant\/training\//, async (route) => {
       if (route.request().method() !== 'GET') return route.continue();
       const res = await route.fetch();
@@ -44,7 +44,7 @@ let n = 0, bad = 0; const ck = (m, ok, d) => { n++; if (!ok) bad++; console.log(
     await run(la, `http://localhost:3000/assistant/training/restaurants/${rid}`, null, 'admin per-restaurant training');
     await run(la, 'http://localhost:3000/assistant/training/central', null, 'admin central training');
     const ctx = await b.newContext({ viewport: { width: 1440, height: 1000 } });
-    await ctx.addInitScript(([a, r]) => { localStorage.setItem('forksy.access', a); localStorage.setItem('forksy.refresh', r); }, [la.accessToken, la.refreshToken]);
+    await ctx.addInitScript(([a, r]) => { localStorage.setItem('forky.access', a); localStorage.setItem('forky.refresh', r); }, [la.accessToken, la.refreshToken]);
     await ctx.route(/\/api\/v1\/admin\/assistant\/training\/(overview|restaurants\?|requests)/, async (route) => { const res = await route.fetch(); let j; try { j = await res.json(); } catch (e) { return route.fulfill({ response: res }); } route.fulfill({ response: res, json: mut(j) }); });
     const page = await ctx.newPage(); const dialogs = []; page.on('dialog', (d) => { dialogs.push(d.message()); d.dismiss(); });
     for (const u of ['/assistant/training', '/assistant/training/restaurants']) { await page.goto('http://localhost:3000' + u); await page.waitForTimeout(2500); }

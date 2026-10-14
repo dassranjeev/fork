@@ -334,6 +334,6 @@ export class UnsubscribeController {
     } else if (q.c === 'EMAIL') p.marketingEmailConsent = false;
     else if (q.c === 'SMS') p.marketingSmsConsent = false;
     await this.customerProfiles.save(p);
-    return { ok: true, message: 'You have been unsubscribed from FORKSY marketing messages.' };
+    return { ok: true, message: 'You have been unsubscribed from FORKY marketing messages.' };
   }
 }

@@ -50,7 +50,7 @@ let widgetCache: { body: string; at: number; mtime: number } | null = null;
 function readWidget(): string {
   const candidates = [join(process.cwd(), 'assets', 'assistant-widget.js'), join(__dirname, '..', '..', 'assets', 'assistant-widget.js'), join(__dirname, '..', '..', '..', 'assets', 'assistant-widget.js')];
   const file = candidates.find((f) => existsSync(f));
-  if (!file) return '/* FORKSY assistant widget is not installed on this server */';
+  if (!file) return '/* FORKY assistant widget is not installed on this server */';
   const mtime = statSync(file).mtimeMs;
   // cached in memory; outside production the file is re-checked every 5 s so edits show up without a restart
   if (widgetCache && (process.env.NODE_ENV === 'production' || (Date.now() - widgetCache.at < 5000 && widgetCache.mtime === mtime))) return widgetCache.body;
@@ -77,18 +77,18 @@ export class AssistantWidgetController {
 let iconCache: Buffer | null = null;
 function readIcon(): Buffer | null {
   if (iconCache) return iconCache;
-  const candidates = [join(process.cwd(), 'assets', 'forksy-icon-96.png'), join(__dirname, '..', '..', 'assets', 'forksy-icon-96.png'), join(__dirname, '..', '..', '..', 'assets', 'forksy-icon-96.png')];
+  const candidates = [join(process.cwd(), 'assets', 'forky-icon-96.png'), join(__dirname, '..', '..', 'assets', 'forky-icon-96.png'), join(__dirname, '..', '..', '..', 'assets', 'forky-icon-96.png')];
   const file = candidates.find((f) => existsSync(f));
   iconCache = file ? readFileSync(file) : null;
   return iconCache;
 }
 
-/** the default avatar of every assistant that has neither an admin logo nor a restaurant logo: the FORKSY icon */
+/** the default avatar of every assistant that has neither an admin logo nor a restaurant logo: the FORKY icon */
 @Controller('assistant')
 @Public()
 @ApiTags('Public / assistant widget')
 export class AssistantIconController {
-  @Get('forksy-icon.png')
+  @Get('forky-icon.png')
   @Throttle({ default: { limit: 300, ttl: 60_000 } })
   icon(@Res() res: any) {
     const img = readIcon();

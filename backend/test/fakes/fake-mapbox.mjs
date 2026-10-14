@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * FAKE Mapbox (Search Box API) server for FORKSY's automated tests. Port 4243 (override with PORT).
- *   MAPBOX_API_BASE=http://localhost:4243  MAPBOX_ACCESS_TOKEN=pk.fake.fake...  -> point the FORKSY API at it
+ * FAKE Mapbox (Search Box API) server for FORKY's automated tests. Port 4243 (override with PORT).
+ *   MAPBOX_API_BASE=http://localhost:4243  MAPBOX_ACCESS_TOKEN=pk.fake.fake...  -> point the FORKY API at it
  *
- * Implements only what FORKSY calls, with the real response shapes (April 2026 docs):
+ * Implements only what FORKY calls, with the real response shapes (April 2026 docs):
  *   GET /search/searchbox/v1/suggest?q&session_token&limit&types&country&bbox&proximity&language&access_token
  *   GET /search/searchbox/v1/retrieve/{mapbox_id}?session_token&access_token
  *   GET /search/searchbox/v1/reverse?longitude&latitude&limit&types&country&access_token
- * Plus  GET /_fake/stats (request counters: proves the FORKSY cache) and POST /_fake/reset.
+ * Plus  GET /_fake/stats (request counters: proves the FORKY cache) and POST /_fake/reset.
  * A token containing "invalid" is rejected with 401, exactly like Mapbox rejects a bad token.
  */
 import http from 'node:http';

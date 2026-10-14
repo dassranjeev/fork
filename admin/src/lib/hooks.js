@@ -154,7 +154,7 @@ export function useSubmit() {
 export function useLocalState(key, initial) {
   const [v, setV] = useState(() => {
     try {
-      const raw = localStorage.getItem(`forksy.ui.${key}`);
+      const raw = localStorage.getItem(`forky.ui.${key}`);
       return raw ? JSON.parse(raw) : initial;
     } catch {
       return initial;
@@ -162,7 +162,7 @@ export function useLocalState(key, initial) {
   });
   useEffect(() => {
     try {
-      localStorage.setItem(`forksy.ui.${key}`, JSON.stringify(v));
+      localStorage.setItem(`forky.ui.${key}`, JSON.stringify(v));
     } catch {
       /* ignore */
     }

@@ -46,7 +46,7 @@ const APPROVAL_CHANNELS = [
 ];
 
 /**
- * Cancelling: free while FORKSY still holds the order (customer's cancellation window). Once the restaurant has the order, FORKSY can only cancel
+ * Cancelling: free while FORKY still holds the order (customer's cancellation window). Once the restaurant has the order, FORKY can only cancel
  * with the restaurant's approval: either the restaurant answers a request in its portal, or staff record who approved it by phone / chat.
  */
 function CancelModal({ order, onClose, onDone }) {
@@ -77,10 +77,10 @@ function CancelModal({ order, onClose, onDone }) {
       disabled={!ready}
     >
       {!needsApproval ? (
-        <div className="alert alert-success radius-8 py-8 text-sm">{order.kitchenReleaseAt && !order.kitchenReleasedAt ? "This order is still held by FORKSY (the customer's cancellation window), so the restaurant has not received it. No approval is needed." : "No restaurant approval is needed for this order."}</div>
+        <div className="alert alert-success radius-8 py-8 text-sm">{order.kitchenReleaseAt && !order.kitchenReleasedAt ? "This order is still held by FORKY (the customer's cancellation window), so the restaurant has not received it. No approval is needed." : "No restaurant approval is needed for this order."}</div>
       ) : (
         <>
-          <div className="alert alert-warning radius-8 py-8 text-sm">The restaurant already has this order, so FORKSY can only cancel it with the <strong>restaurant's approval</strong>.</div>
+          <div className="alert alert-warning radius-8 py-8 text-sm">The restaurant already has this order, so FORKY can only cancel it with the <strong>restaurant's approval</strong>.</div>
           {req && (
             <div className={`alert ${req.status === "APPROVED" ? "alert-success" : req.status === "DECLINED" ? "alert-danger" : "alert-info"} radius-8 py-8 text-sm`}>
               Cancellation request: <strong>{titleCase(req.status)}</strong>
@@ -115,14 +115,14 @@ function CancelModal({ order, onClose, onDone }) {
   );
 }
 
-/** Staff waive the driver's wait-time charge: the restaurant is made whole and FORKSY absorbs it; the driver keeps the pay. */
+/** Staff waive the driver's wait-time charge: the restaurant is made whole and FORKY absorbs it; the driver keeps the pay. */
 function WaiveWaitModal({ order, onClose, onDone }) {
   const f = useForm({ reason: "" });
   const { busy, run } = useSubmit();
   const submit = () => run(() => http.post(`/admin/orders/${order.id}/wait-fee/waive`, { reason: f.values.reason }), { success: "Wait charge waived", onDone: () => { onClose(); onDone(); } });
   return (
     <FormModal open onClose={onClose} title={`Waive the driver wait charge on ${order.code}`} onSubmit={submit} busy={busy} submitText="Waive charge" disabled={String(f.values.reason).trim().length < 3}>
-      <div className="alert alert-info radius-8 py-8 text-sm">The restaurant is credited {money(order.driverWaitFee)} back. The driver keeps the wait-time pay and FORKSY absorbs the cost.</div>
+      <div className="alert alert-info radius-8 py-8 text-sm">The restaurant is credited {money(order.driverWaitFee)} back. The driver keeps the wait-time pay and FORKY absorbs the cost.</div>
       <TextArea label="Reason" required rows={3} {...f.bind("reason")} />
     </FormModal>
   );

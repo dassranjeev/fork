@@ -225,7 +225,7 @@ export const EVENTS: Record<string, EventDef> = {
     category: 'orders',
     pushVars: ['code'],
     pushData: ['orderId'],
-    audiences: { RESTAURANT: { channels: PI, push: { title: 'Cancellation request: order {{code}}', body: 'FORKSY support asks to cancel order {{code}}. Approve or decline in your portal.' }, url: R_ORDER, critical: true, urgency: 'high', requireInteraction: true, tag: 'cancelreq:{orderId}', ttl: 900 } },
+    audiences: { RESTAURANT: { channels: PI, push: { title: 'Cancellation request: order {{code}}', body: 'FORKY support asks to cancel order {{code}}. Approve or decline in your portal.' }, url: R_ORDER, critical: true, urgency: 'high', requireInteraction: true, tag: 'cancelreq:{orderId}', ttl: 900 } },
   },
   'order.cancel_request_answered': {
     category: 'orders',
@@ -333,7 +333,7 @@ export const EVENTS: Record<string, EventDef> = {
   },
   'driver.welcome': {
     category: 'system',
-    audiences: { DRIVER: { channels: PI, push: { title: 'Welcome to FORKSY!', body: 'Your account is active. Go online in your zones to start earning.' }, url: D_HOME } },
+    audiences: { DRIVER: { channels: PI, push: { title: 'Welcome to FORKY!', body: 'Your account is active. Go online in your zones to start earning.' }, url: D_HOME } },
   },
 
   // ------------------------------------------------------------------ payments
@@ -352,7 +352,7 @@ export const EVENTS: Record<string, EventDef> = {
   'credit.issued': {
     category: 'payments',
     pushVars: ['amount'],
-    audiences: { CUSTOMER: { channels: PI, push: { title: 'FORKSY credit added', body: '{{amount}} of credit was added to your wallet.' }, url: '/order/notifications' } },
+    audiences: { CUSTOMER: { channels: PI, push: { title: 'FORKY credit added', body: '{{amount}} of credit was added to your wallet.' }, url: '/order/notifications' } },
   },
   'refund.pending_approval': {
     category: 'payments',
@@ -458,9 +458,9 @@ export const EVENTS: Record<string, EventDef> = {
     category: 'support',
     pushData: ['chatSessionId', 'ticketId'],
     audiences: {
-      CUSTOMER: { channels: PI, push: { title: 'FORKSY Support replied', body: 'You have a new message from support.' }, url: '/order/notifications', urgency: 'high', tag: 'chat:{chatSessionId}' },
-      RESTAURANT: { channels: PI, push: { title: 'FORKSY Support replied', body: 'You have a new message from support.' }, url: '/portal', urgency: 'high', tag: 'chat:{chatSessionId}' },
-      DRIVER: { channels: PI, push: { title: 'FORKSY Support replied', body: 'You have a new message from support.' }, url: D_HOME, urgency: 'high', tag: 'chat:{chatSessionId}' },
+      CUSTOMER: { channels: PI, push: { title: 'FORKY Support replied', body: 'You have a new message from support.' }, url: '/order/notifications', urgency: 'high', tag: 'chat:{chatSessionId}' },
+      RESTAURANT: { channels: PI, push: { title: 'FORKY Support replied', body: 'You have a new message from support.' }, url: '/portal', urgency: 'high', tag: 'chat:{chatSessionId}' },
+      DRIVER: { channels: PI, push: { title: 'FORKY Support replied', body: 'You have a new message from support.' }, url: D_HOME, urgency: 'high', tag: 'chat:{chatSessionId}' },
     },
   },
   'chat.waiting': {
@@ -532,7 +532,7 @@ export const EVENTS: Record<string, EventDef> = {
     category: 'orders',
     pushVars: ['restaurant'],
     pushData: ['orderId'],
-    audiences: { CUSTOMER: { channels: PI, push: { title: 'The restaurant replied to your review', body: 'Open FORKSY to read the reply.' }, url: C_TRACK, urgency: 'low' } },
+    audiences: { CUSTOMER: { channels: PI, push: { title: 'The restaurant replied to your review', body: 'Open FORKY to read the reply.' }, url: C_TRACK, urgency: 'low' } },
   },
   'review.flagged': { category: 'orders', module: Module.RESTAURANTS, audiences: { ADMIN: { channels: IA, url: '/restaurants/reviews' } } },
   'review.reported': { category: 'orders', module: Module.RESTAURANTS, audiences: { ADMIN: { channels: IA, url: '/restaurants/reviews' } } },
@@ -542,8 +542,8 @@ export const EVENTS: Record<string, EventDef> = {
     category: 'system',
     pushVars: ['name'],
     audiences: {
-      RESTAURANT: { channels: PIE, push: { title: 'You are live on FORKSY', body: 'Your store is now live. Welcome aboard!' }, url: '/portal' },
-      DRIVER: { channels: PIE, push: { title: 'You are approved!', body: 'Welcome to FORKSY. You can go online in your approved zones.' }, url: D_HOME },
+      RESTAURANT: { channels: PIE, push: { title: 'You are live on FORKY', body: 'Your store is now live. Welcome aboard!' }, url: '/portal' },
+      DRIVER: { channels: PIE, push: { title: 'You are approved!', body: 'Welcome to FORKY. You can go online in your approved zones.' }, url: D_HOME },
     },
   },
   'account.rejected': {
@@ -596,14 +596,14 @@ export const EVENTS: Record<string, EventDef> = {
   'document.uploaded': { category: 'system', module: Module.DRIVERS, audiences: { ADMIN: { channels: IA, url: '/driver-pipeline' } }, msg: { ADMIN: { title: 'Driver document uploaded', body: 'A driver uploaded a document for review.' } } },
   'restaurant.document_uploaded': { category: 'system', module: Module.RESTAURANTS, audiences: { ADMIN: { channels: IA, url: '/restaurants/onboarding' } }, msg: { ADMIN: { title: 'Restaurant document uploaded', body: '{{name}} uploaded {{docType}} for review.' } } },
   'driver.applied': { category: 'system', module: Module.DRIVERS, audiences: { ADMIN: { channels: PI, push: { title: 'New driver application', body: 'A new driver applied. Review it in the pipeline.' }, url: '/driver-pipeline', urgency: 'low' } }, msg: { ADMIN: { title: 'New driver application', body: '{{name}} applied to drive.' } } },
-  'restaurant.applied': { category: 'system', module: Module.RESTAURANTS, audiences: { ADMIN: { channels: PI, push: { title: 'New restaurant application', body: 'A new restaurant applied. Review it in onboarding.' }, url: '/restaurants/onboarding', urgency: 'low' } }, msg: { ADMIN: { title: 'New restaurant application', body: '{{name}} applied to join FORKSY.' } } },
+  'restaurant.applied': { category: 'system', module: Module.RESTAURANTS, audiences: { ADMIN: { channels: PI, push: { title: 'New restaurant application', body: 'A new restaurant applied. Review it in onboarding.' }, url: '/restaurants/onboarding', urgency: 'low' } }, msg: { ADMIN: { title: 'New restaurant application', body: '{{name}} applied to join FORKY.' } } },
   'driver.training_completed': { category: 'system', module: Module.DRIVERS, audiences: { ADMIN: { channels: IA, url: '/driver-training' } } },
   'driver.background_check': { category: 'system', module: Module.DRIVERS, audiences: { ADMIN: { channels: IA, url: '/driver-pipeline' } } },
   'menu.access_requested': { category: 'system', module: Module.RESTAURANTS, audiences: { ADMIN: { channels: IA, url: '/restaurants/menu-access' } } },
   'menu.access_decided': {
     category: 'system',
     pushVars: ['decision', 'name'],
-    audiences: { RESTAURANT: { channels: PI, push: { title: 'Menu editing {{decision}}', body: 'FORKSY has {{decision}} menu editing for {{name}}.' }, url: '/portal/menu' } },
+    audiences: { RESTAURANT: { channels: PI, push: { title: 'Menu editing {{decision}}', body: 'FORKY has {{decision}} menu editing for {{name}}.' }, url: '/portal/menu' } },
   },
   'menu.approved': {
     category: 'system',
@@ -639,8 +639,8 @@ export const EVENTS: Record<string, EventDef> = {
   'assistant.training.decided': {
     category: 'system',
     pushVars: ['decision'],
-    audiences: { RESTAURANT: { channels: PI, push: { title: 'Bot training {{decision}}', body: 'FORKSY reviewed your trained bot. Open the portal for the details.' }, url: '/portal/assistant', urgency: 'normal' } },
-    msg: { RESTAURANT: { title: 'Bot training {{decision}}', body: 'FORKSY reviewed your trained bot: {{decision}}. {{note}}' } },
+    audiences: { RESTAURANT: { channels: PI, push: { title: 'Bot training {{decision}}', body: 'FORKY reviewed your trained bot. Open the portal for the details.' }, url: '/portal/assistant', urgency: 'normal' } },
+    msg: { RESTAURANT: { title: 'Bot training {{decision}}', body: 'FORKY reviewed your trained bot: {{decision}}. {{note}}' } },
   },
   'promo.pending': { category: 'system', module: Module.PROMOTIONS, audiences: { ADMIN: { channels: IA, url: '/promotions' } } },
   'promo.approved': {
@@ -676,10 +676,10 @@ export const EVENTS: Record<string, EventDef> = {
     category: 'system',
     pushVars: ['message'],
     audiences: {
-      CUSTOMER: { channels: PI, push: { title: 'FORKSY test notification', body: '{{message}}' }, url: '/order/notifications', urgency: 'normal', tag: 'test' },
-      RESTAURANT: { channels: PI, push: { title: 'FORKSY test notification', body: '{{message}}' }, url: '/portal/notifications', urgency: 'normal', tag: 'test' },
-      DRIVER: { channels: PI, push: { title: 'FORKSY test notification', body: '{{message}}' }, url: D_HOME, urgency: 'normal', tag: 'test' },
-      ADMIN: { channels: PI, push: { title: 'FORKSY test notification', body: '{{message}}' }, url: '/inbox', urgency: 'normal', tag: 'test' },
+      CUSTOMER: { channels: PI, push: { title: 'FORKY test notification', body: '{{message}}' }, url: '/order/notifications', urgency: 'normal', tag: 'test' },
+      RESTAURANT: { channels: PI, push: { title: 'FORKY test notification', body: '{{message}}' }, url: '/portal/notifications', urgency: 'normal', tag: 'test' },
+      DRIVER: { channels: PI, push: { title: 'FORKY test notification', body: '{{message}}' }, url: D_HOME, urgency: 'normal', tag: 'test' },
+      ADMIN: { channels: PI, push: { title: 'FORKY test notification', body: '{{message}}' }, url: '/inbox', urgency: 'normal', tag: 'test' },
     },
     msg: {
       CUSTOMER: { title: 'Test notification', body: '{{message}}' },

@@ -18,8 +18,8 @@ type Body_ = Record<string, any>;
 /**
  * The training API of one bot. The same handlers serve three places (docs/api/assistant-training.md):
  *   /restaurant/assistant/training/*                       the restaurant's own bot (OWNER + LOCATION_MANAGER edit, other roles read)
- *   /admin/assistant/training/restaurants/:rid/*           FORKSY staff for any restaurant (restaurants:view / restaurants:edit)
- *   /admin/assistant/training/central/*                    the FORKSY website bot (settings:view / settings:edit)
+ *   /admin/assistant/training/restaurants/:rid/*           FORKY staff for any restaurant (restaurants:view / restaurants:edit)
+ *   /admin/assistant/training/central/*                    the FORKY website bot (settings:view / settings:edit)
  * Bodies are validated by the service (guardrails + limits), which answers 400 with per-field messages in `details`.
  */
 abstract class TrainingBase {
@@ -32,7 +32,7 @@ abstract class TrainingBase {
   }
 
   private staffOnly(user: AuthUser) {
-    if (user.type === UserType.RESTAURANT) throw new ForbiddenException('Only FORKSY staff can do this');
+    if (user.type === UserType.RESTAURANT) throw new ForbiddenException('Only FORKY staff can do this');
   }
 
   // ---- overview
@@ -326,7 +326,7 @@ export class AdminRestaurantTrainingController extends TrainingBase {
   }
 }
 
-// ------------------------------------------------------------------ admin console: the FORKSY website bot
+// ------------------------------------------------------------------ admin console: the FORKY website bot
 @AdminController('assistant/training/central')
 export class AdminCentralTrainingController extends TrainingBase {
   constructor(svc: TrainingService) {

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { usePushState } from "../../../lib/notify";
 import { Ri, Spinner } from "./ui";
 
-/** Can we offer "Turn on notifications" right now? (supported, switched on by FORKSY, not blocked, not already on) */
+/** Can we offer "Turn on notifications" right now? (supported, switched on by FORKY, not blocked, not already on) */
 export function canOfferPush(state) {
   return !!state && !!state.support?.ok && !!state.config?.enabled && state.platformEnabled !== false && state.permission !== "denied" && !state.on;
 }

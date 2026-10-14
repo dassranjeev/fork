@@ -1,4 +1,4 @@
-# FORKSY Ratings - policy and how it works
+# FORKY Ratings - policy and how it works
 
 Plain-language description of the rating system. Code: `backend/src/ratings/`. API: see `docs/api/customers.md`, `drivers.md`, `restaurants.md`, `analytics.md`. Every number below is a setting under `ratings.*` (Admin Console > System > Settings) unless marked fixed.
 
@@ -7,7 +7,7 @@ Plain-language description of the rating system. Code: `backend/src/ratings/`. A
 | Rater | Rates | Where it shows |
 |---|---|---|
 | Customer | the **restaurant** (delivery and pickup orders) | public restaurant page, search cards, restaurant portal |
-| Customer | the **driver** (delivery orders completed by a FORKSY driver only; not pickup, not a restaurant's own driver) | driver app (aggregate + comments), admin driver page |
+| Customer | the **driver** (delivery orders completed by a FORKY driver only; not pickup, not a restaurant's own driver) | driver app (aggregate + comments), admin driver page |
 | Driver | the **customer** (private) | admin customer page only |
 | Restaurant (owner, location manager, cashier) | the **customer** (private) | admin customer page only |
 

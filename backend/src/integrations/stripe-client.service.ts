@@ -85,7 +85,7 @@ export class StripeClientService {
     if (!this.cached || this.cached.sig !== sig) {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const Stripe = require('stripe');
-      this.cached = { sig, client: new (Stripe.default ?? Stripe)(secretKey, { maxNetworkRetries: 2, timeout: 20_000, appInfo: { name: 'FORKSY' }, ...(base ?? {}) }) };
+      this.cached = { sig, client: new (Stripe.default ?? Stripe)(secretKey, { maxNetworkRetries: 2, timeout: 20_000, appInfo: { name: 'FORKY' }, ...(base ?? {}) }) };
     }
     return this.cached.client;
   }

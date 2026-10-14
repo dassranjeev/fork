@@ -44,7 +44,7 @@ export default function RestaurantApply() {
   };
 
   return (
-    <AuthFrame title="Apply to join FORKSY" subtitle="Lower commissions, your own kitchen tools and faster payouts. Tell us about your restaurant.">
+    <AuthFrame title="Apply to join FORKY" subtitle="Lower commissions, your own kitchen tools and faster payouts. Tell us about your restaurant.">
       <form onSubmit={submit}>
         <h6 className="mb-16">Owner</h6>
         <div className="row">
@@ -67,7 +67,7 @@ export default function RestaurantApply() {
           <TextArea col={12} label="Description" {...f.bind("description")} />
           {cuisines.length > 0 && <MultiCheck label="Cuisines" cols={3} options={cuisines.map((c) => ({ value: c.id, label: c.name }))} value={f.values.cuisineIds} onChange={(v) => f.set("cuisineIds", v)} />}
           <div className="col-md-6">
-            <Switch label="Delivery (FORKSY drivers)" {...f.bindCheck("deliveryEnabled")} />
+            <Switch label="Delivery (FORKY drivers)" {...f.bindCheck("deliveryEnabled")} />
           </div>
           <div className="col-md-6">
             <Switch label="Pickup / takeout" {...f.bindCheck("pickupEnabled")} />

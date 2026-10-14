@@ -4,7 +4,7 @@
  *
  *   cd backend && node test/assistant-integration.mjs [API_BASE_URL]      (default http://localhost:4000/api/v1)
  *
- * Needs: demo accounts (customer1, owner1, owner2, cashier1, admin), Postgres on localhost (DB_* env, defaults postgres/postgres/forksy)
+ * Needs: demo accounts (customer1, owner1, owner2, cashier1, admin), Postgres on localhost (DB_* env, defaults postgres/postgres/forky)
  * to restore state, and at least one OPEN restaurant (default burger-barn, owned by owner2; override with BOT_SLUG / BOT_OWNER).
  * The chat endpoint is limited to 30/min per IP and login to 10/min, so the script paces itself (a full run takes ~6 minutes).
  * It restores everything it touched (bot configuration, sessions, carts, test order cancelled). NEVER run against production.
@@ -116,7 +116,7 @@ async function login(identifier, app) {
   throw new Error('login throttled: ' + identifier);
 }
 
-const db = new pg.Client({ host: process.env.DB_HOST || 'localhost', user: process.env.DB_USER || 'postgres', password: process.env.DB_PASSWORD || 'postgres', database: process.env.DB_NAME || 'forksy' });
+const db = new pg.Client({ host: process.env.DB_HOST || 'localhost', user: process.env.DB_USER || 'postgres', password: process.env.DB_PASSWORD || 'postgres', database: process.env.DB_NAME || 'forky' });
 
 // ================================================================== main
 const created = { orders: [] };
@@ -126,14 +126,14 @@ let centralBefore = null;
 try {
   await db.connect();
   section('setup');
-  admin = (await login('admin@forksy.ca')).accessToken;
+  admin = (await login('admin@forky.ca')).accessToken;
   const ownerLogin = await login(OWNER, 'restaurant');
   owner = ownerLogin.accessToken;
   owner1 = await login('owner1@demo-restaurant.ca', 'restaurant');
   cashier = (await login('cashier1@demo-restaurant.ca', 'restaurant')).accessToken;
-  const analystLogin = await login('analyst@forksy.ca');
+  const analystLogin = await login('analyst@forky.ca');
   analyst = analystLogin.accessToken;
-  const cl = await login('customer1@demo.forksy.ca', 'customer');
+  const cl = await login('customer1@demo.forky.ca', 'customer');
   cust = cl.accessToken;
   const rid = ownerLogin.user.restaurantIds[0];
   const otherRid = owner1.user.restaurantIds[0];
@@ -182,7 +182,7 @@ try {
   await bad('empty body', {});
   v = await http('PATCH', '/restaurant/assistant', { token: owner, body: { faqs: [{ q: 'Do you have parking?', a: 'Yes, free parking behind the barn.' }, { q: 'Are the fries gluten free?', a: 'Our fries share a fryer with breaded items, please ask staff.' }], allowedOrigins: ['https://www.mybistro.ca', 'http://localhost:3000', 'https://WWW.MyBistro.ca/'] } });
   check('restaurant PATCH saves FAQs + websites; origins canonicalised and de-duplicated', v.s === 200 && v.j.config.allowedOrigins.join() === 'https://www.mybistro.ca,http://localhost:3000' && v.j.config.faqs.length === 2, v);
-  // ---- permission split: the look is FORKSY's, the restaurant only has FAQs + websites
+  // ---- permission split: the look is FORKY's, the restaurant only has FAQs + websites
   const lookBefore = (await http('GET', '/restaurant/assistant', { token: owner })).j.config;
   for (const [what, body] of [['name', { name: 'Hacked' }], ['greeting', { greeting: 'Hacked' }], ['color', { color: '#000000' }], ['logoUrl', { logoUrl: 'https://evil.example/uploads/11111111-1111-4111-8111-111111111111.png' }], ['enabled', { enabled: false }], ['name together with valid faqs', { name: 'Hacked', faqs: [{ q: 'q', a: 'a' }] }]]) {
     const x = await http('PATCH', '/restaurant/assistant', { token: owner, body });
@@ -222,7 +222,7 @@ try {
   let r = await http('GET', '/public/assistant/config');
   check('central config (no Origin): restaurant null, mode site', r.s === 200 && r.j.restaurant === null && r.j.mode === 'site' && r.j.enabled === true && r.j.name && r.j.greeting, r);
   r = await http('GET', '/public/assistant/config', { origin: 'http://localhost:3000' });
-  check('central config from the FORKSY web origin (CORS_ORIGINS)', r.s === 200 && r.h.get('access-control-allow-origin') === 'http://localhost:3000', r.s);
+  check('central config from the FORKY web origin (CORS_ORIGINS)', r.s === 200 && r.h.get('access-control-allow-origin') === 'http://localhost:3000', r.s);
   r = await http('GET', '/public/assistant/config', { origin: 'https://www.mybistro.ca' });
   check('central config from a merchant origin -> 403 (site modes are for CORS_ORIGINS only)', r.s === 403, r);
   r = await http('GET', `/public/assistant/config?restaurantSlug=${SLUG}`);
@@ -248,7 +248,7 @@ try {
   r = await pf('https://evil.example');
   check('preflight from an unknown origin is refused, no ACAO', r.s === 403 && !r.h.get('access-control-allow-origin'), { s: r.s });
   r = await pf('http://localhost:3000', '/public/assistant/handoff');
-  check('preflight for the FORKSY web origin works on handoff too', r.s === 204 && r.h.get('access-control-allow-origin') === 'http://localhost:3000', r.s);
+  check('preflight for the FORKY web origin works on handoff too', r.s === 204 && r.h.get('access-control-allow-origin') === 'http://localhost:3000', r.s);
   r = await http('GET', '/public/restaurants/' + SLUG, { origin: 'https://www.mybistro.ca' });
   check('other public routes keep the static CORS policy (merchant origin gets no ACAO)', !r.h.get('access-control-allow-origin'), r.h.get('access-control-allow-origin'));
   r = await http('OPTIONS', '/customer/cart', { origin: 'https://www.mybistro.ca', headers: { 'access-control-request-method': 'GET' } });
@@ -272,7 +272,7 @@ try {
   section('widget.js');
   r = await http('GET', ROOT + '/assistant/widget.js');
   check('served with the right headers', r.s === 200 && /^application\/javascript/.test(r.h.get('content-type')) && /public/.test(r.h.get('cache-control')) && /max-age=300/.test(r.h.get('cache-control')) && r.h.get('x-content-type-options') === 'nosniff' && r.h.get('access-control-allow-origin') === '*', { s: r.s, h: Object.fromEntries(r.h) });
-  check('body is the widget (window.ForksyAssistant, Shadow DOM, no innerHTML assignment)', r.text.includes('ForksyAssistant') && r.text.includes('attachShadow') && !/\.innerHTML\s*=/.test(r.text), r.text.slice(0, 80));
+  check('body is the widget (window.ForkyAssistant, Shadow DOM, no innerHTML assignment)', r.text.includes('ForkyAssistant') && r.text.includes('attachShadow') && !/\.innerHTML\s*=/.test(r.text), r.text.slice(0, 80));
   check('not exposed under /api/v1', (await http('GET', BASE + '/assistant/widget.js')).s === 404);
   check('GET only', (await http('POST', ROOT + '/assistant/widget.js', { body: {} })).s === 404);
   r = await http('OPTIONS', ROOT + '/assistant/widget.js', { origin: 'https://any.example', headers: { 'access-control-request-method': 'GET' } });
@@ -330,7 +330,7 @@ try {
   r = await chat({ message: '<b>hello</b> <script>alert(1)</script>there' }, O);
   check('HTML in the message is stripped', r.s < 300 && !/<script|<b>/i.test(JSON.stringify(r.j.reply)), r.j?.reply);
   r = await chat({ message: 'checkout' }, O);
-  check('checkout reply', /Checkout on FORKSY|minimum/i.test(text(r)), text(r));
+  check('checkout reply', /Checkout on FORKY|minimum/i.test(text(r)), text(r));
   check('canCheckout true once the minimum is met', r.j.canCheckout === (r.j.cart.subtotalEstimate >= page.restaurant.minimumOrder), r.j);
   r = await chat({ message: '', quick: undefined }, O);
   check('empty message -> 400', r.s === 400, r);
@@ -397,7 +397,7 @@ try {
   r = await chat({ message: 'what do you recommend' }, S);
   check('recommendation returns cards', (r.j.reply.cards ?? []).length > 0, r.j?.reply);
 
-  section('chat: central FORKSY bot');
+  section('chat: central FORKY bot');
   ctxBase = {};
   r = await chat({ message: 'pizza near me' }, S);
   const csid = r.j?.sessionId;
@@ -420,7 +420,7 @@ try {
   check('central: confirm switches and clears the cart', r.j.restaurant?.slug === 'maple-corner-convenience' && r.j.cart.count === 0, r.j);
 
   // ============================================================== hand-off + import + real order
-  section('hand-off to FORKSY, import and a real order');
+  section('hand-off to FORKY, import and a real order');
   ctxBase = { botKey: key1 };
   r = await chat({ message: 'hi' }, O);
   const hs = r.j.sessionId;
@@ -552,11 +552,11 @@ try {
   // ============================================================== logo, admin console APIs, central bot
   section('logo');
   const pub0 = (await http('GET', `/public/assistant/config?restaurantSlug=${SLUG}`)).j;
-  const ownLogo = page.restaurant.logoUrl ? (page.restaurant.logoUrl.startsWith('/') ? ROOT + page.restaurant.logoUrl : page.restaurant.logoUrl) : ROOT + '/assistant/forksy-icon.png';
-  check('public config logoUrl falls back to the restaurant logo, then to the FORKSY icon', pub0.logoUrl === ownLogo, { got: pub0.logoUrl, want: ownLogo });
-  const iconRes = await fetch(ROOT + '/assistant/forksy-icon.png');
+  const ownLogo = page.restaurant.logoUrl ? (page.restaurant.logoUrl.startsWith('/') ? ROOT + page.restaurant.logoUrl : page.restaurant.logoUrl) : ROOT + '/assistant/forky-icon.png';
+  check('public config logoUrl falls back to the restaurant logo, then to the FORKY icon', pub0.logoUrl === ownLogo, { got: pub0.logoUrl, want: ownLogo });
+  const iconRes = await fetch(ROOT + '/assistant/forky-icon.png');
   const iconBuf = Buffer.from(await iconRes.arrayBuffer());
-  check('GET /assistant/forksy-icon.png is a public, cacheable PNG with CORP cross-origin', iconRes.status === 200 && iconRes.headers.get('content-type') === 'image/png' && /max-age/.test(iconRes.headers.get('cache-control') ?? '') && iconRes.headers.get('cross-origin-resource-policy') === 'cross-origin' && iconBuf.subarray(1, 4).toString() === 'PNG', { s: iconRes.status });
+  check('GET /assistant/forky-icon.png is a public, cacheable PNG with CORP cross-origin', iconRes.status === 200 && iconRes.headers.get('content-type') === 'image/png' && /max-age/.test(iconRes.headers.get('cache-control') ?? '') && iconRes.headers.get('cross-origin-resource-policy') === 'cross-origin' && iconBuf.subarray(1, 4).toString() === 'PNG', { s: iconRes.status });
   const up = await upload(admin, makePng(46, 125, 50));
   check('POST /uploads returns an own-origin url', up.s < 300 && /\/uploads\/[0-9a-f-]{36}\.png$/.test(up.j?.url ?? ''), up);
   let lv = await http('PATCH', `/admin/restaurants/${rid}/assistant`, { token: admin, body: { logoUrl: up.j.url } });
@@ -565,7 +565,7 @@ try {
   const rv = await http('GET', '/restaurant/assistant', { token: owner });
   check('the restaurant GET shows the logo read-only (config.logoUrl + effectiveLogoUrl)', rv.j.config.logoUrl === up.j.url && rv.j.effectiveLogoUrl === up.j.url, rv.j?.config);
   lv = await http('PATCH', `/admin/restaurants/${rid}/assistant`, { token: admin, body: { logoUrl: null } });
-  check('admin removes the logo -> fallback to the restaurant logo (or the FORKSY icon)', lv.s === 200 && lv.j.config.logoUrl === null && (await http('GET', `/public/assistant/config?restaurantSlug=${SLUG}`)).j.logoUrl === ownLogo, lv);
+  check('admin removes the logo -> fallback to the restaurant logo (or the FORKY icon)', lv.s === 200 && lv.j.config.logoUrl === null && (await http('GET', `/public/assistant/config?restaurantSlug=${SLUG}`)).j.logoUrl === ownLogo, lv);
 
   section('admin console: Assistant APIs');
   r = await http('GET', '/admin/assistant/overview', { token: admin });
@@ -603,7 +603,7 @@ try {
   const brandAudit = await db.query(`SELECT action, "after" FROM audit_logs WHERE entity='restaurant' AND "entityId"=$1 AND action = 'assistant.branding-update' ORDER BY "createdAt" DESC LIMIT 10`, [rid]);
   check('every admin branding change is audit-logged (branding-update with before/after, no full key)', brandAudit.rows.length >= 3 && brandAudit.rows.some((a) => JSON.stringify(a.after).includes('logoUrl')) && !JSON.stringify(brandAudit.rows).includes(keyAdmin), brandAudit.rows.length);
 
-  section('central bot (FORKSY website)');
+  section('central bot (FORKY website)');
   const cv0 = await http('GET', '/admin/assistant/central', { token: admin });
   centralBefore = cv0.j?.config;
   check('GET central: config + defaults + stats', cv0.s === 200 && cv0.j.config.name && Array.isArray(cv0.j.config.faqs) && Array.isArray(cv0.j.effectiveChips) && cv0.j.effectiveChips.length > 0 && cv0.j.stats && cv0.j.defaults.name, cv0);
@@ -618,17 +618,17 @@ try {
   await cbad('chip query with a colon (payload injection)', { chips: [{ label: 'x', query: 'a:b' }] });
   await cbad('unknown field', { forcedOff: true });
   const up2 = await upload(admin, makePng(228, 87, 46));
-  r = await http('PATCH', '/admin/assistant/central', { token: admin, body: { name: 'Fork Buddy', greeting: 'Welcome to FORKSY! What are you craving?', color: '#112233', logoUrl: up2.j.url, faqs: [{ q: 'Which areas do you deliver to?', a: 'We deliver across Mississauga and Brampton.' }, { q: 'How do I contact support?', a: 'Use Help in your FORKSY account any time.' }], chips: [{ label: 'Sushi', query: 'sushi' }, { label: 'Open now', query: 'open now' }] } });
+  r = await http('PATCH', '/admin/assistant/central', { token: admin, body: { name: 'Fork Buddy', greeting: 'Welcome to FORKY! What are you craving?', color: '#112233', logoUrl: up2.j.url, faqs: [{ q: 'Which areas do you deliver to?', a: 'We deliver across Mississauga and Brampton.' }, { q: 'How do I contact support?', a: 'Use Help in your FORKY account any time.' }], chips: [{ label: 'Sushi', query: 'sushi' }, { label: 'Open now', query: 'open now' }] } });
   check('central PATCH saves name, greeting, colour, logo, FAQs and chips', r.s === 200 && r.j.config.name === 'Fork Buddy' && r.j.config.color === '#112233' && r.j.config.logoUrl === up2.j.url && r.j.config.faqs.length === 2 && r.j.config.chips.length === 2, r);
   r = await http('GET', '/public/assistant/config');
   check('public central config returns them (name, greeting, colour, logoUrl, chips payloads)', r.s === 200 && r.j.name === 'Fork Buddy' && r.j.color === '#112233' && r.j.logoUrl === up2.j.url && r.j.greeting.startsWith('Welcome') && r.j.chips?.[0]?.payload === 'find:sushi' && r.j.restaurant === null, r.j);
   ctxBase = {};
   const cs = { origin: 'http://localhost:3000' };
   r = await chat({ message: 'Which areas do you deliver to?' }, cs);
-  check('central bot answers the FORKSY FAQ (not a restaurant search)', /Mississauga and Brampton/.test(text(r)) && !(r.j.reply.restaurants ?? []).length, r.j?.reply);
+  check('central bot answers the FORKY FAQ (not a restaurant search)', /Mississauga and Brampton/.test(text(r)) && !(r.j.reply.restaurants ?? []).length, r.j?.reply);
   check('central bot starter chips follow the configuration', (r.j.reply.chips ?? []).some((c) => c.payload === 'find:sushi'), r.j?.reply?.chips);
   r = await chat({ message: 'how can i contact support', sessionId: r.j.sessionId }, cs);
-  check('central FAQ: fuzzy match', /Use Help in your FORKSY account/.test(text(r)), text(r));
+  check('central FAQ: fuzzy match', /Use Help in your FORKY account/.test(text(r)), text(r));
   r = await chat({ message: 'sushi' }, cs);
   check('central search still works', (r.j.reply.restaurants ?? []).length > 0, r.j?.reply);
   r = await http('PATCH', '/admin/assistant/central', { token: admin, body: { enabled: false } });

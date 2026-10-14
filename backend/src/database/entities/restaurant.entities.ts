@@ -192,7 +192,7 @@ export class Restaurant extends BaseEntity {
   @Column({ type: 'timestamptz', nullable: true })
   serviceModeResumeAt: Date | null;
 
-  /** May the restaurant add / update / remove its own menu items? Decided by FORKSY staff (see MenuAccessService). */
+  /** May the restaurant add / update / remove its own menu items? Decided by FORKY staff (see MenuAccessService). */
   @Index()
   @Column({ type: 'enum', enum: MenuEditStatus, default: MenuEditStatus.NOT_ALLOWED })
   menuEditStatus: MenuEditStatus;
@@ -236,7 +236,7 @@ export class Restaurant extends BaseEntity {
 
   // ---- fulfilment modes (PDF 4.4) ----
   @Column({ default: true })
-  deliveryEnabled: boolean; // FORKSY drivers
+  deliveryEnabled: boolean; // FORKY drivers
 
   @Column({ default: false })
   ownDeliveryEnabled: boolean; // restaurant's own drivers

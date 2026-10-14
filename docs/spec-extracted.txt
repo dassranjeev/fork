@@ -1,9 +1,9 @@
 
 === PAGE 1 ===
-FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
-FORKSY — FOOD DELIVERY NETWORK
+FORKY — SOPs, Requirements & Functions Overview  |  September 2026
+FORKY — FOOD DELIVERY NETWORK
 SOPs, Requirements & Functions
-Complete workflow and functional specification for the FORKSY platform — Admin Console, Restaurant Portal & Kitchen 
+Complete workflow and functional specification for the FORKY platform — Admin Console, Restaurant Portal & Kitchen 
 Display, Driver App and Customer App — with standard operating procedures and a phased launch roadmap. Prepared 
 by Ranjeev Wassan, JDASS Corp · September 28, 2026.
 Applications Staff roles (RBAC) Standard procedures Time to pilot-ready
@@ -19,8 +19,8 @@ Contents
 06 Customer App & website 13 Standard Operating Procedures
 07 End-to-end order lifecycle 14 Roadmap, MVP & open decisions
 01  Project overview
-Purpose, scope and the applications that make up the FORKSY ecosystem.
-Key point  FORKSY supports delivery, pickup and scheduled orders, launching in Ontario with CAD pricing, HST handling and 
+Purpose, scope and the applications that make up the FORKY ecosystem.
+Key point  FORKY supports delivery, pickup and scheduled orders, launching in Ontario with CAD pricing, HST handling and 
 English/French readiness.
 Objective: give restaurants a lower-cost, better-controlled alternative to SkipTheDishes, Uber Eats and DoorDash, with transparent 
 commissions, their own kitchen tools and faster payouts.
@@ -36,10 +36,10 @@ Out of scope for v1: grocery/convenience delivery, alcohol delivery (licensing-d
 hardware.
 Page 1 of 14
 === PAGE 2 ===
-FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+FORKY — SOPs, Requirements & Functions Overview  |  September 2026
 02  System architecture
 All four apps talk to one API — no app holds business rules of its own.
-Figure 1 — FORKSY system architecture: 4 apps, 1 gateway, 8 core services
+Figure 1 — FORKY system architecture: 4 apps, 1 gateway, 8 core services
 Order status changes are pushed to every party in real time over WebSockets, with push notifications and SMS as fallbacks. Each 
 service owns its own data and emits events (e.g. order.accepted, driver.assigned) that other services subscribe to.
 03  Admin Console: Super Admin & staff
@@ -61,7 +61,7 @@ Onboarding, menu review, merchant tickets, promo
 setup Driver data, payouts
 Page 2 of 14
 === PAGE 3 ===
-FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+FORKY — SOPs, Requirements & Functions Overview  |  September 2026
 Role Primary responsibility Key permissions Restricted from
 Driver Operations Driver fleet Onboarding, document checks, deactivation, 
 incentives Restaurant financials
@@ -102,7 +102,7 @@ Kitchen Staff KDS only: view tickets, bump items/orders to Ready
 4. Menu built or imported (CSV/POS sync), reviewed, then published.
 Page 3 of 14
 === PAGE 4 ===
-FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+FORKY — SOPs, Requirements & Functions Overview  |  September 2026
 5. Test order completed; restaurant goes live and tablet is activated.
 4.3  Menu management
 ▪ Categories, items, photos, descriptions, prices, tax class, calorie/allergen tags.
@@ -112,8 +112,8 @@ FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
 ▪ Separate pricing for delivery vs pickup (optional).
 4.4  Fulfilment modes
 Mode Flow Restaurant settings
-Delivery (FORKSY drivers) FORKSY dispatches a driver to pick up Prep time, delivery radius, minimum order
-Delivery (restaurant's own drivers) Restaurant delivers; FORKSY tracks Own-fleet fee, radius, lower commission tier
+Delivery (FORKY drivers) FORKY dispatches a driver to pick up Prep time, delivery radius, minimum order
+Delivery (restaurant's own drivers) Restaurant delivers; FORKY tracks Own-fleet fee, radius, lower commission tier
 Pickup / Takeout Customer collects with order code Pickup prep time, instructions, parking notes
 Scheduled Order placed for a later slot Slots per 15 min, max orders per slot, lead time
 Dine-in / QR (phase 3) Table QR order to kitchen Table map, service charge
@@ -142,7 +142,7 @@ Drivers are auto-assigned by a scoring engine, timed to arrive as the food is re
 1. Sign up: name, phone (OTP), email, city, vehicle type (car, bike, e-bike, scooter, on foot).
 Page 4 of 14
 === PAGE 5 ===
-FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+FORKY — SOPs, Requirements & Functions Overview  |  September 2026
 2. Documents: driver's licence, vehicle registration, delivery-compatible insurance, photo, work eligibility.
 3. Background check through a third-party provider (e.g. Certn); results sync to Driver Operations.
 4. Bank details for payouts; T4A tax information collected.
@@ -169,7 +169,7 @@ Vehicle fit Order size, distance, weather Bikes excluded from long or large orde
 Current load Orders already carried Batching if same direction and within time limit
 Page 5 of 14
 === PAGE 6 ===
-FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+FORKY — SOPs, Requirements & Functions Overview  |  September 2026
 Factor What it measures Effect
 Driver performance Acceptance, on-time, rating Tie-breaker
 Fairness Time since last offer Spreads work across online drivers
@@ -194,7 +194,7 @@ Find food, order in under 60 seconds and track it live — iOS, Android or web, 
 ▪ Single-restaurant cart (v1); group order link (phase 2).
 ▪ Delivery or Pickup; ASAP or scheduled slot.
 ▪ Transparent price breakdown: subtotal, delivery fee, service fee, small-order fee, HST, tip, discounts.
-▪ Card, Apple Pay, Google Pay, FORKSY wallet/credits, gift cards; promo code field.
+▪ Card, Apple Pay, Google Pay, FORKY wallet/credits, gift cards; promo code field.
 ▪ Driver tip (10/15/20% or custom), editable up to 1 hour after delivery.
 6.4  Tracking and delivery
 ▪ Live status: Placed → Accepted → Preparing → Driver at restaurant → On the way → Delivered.
@@ -204,11 +204,11 @@ Find food, order in under 60 seconds and track it live — iOS, Android or web, 
 6.5  After the order
 ▪ Rate restaurant and driver separately (1–5 stars + tags + comment).
 ▪ Report an issue with photo upload; automated refund or credit within rules.
-▪ Loyalty (phase 2): FORKSY+ subscription, points per order, referral credits.
+▪ Loyalty (phase 2): FORKY+ subscription, points per order, referral credits.
 ▪ In-app help centre and live chat with support.
 Page 6 of 14
 === PAGE 7 ===
-FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+FORKY — SOPs, Requirements & Functions Overview  |  September 2026
 07  End-to-end order lifecycle
 One shared status model — each status has one owner and a time limit that triggers escalation.
 Figure 3 — Order status lifecycle: 10 states, 3 end states
@@ -228,9 +228,9 @@ Cancellation rules: customers cancel free until Accepted; afterwards a fee up to
 Restaurant cancellation after Accepted counts against its reliability score. Driver unassign after pickup requires support approval.
 Page 7 of 14
 === PAGE 8 ===
-FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+FORKY — SOPs, Requirements & Functions Overview  |  September 2026
 08  Payments, commissions & payouts
-FORKSY collects the full payment, keeps its commission and fees, and pays out on a set schedule via Stripe Connect.
+FORKY collects the full payment, keeps its commission and fees, and pays out on a set schedule via Stripe Connect.
 8.1  Revenue streams (proposed defaults, set per city)
 Stream Paid by Proposed default
 Delivery commission Restaurant 18–25% of food subtotal (tiered)
@@ -239,12 +239,12 @@ Own-driver delivery commission Restaurant 10–14%
 Delivery fee Customer Distance-based, from $1.99
 Service fee Customer 8–12%, capped
 Small-order fee Customer $2 under $15 subtotal
-FORKSY+ subscription Customer Monthly fee, free delivery over threshold
+FORKY+ subscription Customer Monthly fee, free delivery over threshold
 Sponsored listings / ads Restaurant CPC or fixed placement
 8.2  Money flow per order
 1. Customer pays total (food + fees + HST + tip); card authorised at Placed.
-2. Capture on Delivered/Collected; funds land in the FORKSY platform account.
-3. Ledger split: restaurant (food + HST − commission − restaurant promos), driver (delivery pay + 100% tip), FORKSY (commission 
+2. Capture on Delivered/Collected; funds land in the FORKY platform account.
+3. Ledger split: restaurant (food + HST − commission − restaurant promos), driver (delivery pay + 100% tip), FORKY (commission 
 + fees − platform promos).
 4. Refunds charged to the party that caused the issue (restaurant for wrong/missing items, platform for delivery failure).
 8.3  Payouts
@@ -255,7 +255,7 @@ Drivers Weekly, or instant cash-out (small
 fee) Direct deposit / debit card Per-trip earnings; annual T4A
 8.4  Tax
 ▪ Collect and remit HST on food and fees per Ontario rules; tax class set per menu item.
-▪ Commission invoices to restaurants include FORKSY's HST number.
+▪ Commission invoices to restaurants include FORKY's HST number.
 ▪ Confirm marketplace-facilitator obligations with an accountant before launch.
 09  Notifications, support & refunds
 Every status change notifies the affected parties; most issues resolve in-app without an agent.
@@ -267,7 +267,7 @@ Driver offer — — Push + in-app ring —
 Driver assigned Push with driver info Driver ETA on ticket — —
 Page 8 of 14
 === PAGE 9 ===
-FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+FORKY — SOPs, Requirements & Functions Overview  |  September 2026
 Event Customer Restaurant Driver Admin / Ops
 Order late Push with new ETA KDS red flag Push Live-map flag
 Picked up / delivered Push + photo Ticket closed Earnings update —
@@ -291,7 +291,7 @@ Fraud controls: refund frequency limits per account, device fingerprinting, flag
 10  Security, compliance & NFRs
 Security and Canadian privacy compliance are launch requirements, not later additions.
 10.1  Security
-▪ Card data never touches FORKSY servers (Stripe tokenisation) — PCI DSS SAQ-A scope.
+▪ Card data never touches FORKY servers (Stripe tokenisation) — PCI DSS SAQ-A scope.
 ▪ 2FA mandatory for staff and restaurant owners; SSO for internal staff.
 ▪ Encryption in transit (TLS 1.2+) and at rest; secrets in a managed vault.
 ▪ Masked phone numbers; driver sees exact address only after pickup.
@@ -304,7 +304,7 @@ Accessibility AODA / WCAG 2.1 AA for web and apps
 Language French support if expanding to Quebec (Bill 96)
 Page 9 of 14
 === PAGE 10 ===
-FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+FORKY — SOPs, Requirements & Functions Overview  |  September 2026
 Area Requirement
 Gig workers Ontario Digital Platform Workers' Rights Act: pay transparency, minimum pay, deactivation notice
 Food safety Valid municipal health permits; insulated bags required
@@ -342,7 +342,7 @@ Analytics Mixpanel or GA4 + BigQuery Amplitude
 Monitoring Sentry, Datadog / CloudWatch New Relic, Grafana
 Page 10 of 14
 === PAGE 11 ===
-FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+FORKY — SOPs, Requirements & Functions Overview  |  September 2026
 All external integrations sit behind internal adapters, so a provider can be swapped without changing the apps.
 12  Reporting & analytics
 Every dashboard is fed from one data warehouse, so figures match across Admin, restaurant and finance views.
@@ -386,7 +386,7 @@ SOP-01  Restaurant onboarding and go-live
 3. Build or import menu; check prices, modifiers, photos, allergen tags and tax classes.
 Page 11 of 14
 === PAGE 12 ===
-FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+FORKY — SOPs, Requirements & Functions Overview  |  September 2026
 4. Activate tablet; train staff on accepting orders, 86-ing items and KDS (30 min).
 5. Place a test order end to end; confirm payout bank details with a micro-deposit.
 6. Set status to Live; add to launch promo if applicable; follow up after 7 days.
@@ -428,7 +428,7 @@ SOP-08  Deactivation and account review
 2. Notify in writing with the reason and time to respond (per Ontario gig-worker rules).
 Page 12 of 14
 === PAGE 13 ===
-FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+FORKY — SOPs, Requirements & Functions Overview  |  September 2026
 3. Review evidence; reinstate, warn, suspend or deactivate; record decision and reviewer.
 4. Offer an appeal route; finalise payout of any money owed.
 SOP-09  Staff access and role changes
@@ -456,7 +456,7 @@ Avg delivery time On-time delivery Restaurant acceptance Orders with an issue
 ≤ 40 min ≥ 90% ≥ 95% ≤ 3%
 Page 13 of 14
 === PAGE 14 ===
-FORKSY — SOPs, Requirements & Functions Overview  |  September 2026
+FORKY — SOPs, Requirements & Functions Overview  |  September 2026
 KPI Target
 Unassigned-order escalations ≤ 2%
 Customer repeat rate within 30 days ≥ 35%

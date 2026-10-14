@@ -44,7 +44,7 @@ function ReportModal({ review, onClose, onDone }) {
   const [text, setText] = useState("");
   if (!review) return null;
   const submit = async () => {
-    const r = await run("report", () => api.post(`/restaurant/reviews/${review.id}/report`, { reason: text.trim() }), "Reported - FORKSY staff will review it");
+    const r = await run("report", () => api.post(`/restaurant/reviews/${review.id}/report`, { reason: text.trim() }), "Reported - FORKY staff will review it");
     if (r.ok) onDone();
   };
   return (
@@ -112,7 +112,7 @@ export default function Reviews() {
               </div>
               <span className="text-secondary-light text-sm">{fmtDateTime(r.createdAt)}</span>
             </div>
-            {r.status && r.status !== "VISIBLE" && <div className="mb-8"><Badge tone="warning">{r.status === "HIDDEN" ? "Hidden by FORKSY staff" : "Held back for staff review"}</Badge></div>}
+            {r.status && r.status !== "VISIBLE" && <div className="mb-8"><Badge tone="warning">{r.status === "HIDDEN" ? "Hidden by FORKY staff" : "Held back for staff review"}</Badge></div>}
             {r.tags?.length > 0 && <div className="d-flex gap-2 mb-8 flex-wrap">{r.tags.map((t) => <Badge key={t} tone="neutral">{String(t).replace(/_/g, " ").toLowerCase()}</Badge>)}</div>}
             <p className="mb-12">{r.comment || <em className="text-secondary-light">No comment left</em>}</p>
             {r.reply ? (

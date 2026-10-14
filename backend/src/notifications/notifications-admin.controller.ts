@@ -104,7 +104,7 @@ export class NotificationsAdminController {
       const rows = await this.subs.createQueryBuilder('s').select('DISTINCT s."userId"', 'userId').where('s.app = :app', { app: dto.app }).limit(200).getRawMany();
       ids = rows.map((r) => r.userId);
     }
-    const message = (dto.message ?? '').trim() || 'This is a test push from FORKSY.';
+    const message = (dto.message ?? '').trim() || 'This is a test push from FORKY.';
     const out: { userId: string; push: string; error?: string | null }[] = [];
     for (const userId of ids) {
       const u = await this.users.findOne({ where: { id: userId } });

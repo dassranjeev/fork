@@ -229,7 +229,7 @@ export default function AssistantChat({ restaurantSlug, lift, onAvailable }) {
     : (config?.chips?.length ? config.chips : [{ label: "Open now", payload: "open" }, { label: "Recommend something", payload: "recommend" }, { label: "Popular dishes", payload: "popular" }, { label: "Help", payload: "help" }]);
   const botChips = lastBot?.chips?.length ? lastBot.chips : log.some((m) => m.role === "user") ? [] : starter;
   const chips = botChips.filter((c) => !(c.payload?.startsWith("add:") && cardIds.has(c.payload.slice(4))));
-  const name = String(config.name || "FORKSY assistant");
+  const name = String(config.name || "FORKY assistant");
 
   return (
     <div className={`sf-bot ${lift ? "is-lifted" : ""}`} style={{ "--sf-bot": color }}>

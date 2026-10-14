@@ -139,8 +139,8 @@ export default function Header({ onLocation }) {
   return (
     <header className="sf-header">
       <div className="sf-container sf-header-row">
-        <Link to="/order" className="sf-logo" aria-label="FORKSY home">
-          <img src="/brand/logo-horizontal-orange.png" alt="FORKSY" height="34" />
+        <Link to="/order" className="sf-logo" aria-label="FORKY home">
+          <img src="/brand/logo-horizontal-orange.png" alt="FORKY" height="34" />
         </Link>
         <button type="button" className="sf-loc" onClick={onLocation} data-testid="location-button">
           <Ri name="map-pin-2-fill" />

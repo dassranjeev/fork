@@ -44,7 +44,7 @@ export class FaqDto {
 
 /**
  * What a RESTAURANT may change (portal PATCH /restaurant/assistant): only its FAQs and the websites allowed to show the bot.
- * The look of the assistant (name, greeting, colour, logo, on/off) is set by FORKSY staff; those fields are rejected here by the
+ * The look of the assistant (name, greeting, colour, logo, on/off) is set by FORKY staff; those fields are rejected here by the
  * global whitelist (forbidNonWhitelisted -> 400).
  */
 export class UpdateAssistantDto {
@@ -52,7 +52,7 @@ export class UpdateAssistantDto {
   @IsOptional() @IsArray() @ArrayMaxSize(10) @IsString({ each: true }) @MaxLength(200, { each: true }) allowedOrigins?: string[];
 }
 
-/** What FORKSY staff may change (PATCH /admin/restaurants/:id/assistant): everything. */
+/** What FORKY staff may change (PATCH /admin/restaurants/:id/assistant): everything. */
 export class AdminUpdateAssistantDto extends UpdateAssistantDto {
   @IsOptional() @Transform(({ obj }) => obj.enabled) @IsBoolean() enabled?: boolean;
   @IsOptional() @IsString() @MaxLength(40) name?: string;
@@ -82,7 +82,7 @@ export class CentralUpdateDto {
 }
 
 export class AssistantRestaurantsQuery extends PageQueryDto {
-  /** active | disabled (switched off by the restaurant's setting) | forced_off (by FORKSY) */
+  /** active | disabled (switched off by the restaurant's setting) | forced_off (by FORKY) */
   @IsOptional() @IsIn(['active', 'disabled', 'forced_off']) status?: 'active' | 'disabled' | 'forced_off';
   @IsOptional() @IsIn(['name', 'chats7d', 'handoffs7d', 'lastActivityAt']) declare sortBy?: string;
 }

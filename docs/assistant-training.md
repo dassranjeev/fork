@@ -1,6 +1,6 @@
 # Bot training tool
 
-The in-house tool that lets a restaurant (and FORKSY, for the website bot) **teach** the ordering assistant its own answers, without any language model. It is a small, trainable *retrieval* engine that plugs into the hooks described in [assistant.md](assistant.md) ("Extension points"): `KnowledgeProvider`, `AliasResolver`, the `assistant.unanswered` event and the `assistant.feedback` event.
+The in-house tool that lets a restaurant (and FORKY, for the website bot) **teach** the ordering assistant its own answers, without any language model. It is a small, trainable *retrieval* engine that plugs into the hooks described in [assistant.md](assistant.md) ("Extension points"): `KnowledgeProvider`, `AliasResolver`, the `assistant.unanswered` event and the `assistant.feedback` event.
 
 Related: [assistant.md](assistant.md) (the bot itself), [api/assistant.md](api/assistant.md) (endpoint list).
 
@@ -10,7 +10,7 @@ Related: [assistant.md](assistant.md) (the bot itself), [api/assistant.md](api/a
 
 | Word | Meaning |
 |---|---|
-| **Knowledge base** | One per restaurant, plus one **central** one for the FORKSY website bot. Scope keys `r:<restaurantId>` and `central`. They are never mixed: a restaurant's answers are only ever used for that restaurant. |
+| **Knowledge base** | One per restaurant, plus one **central** one for the FORKY website bot. Scope keys `r:<restaurantId>` and `central`. They are never mixed: a restaurant's answers are only ever used for that restaurant. |
 | **Answer (entry)** | A title (only staff see it), up to **15 phrasings** (ways guests ask it), an **answer** of up to **800** characters, up to 3 **buttons** (chips) that open another answer, up to 8 tags, an on/off switch and a priority 0..5 that wins ties. |
 | **Nickname** | A fixed name for a menu item or menu section ("marg" = Margherita, "the usual" = a given dish). Only exact nicknames, never guesses. Restaurant bots only. |
 | **Synonyms** | Words that mean the same ("pop" = "soda" = "soft drink"). The customer may use either; matching treats them as one word. |
@@ -47,7 +47,7 @@ Order of the answer pipeline (`brain.registry.ts`): synonyms/nicknames rewrite -
 
 ## 3. For restaurant owners (portal: Assistant > Training)
 
-The page has two tabs: **Settings & embed code** (website list, embed code; the look is set by FORKSY) and **Training**. Inside Training:
+The page has two tabs: **Settings & embed code** (website list, embed code; the look is set by FORKY) and **Training**. Inside Training:
 
 1. **Overview**: live version, answer rate (7 and 30 days), unanswered count, thumbs-down count, top questions, "never used" answers and coverage hints. A new bot shows **"Teach your bot your first 5 answers"**: tap a card (parking, allergies, catering, payment, kids menu ...), write the answer in your own words, save.
 2. **Knowledge**: add, edit, switch on/off, delete (also several at once), search and filter, import / export (see 6). The editor shows a live preview, the character counters and guardrail messages as you type.
@@ -63,7 +63,7 @@ Typical routine: teach 5 answers, test with questions in your own words, publish
 
 ---
 
-## 4. For FORKSY staff (Admin Console > Assistant)
+## 4. For FORKY staff (Admin Console > Assistant)
 
 Sidebar entries (group "Assistant"): **Training** (`/assistant/training`), **Training coverage** (`/assistant/training/restaurants`), **Central bot training** (`/assistant/training/central`); the bot editor and the central bot page have a **Train this bot** button.
 
@@ -71,7 +71,7 @@ Sidebar entries (group "Assistant"): **Training** (`/assistant/training`), **Tra
 * **Approval**: setting `assistant.training.requireApproval` (Admin > Settings > Assistant, or the switch on the overview; needs `settings:edit`). When on, a restaurant's *Publish* becomes a **request** that stores the exact content; staff see what changes (new / changed / removed answers, nickname and document counts, failing test cases), then **Approve** (publishes it as the next version, restaurant notified) or **Reject** (a note is required; the restaurant sees it). Staff publishing directly is never held back. Needs `restaurants:edit`.
 * **Held queue**: answers and documents the guardrails kept out of the live bot (allergen-safety guarantees, medical claims). **Release** (you confirm the text is fine; the restaurant still has to publish) or **Remove**. A released answer stays released as long as its text is unchanged.
 * **Training coverage**: every restaurant with live answers, live version, "unpublished changes", unanswered count, answer rate (30 days) and pending requests; click a row to open that restaurant's training area (full editor, "staff" mode: Publish is always direct).
-* **Central bot training**: the same area for the FORKSY website bot, permission `settings:view` / `settings:edit`. Tab "Synonyms" (no menu nicknames).
+* **Central bot training**: the same area for the FORKY website bot, permission `settings:view` / `settings:edit`. Tab "Synonyms" (no menu nicknames).
 
 Everything is audit-logged with **counts only** (never the text): `assistant.training.{entry,aliases,documents,import,publish,rollback,request,approve,reject,held.release,held.reject,faq,settings,...}`.
 

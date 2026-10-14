@@ -8,8 +8,8 @@ import { seal, unseal } from '../common/secretbox';
 /** Every configurable platform setting with its default. Seeded on boot (existing values are never overwritten). */
 export const SETTING_DEFINITIONS: any[] = [
   // ---- general ----
-  { key: 'general.platformName', group: 'general', label: 'Platform name', value: 'FORKSY', inputType: 'text', isPublic: true },
-  { key: 'general.supportEmail', group: 'general', label: 'Support email', value: 'support@forksy.ca', inputType: 'text', isPublic: true },
+  { key: 'general.platformName', group: 'general', label: 'Platform name', value: 'FORKY', inputType: 'text', isPublic: true },
+  { key: 'general.supportEmail', group: 'general', label: 'Support email', value: 'support@forky.ca', inputType: 'text', isPublic: true },
   { key: 'general.supportPhone', group: 'general', label: 'Support phone', value: '+1-800-555-0100', inputType: 'text', isPublic: true },
   { key: 'general.defaultLanguage', group: 'general', label: 'Default language', value: 'en', inputType: 'select', isPublic: true },
   { key: 'general.supportedLanguages', group: 'languages', label: 'Supported languages', value: ['en', 'fr'], inputType: 'json', isPublic: true },
@@ -18,8 +18,8 @@ export const SETTING_DEFINITIONS: any[] = [
   { key: 'general.maintenanceMode', group: 'general', label: 'Maintenance mode (blocks apps)', value: false, inputType: 'boolean', isPublic: true },
   { key: 'general.maintenanceMessage', group: 'general', label: 'Maintenance message', value: 'We will be back shortly.', inputType: 'textarea', isPublic: true },
   { key: 'general.statusBanner', group: 'general', label: 'Status banner text (shown in all apps)', value: '', inputType: 'text', isPublic: true },
-  { key: 'general.forksyHstNumber', group: 'taxes', label: 'FORKSY HST registration number', value: '', inputType: 'text' },
-  { key: 'general.legalName', group: 'general', label: 'Legal entity name', value: 'FORKSY Inc.', inputType: 'text' },
+  { key: 'general.forksyHstNumber', group: 'taxes', label: 'FORKY HST registration number', value: '', inputType: 'text' },
+  { key: 'general.legalName', group: 'general', label: 'Legal entity name', value: 'FORKY Inc.', inputType: 'text' },
   // ---- orders ----
   { key: 'orders.autoRejectSeconds', group: 'orders', label: 'Auto-reject un-actioned orders after (sec)', value: 180, inputType: 'number' },
   { key: 'orders.newOrdersPaused', group: 'orders', label: 'New orders paused (set by SOP-10 incident)', value: false, inputType: 'boolean', isPublic: true },
@@ -99,7 +99,7 @@ export const SETTING_DEFINITIONS: any[] = [
   { key: 'payments.provider', group: 'payments', label: 'Payment provider', value: 'stripe', inputType: 'select' },
   { key: 'payments.applePayEnabled', group: 'payments', label: 'Apple Pay', value: true, inputType: 'boolean', isPublic: true },
   { key: 'payments.googlePayEnabled', group: 'payments', label: 'Google Pay', value: true, inputType: 'boolean', isPublic: true },
-  { key: 'payments.walletEnabled', group: 'payments', label: 'FORKSY wallet / credits', value: true, inputType: 'boolean', isPublic: true },
+  { key: 'payments.walletEnabled', group: 'payments', label: 'FORKY wallet / credits', value: true, inputType: 'boolean', isPublic: true },
   { key: 'payments.giftCardsEnabled', group: 'payments', label: 'Gift cards', value: true, inputType: 'boolean', isPublic: true },
   { key: 'payments.instantPayoutFeePct', group: 'payments', label: 'Instant cash-out fee (%)', value: 1.5, inputType: 'number' },
   { key: 'payments.instantPayoutFeeMin', group: 'payments', label: 'Instant cash-out min fee ($)', value: 0.5, inputType: 'number' },
@@ -133,14 +133,14 @@ export const SETTING_DEFINITIONS: any[] = [
   { key: 'notifications.twilioAuthToken', group: 'notifications', label: 'Twilio auth token', value: '', inputType: 'password', isSecret: true },
   { key: 'notifications.twilioFrom', group: 'notifications', label: 'Twilio from number', value: '', inputType: 'text' },
   { key: 'notifications.sendgridApiKey', group: 'notifications', label: 'SendGrid API key', value: '', inputType: 'password', isSecret: true },
-  { key: 'notifications.emailFrom', group: 'notifications', label: 'From email', value: 'no-reply@forksy.ca', inputType: 'text' },
+  { key: 'notifications.emailFrom', group: 'notifications', label: 'From email', value: 'no-reply@forky.ca', inputType: 'text' },
   // push: platform kill switches, VAPID (generated once on first boot, stored encrypted) and FCM HTTP v1 (docs/notifications.md)
   { key: 'notifications.push.enabled', group: 'notifications', label: 'Push notifications: master switch for the whole platform (browser + native)', value: true, inputType: 'boolean' },
   { key: 'notifications.push.webEnabled', group: 'notifications', label: 'Push notifications: browser push (Web Push / VAPID)', value: true, inputType: 'boolean' },
   { key: 'notifications.push.fcmEnabled', group: 'notifications', label: 'Push notifications: native apps (FCM)', value: true, inputType: 'boolean' },
   { key: 'notifications.vapid.keys', group: 'notifications', label: 'Web Push (VAPID) key pair - generated automatically on first boot and stored encrypted; replacing it logs every browser out of push (env VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY win)', value: '', inputType: 'password', isSecret: true },
   { key: 'notifications.vapid.publicKey', group: 'notifications', label: 'Web Push (VAPID) public key (information only)', value: '', inputType: 'text' },
-  { key: 'notifications.vapid.subject', group: 'notifications', label: 'Web Push (VAPID) contact: mailto:you@example.com or https://your.site', value: 'mailto:support@forksy.ca', inputType: 'text' },
+  { key: 'notifications.vapid.subject', group: 'notifications', label: 'Web Push (VAPID) contact: mailto:you@example.com or https://your.site', value: 'mailto:support@forky.ca', inputType: 'text' },
   { key: 'notifications.fcm.serviceAccountJson', group: 'notifications', label: 'FCM HTTP v1 service-account JSON (Firebase console > Service accounts); env FCM_SERVICE_ACCOUNT_JSON wins', value: '', inputType: 'textarea', isSecret: true },
   { key: 'notifications.retention.inAppDays', group: 'notifications', label: 'Delete READ in-app notifications after N days (unread ones after 365)', value: 90, inputType: 'number' },
   { key: 'notifications.retention.deliveryDays', group: 'notifications', label: 'Delete push / SMS / e-mail delivery log rows after N days', value: 30, inputType: 'number' },
@@ -259,28 +259,28 @@ export const SETTING_DEFINITIONS: any[] = [
   { key: 'compliance.auditRetentionYears', group: 'compliance', label: 'Audit log retention (years)', value: 7, inputType: 'number' },
   { key: 'compliance.requireMarketingConsent', group: 'compliance', label: 'CASL: marketing needs opt-in', value: true, inputType: 'boolean' },
   // ---- ordering assistant (docs/assistant.md) ----
-  { key: 'assistant.enabled', group: 'assistant', label: 'Ordering assistant (bot): master switch for the FORKSY website bot and every restaurant bot', value: true, inputType: 'boolean', isPublic: true },
+  { key: 'assistant.enabled', group: 'assistant', label: 'Ordering assistant (bot): master switch for the FORKY website bot and every restaurant bot', value: true, inputType: 'boolean', isPublic: true },
   { key: 'assistant.embed.enabled', group: 'assistant', label: 'Ordering assistant: allow restaurants to embed the bot on their own websites', value: true, inputType: 'boolean' },
   { key: 'assistant.maxMessagesPerSession', group: 'assistant', label: 'Ordering assistant: maximum messages in one chat session', value: 200, inputType: 'number' },
   { key: 'assistant.sessionTtlHours', group: 'assistant', label: 'Ordering assistant: a chat session (and its cart) expires after this many hours of inactivity', value: 24, inputType: 'number' },
-  { key: 'assistant.handoffTtlMinutes', group: 'assistant', label: 'Ordering assistant: how long the one-time checkout hand-off link to the FORKSY website stays valid (min)', value: 30, inputType: 'number' },
-  // the central bot of the FORKSY website (edited in Admin > Assistant > Central bot; values are re-validated whenever they are read)
-  { key: 'assistant.central.enabled', group: 'assistant', label: 'Central assistant (FORKSY website bot) enabled', value: true, inputType: 'boolean' },
-  { key: 'assistant.central.name', group: 'assistant', label: 'Central assistant: name (max 40)', value: 'FORKSY Assistant', inputType: 'text' },
-  { key: 'assistant.central.greeting', group: 'assistant', label: 'Central assistant: greeting (max 200)', value: "Hi! I'm the FORKSY assistant. Tell me what you're craving and I'll find a restaurant, or say \"order from <restaurant>\".", inputType: 'textarea' },
+  { key: 'assistant.handoffTtlMinutes', group: 'assistant', label: 'Ordering assistant: how long the one-time checkout hand-off link to the FORKY website stays valid (min)', value: 30, inputType: 'number' },
+  // the central bot of the FORKY website (edited in Admin > Assistant > Central bot; values are re-validated whenever they are read)
+  { key: 'assistant.central.enabled', group: 'assistant', label: 'Central assistant (FORKY website bot) enabled', value: true, inputType: 'boolean' },
+  { key: 'assistant.central.name', group: 'assistant', label: 'Central assistant: name (max 40)', value: 'FORKY Assistant', inputType: 'text' },
+  { key: 'assistant.central.greeting', group: 'assistant', label: 'Central assistant: greeting (max 200)', value: "Hi! I'm the FORKY assistant. Tell me what you're craving and I'll find a restaurant, or say \"order from <restaurant>\".", inputType: 'textarea' },
   { key: 'assistant.central.color', group: 'assistant', label: 'Central assistant: accent colour (#RRGGBB, empty = default)', value: '', inputType: 'text' },
   { key: 'assistant.central.logoUrl', group: 'assistant', label: 'Central assistant: logo (an upload from POST /uploads; empty = none)', value: '', inputType: 'text' },
-  { key: 'assistant.central.faqs', group: 'assistant', label: 'Central assistant: FAQs about FORKSY itself ([{q, a}], max 20)', value: [], inputType: 'json' },
+  { key: 'assistant.central.faqs', group: 'assistant', label: 'Central assistant: FAQs about FORKY itself ([{q, a}], max 20)', value: [], inputType: 'json' },
   // ---- bot training tool (docs/assistant-training.md)
-  { key: 'assistant.training.requireApproval', group: 'assistant', label: 'Bot training: a restaurant publish needs FORKSY approval first (staff can always publish directly)', value: false, inputType: 'boolean' },
-  { key: 'assistant.training.holdPhrases', group: 'assistant', label: 'Bot training: phrases that hold an entry for FORKSY review (allergen-safety guarantees, medical claims); built-in patterns always apply too', value: ["100% safe","100 percent safe","completely safe","totally safe","guaranteed nut free","guaranteed gluten free","guaranteed dairy free","guaranteed allergen free","no allergens","allergen free","allergy safe","safe for celiacs","safe for coeliacs","safe for people with allergies","safe for diabetics","no cross contamination","no cross-contamination","cure for","clinically proven","doctor approved"], inputType: 'json' },
+  { key: 'assistant.training.requireApproval', group: 'assistant', label: 'Bot training: a restaurant publish needs FORKY approval first (staff can always publish directly)', value: false, inputType: 'boolean' },
+  { key: 'assistant.training.holdPhrases', group: 'assistant', label: 'Bot training: phrases that hold an entry for FORKY review (allergen-safety guarantees, medical claims); built-in patterns always apply too', value: ["100% safe","100 percent safe","completely safe","totally safe","guaranteed nut free","guaranteed gluten free","guaranteed dairy free","guaranteed allergen free","no allergens","allergen free","allergy safe","safe for celiacs","safe for coeliacs","safe for people with allergies","safe for diabetics","no cross contamination","no cross-contamination","cure for","clinically proven","doctor approved"], inputType: 'json' },
   { key: 'assistant.training.blockPhrases', group: 'assistant', label: 'Bot training: phrases that are refused outright (profanity / abuse); built-in patterns always apply too', value: ["fuck","shit","bitch","asshole","bastard","cunt","dickhead","slut","whore","retard","faggot","nigger","nigga"], inputType: 'json' },
   { key: 'assistant.central.chips', group: 'assistant', label: 'Central assistant: starter chips ([{label, query}], max 6; empty = built-in defaults)', value: [], inputType: 'json' },
 ];
 
 export const FEATURE_FLAG_DEFINITIONS = [
   { key: 'group_orders', enabled: false, description: 'Group order links (phase 2)' },
-  { key: 'forksy_plus', enabled: false, description: 'FORKSY+ subscription (phase 2)' },
+  { key: 'forky_plus', enabled: false, description: 'FORKY+ subscription (phase 2)' },
   { key: 'loyalty_points', enabled: false, description: 'Loyalty points (phase 2)' },
   { key: 'order_batching', enabled: false, description: 'Driver order batching (phase 2)' },
   { key: 'dine_in_qr', enabled: false, description: 'Dine-in QR ordering (phase 3)' },

@@ -104,7 +104,7 @@ export function AdminTrainingOverview() {
       </div>
 
       <Card title="Approval" subtitle="When this is on, a restaurant's Publish becomes a request that staff approve or reject. Staff can always publish directly." className="mb-20">
-        <Switch label="Restaurants need FORKSY approval to publish bot training" checked={data.requireApproval} disabled={!can("settings", "edit")} onChange={toggleApproval} className="mb-0" />
+        <Switch label="Restaurants need FORKY approval to publish bot training" checked={data.requireApproval} disabled={!can("settings", "edit")} onChange={toggleApproval} className="mb-0" />
         {!can("settings", "edit") && <div className="text-secondary-light text-sm mt-8">You need the "edit settings" permission to change this.</div>}
       </Card>
 
@@ -229,12 +229,12 @@ export function AdminTrainingEditor() {
   );
 }
 
-/** Admin: the FORKSY website bot's own knowledge base. */
+/** Admin: the FORKY website bot's own knowledge base. */
 export function AdminTrainingCentral() {
   const { can } = useAuth();
   return (
     <>
-      <PageHeader title="Central bot: training" subtitle="Answers about FORKSY itself (delivery areas, fees, how it works, support). Restaurants' answers are never mixed in." crumbs={[{ label: "Assistant", to: "/assistant" }, { label: "Training", to: "/assistant/training" }, { label: "Central bot" }]} actions={<Link className="btn btn-outline-primary-600 btn-sm radius-8" to="/assistant/central">Look and settings</Link>} />
+      <PageHeader title="Central bot: training" subtitle="Answers about FORKY itself (delivery areas, fees, how it works, support). Restaurants' answers are never mixed in." crumbs={[{ label: "Assistant", to: "/assistant" }, { label: "Training", to: "/assistant/training" }, { label: "Central bot" }]} actions={<Link className="btn btn-outline-primary-600 btn-sm radius-8" to="/assistant/central">Look and settings</Link>} />
       <TrainingArea base={`${BASE}/central`} canEdit={can("settings", "edit")} staff central />
     </>
   );

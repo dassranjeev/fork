@@ -1,6 +1,6 @@
 # Deployment guide (single-host Docker stack)
 
-Everything needed to run FORKSY on one server with Docker: PostgreSQL, the API, the website / admin console / restaurant portal, and automatic HTTPS.
+Everything needed to run FORKY on one server with Docker: PostgreSQL, the API, the website / admin console / restaurant portal, and automatic HTTPS.
 Security requirements are in [SECURITY.md](SECURITY.md) (section 5, the production checklist). Payments setup is in [payments.md](payments.md) and
 [integrations.md](integrations.md).
 
@@ -90,8 +90,8 @@ Take a database backup before every update that contains a new migration (below)
 
 ## Backups
 
-- **Database:** `docker compose exec db pg_dump -U forksy -Fc forksy > forksy-$(date +%F).dump` (adjust user / database to `deploy/.env`). Store
-  copies off the server and test a restore regularly: `pg_restore --clean --if-exists -d forksy file.dump`.
+- **Database:** `docker compose exec db pg_dump -U forky -Fc forky > forky-$(date +%F).dump` (adjust user / database to `deploy/.env`). Store
+  copies off the server and test a restore regularly: `pg_restore --clean --if-exists -d forky file.dump`.
 - **Uploaded files:** the `uploads` volume (public images) and `private-uploads` (proof-of-delivery photos; keep per the retention setting).
 - **Secrets:** keep a copy of `deploy/.env` and `backend/.env.production` in a password manager. If `DATA_ENCRYPTION_KEY` is lost, the stored
   integration secrets and two-factor seeds cannot be decrypted.
@@ -132,6 +132,20 @@ of these. What does work on Vercel is the static website (admin console, restaur
   - On the API side set `CORS_ORIGINS` and `WEB_URL` to the Vercel address (or your custom domain), `PUBLIC_URL` to the API's own https URL, and
     point the Stripe webhook at the API, not at Vercel.
 - Vercel's free **Hobby** plan is for non-commercial use only; a live marketplace needs **Pro**.
+
+## API documentation (Swagger) in production
+
+The interactive API docs (`/docs`) and the OpenAPI file (`/docs-json`) are **off** in production. To read them safely, switch them on and put a
+password in front of them at the proxy:
+
+1. Add `SWAGGER_ENABLED=true` to `backend/.env.production` and recreate the API: `docker compose --env-file deploy/.env up -d --force-recreate api`.
+2. Create a password hash: `docker compose --env-file deploy/.env exec proxy caddy hash-password --plaintext "a-long-random-password"`.
+3. Copy `deploy/caddy.d/docs-auth.caddy.example` to `deploy/caddy.d/docs-auth.caddy` and paste the hash in. That file is git-ignored, so the hash
+   never reaches GitHub. (`deploy/Caddyfile` imports every `deploy/caddy.d/*.caddy` file; use more of them for other private proxy settings.)
+4. Reload the proxy: `docker compose --env-file deploy/.env exec proxy caddy reload --config /etc/caddy/Caddyfile`.
+
+`/docs` and `/docs-json` then ask for the user name `apidocs` and your password; nothing else changes. To call protected endpoints from the Swagger page,
+sign in with `POST /api/v1/auth/login` (and `/auth/2fa/verify`) and paste the access token into **Authorize**.
 
 ## What is not covered here
 

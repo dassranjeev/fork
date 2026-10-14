@@ -1,4 +1,4 @@
-# FORKSY - single-host production stack.
+# FORKY - single-host production stack.
 #   cp deploy/.env.example deploy/.env      (edit every value)
 #   cp backend/.env.production.example backend/.env.production   (edit every value)
 #   docker compose --env-file deploy/.env up -d --build      (db -> migrate (schema) -> api -> web)
@@ -8,27 +8,27 @@
 # Settings shared by the API and the one-shot migrate service (same image, same environment).
 x-api-base: &api-base
   build: ./backend
-  image: forksy-api:latest
+  image: forky-api:latest
   env_file: backend/.env.production
   environment:
     DB_HOST: db
     DB_PORT: 5432
-    DB_USER: ${DB_USER:-forksy}
+    DB_USER: ${DB_USER:-forky}
     DB_PASSWORD: ${DB_PASSWORD}
-    DB_NAME: ${DB_NAME:-forksy}
+    DB_NAME: ${DB_NAME:-forky}
 
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER:-forksy}
+      POSTGRES_USER: ${DB_USER:-forky}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in deploy/.env}
-      POSTGRES_DB: ${DB_NAME:-forksy}
+      POSTGRES_DB: ${DB_NAME:-forky}
     volumes:
       - dbdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-forksy} -d ${DB_NAME:-forksy}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-forky} -d ${DB_NAME:-forky}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -83,6 +83,7 @@ services:
       API_DOMAIN: ${API_DOMAIN}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/caddy.d:/etc/caddy/caddy.d:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

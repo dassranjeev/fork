@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * FORKSY payments end-to-end test: REAL HTTP against a running API that is wired to the FAKE Stripe / Mapbox servers.
+ * FORKY payments end-to-end test: REAL HTTP against a running API that is wired to the FAKE Stripe / Mapbox servers.
  *
  *   1.  node backend/test/fakes/fake-stripe.mjs      (port 4242; set FAKE_WEBHOOK_URL + FAKE_WEBHOOK_SECRET so it can call the API's webhook)
  *   2.  node backend/test/fakes/fake-mapbox.mjs      (port 4243)
@@ -9,9 +9,9 @@
  *       MAPBOX_ACCESS_TOKEN=pk.fake.fake  on its own port and database (seeded with the demo data)
  *   4.  node backend/test/payments-e2e.mjs [API_BASE]      (default http://localhost:4100/api/v1)
  *
- * What it proves is the FORKSY side of the Stripe / Mapbox contract. It does NOT prove that the real Stripe accepts our calls: that
+ * What it proves is the FORKY side of the Stripe / Mapbox contract. It does NOT prove that the real Stripe accepts our calls: that
  * needs the owner's TEST keys (docs/payments.md, "Going live").
- * Needs: demo seed accounts, Postgres reachable (DB_* env, default forksy_pay) to age intents and read records.
+ * Needs: demo seed accounts, Postgres reachable (DB_* env, default forky_pay) to age intents and read records.
  */
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
@@ -59,7 +59,7 @@ const stripeApi = (method, path, form = {}) => {
 const money = (n) => Math.round(Number(n) * 100) / 100;
 const cents = (n) => Math.round(Number(n) * 100);
 
-const db = new Client({ host: process.env.DB_HOST || 'localhost', port: +(process.env.DB_PORT || 5432), user: process.env.DB_USER || 'postgres', password: process.env.DB_PASSWORD || 'postgres', database: process.env.DB_NAME || 'forksy_pay' });
+const db = new Client({ host: process.env.DB_HOST || 'localhost', port: +(process.env.DB_PORT || 5432), user: process.env.DB_USER || 'postgres', password: process.env.DB_PASSWORD || 'postgres', database: process.env.DB_NAME || 'forky_pay' });
 const q = async (sql, params) => (await db.query(sql, params)).rows;
 
 async function login(email, password, app) {
@@ -125,16 +125,16 @@ async function main() {
   await q(`UPDATE customer_profiles SET "stripeCustomerId" = NULL`);
   await q(`UPDATE driver_profiles SET "stripeAccountId" = NULL, "stripeAccountStatus" = 'NOT_STARTED', "stripeAccountInfo" = NULL`);
   await q(`UPDATE merchants SET "stripeAccountId" = NULL, "stripeAccountStatus" = 'NOT_STARTED', "stripeAccountInfo" = NULL`);
-  S.admin = (await login('admin@forksy.ca', 'Admin@12345')).accessToken;
+  S.admin = (await login('admin@forky.ca', 'Admin@12345')).accessToken;
   // no keys saved by earlier runs / browser tests: the environment keys apply
   await api('PUT', '/admin/integrations/stripe', S.admin, { secretKey: '', publishableKey: '', webhookSecret: '', connectEnabled: true });
   await api('PUT', '/admin/integrations/mapbox', S.admin, { accessToken: '', publicToken: '' });
-  S.c1 = (await login('customer1@demo.forksy.ca', PW, 'customer')).accessToken;
-  S.c2 = (await login('customer2@demo.forksy.ca', PW, 'customer')).accessToken;
-  const d6 = await login('driver6@demo.forksy.ca', PW, 'driver'); S.d6 = d6.accessToken; S.d6id = d6.user.driverId;
-  const d21 = await login('driver21@demo.forksy.ca', PW, 'driver'); S.d21 = d21.accessToken; S.d21id = d21.user.driverId;
+  S.c1 = (await login('customer1@demo.forky.ca', PW, 'customer')).accessToken;
+  S.c2 = (await login('customer2@demo.forky.ca', PW, 'customer')).accessToken;
+  const d6 = await login('driver6@demo.forky.ca', PW, 'driver'); S.d6 = d6.accessToken; S.d6id = d6.user.driverId;
+  const d21 = await login('driver21@demo.forky.ca', PW, 'driver'); S.d21 = d21.accessToken; S.d21id = d21.user.driverId;
   const o1 = await login('owner1@demo-restaurant.ca', PW, 'restaurant'); S.owner1 = o1.accessToken;
-  S.fin = (await login('finance@forksy.ca', PW)).accessToken;
+  S.fin = (await login('finance@forky.ca', PW)).accessToken;
   check('logged in as admin / customers / drivers / owner / finance staff', S.admin && S.c1 && S.c2 && S.d6 && S.owner1 && S.fin);
   const grace = (await api('GET', '/admin/settings?group=orders', S.admin)).j.data.find((s) => s.key === 'orders.customerCancelGraceSeconds');
   cleanup.settings.grace = grace.value;
@@ -296,7 +296,7 @@ async function main() {
   let st = await fake('/_fake/state');
   const refs = Object.values(st.refunds).filter((x) => x.payment_intent === S.orderC.paymentIntentId);
   check('Stripe refund created against the PaymentIntent for the right amount', refs.length === 1 && refs[0].amount === 450, refs);
-  check('refund used an idempotency key tied to the FORKSY refund id', st.idemKeys.some((k) => k === `refund-${r.j.id}`), st.idemKeys.filter((k) => k.startsWith('refund')));
+  check('refund used an idempotency key tied to the FORKY refund id', st.idemKeys.some((k) => k === `refund-${r.j.id}`), st.idemKeys.filter((k) => k.startsWith('refund')));
   const refPay = await q(`SELECT amount, "externalId" FROM payments WHERE "orderId" = $1 AND kind = 'REFUND'`, [S.orderC.id]);
   check('REFUND payment row with the re_ id', refPay.length === 1 && /^re_/.test(refPay[0].externalId), refPay);
   r = await api('POST', `/admin/orders/${S.orderC.id}/refund`, S.admin, { amount: 9999, chargedTo: 'PLATFORM', reasonCode: 'OTHER' });
@@ -518,7 +518,7 @@ async function reconcileTests() {
   const r = await api('POST', `/admin/finance/batches/${b.id}/reconcile`, S.admin);
   const rec = r.j?.reconciliation;
   check('reconcile uses the real Stripe balance transactions (source stripe)', r.s < 300 && rec?.source === 'stripe', r.text);
-  check('FORKSY records (captures, refunds, post-delivery tips, disputes, top-ups, gift cards) equal Stripe numbers: gap 0', rec && Math.abs(rec.gap) < 0.011 && rec.captured > 50, rec);
+  check('FORKY records (captures, refunds, post-delivery tips, disputes, top-ups, gift cards) equal Stripe numbers: gap 0', rec && Math.abs(rec.gap) < 0.011 && rec.captured > 50, rec);
 }
 
 async function connectTests() {

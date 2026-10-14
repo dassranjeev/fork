@@ -249,7 +249,7 @@ export interface BrainHooks {
 }
 
 export interface BrainContext {
-  /** central bot only: FAQs about FORKSY itself and the configured starter chips (Admin > Assistant > Central bot) */
+  /** central bot only: FAQs about FORKY itself and the configured starter chips (Admin > Assistant > Central bot) */
   centralFaqs?: { q: string; a: string }[];
   starterChips?: BotChip[];
   sessionId?: string | null;

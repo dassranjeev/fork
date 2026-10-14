@@ -17,14 +17,14 @@ export default function PayoutReturn() {
         <Ri name={refresh ? "refresh-line" : "checkbox-circle-line"} className="sf-bigicon" />
         <h1 className="sf-h2 mt-2">{refresh ? "That link has expired" : "Thanks, your payout account is being checked"}</h1>
         {refresh ? (
-          <p className="sf-muted">The secure setup link can only be used once and for a short time. Go back to the FORKSY {who === "driver" ? "driver app" : "restaurant portal"} and tap <b>Continue payout setup</b> to get a new one.</p>
+          <p className="sf-muted">The secure setup link can only be used once and for a short time. Go back to the FORKY {who === "driver" ? "driver app" : "restaurant portal"} and tap <b>Continue payout setup</b> to get a new one.</p>
         ) : (
           <>
             <p className="sf-muted">Stripe is verifying your details. This usually takes a few minutes; we update your account automatically and start sending your payouts once it is ready.</p>
-            <p className="sf-muted">You can close this page and return to the FORKSY {who === "driver" ? "driver app" : "restaurant portal"}. If the app does not open by itself, open it manually: your payout account status refreshes there.</p>
+            <p className="sf-muted">You can close this page and return to the FORKY {who === "driver" ? "driver app" : "restaurant portal"}. If the app does not open by itself, open it manually: your payout account status refreshes there.</p>
           </>
         )}
-        <Link to="/order" className="sf-btn sf-btn-light">Go to FORKSY</Link>
+        <Link to="/order" className="sf-btn sf-btn-light">Go to FORKY</Link>
       </div>
     </div>
   );

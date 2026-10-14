@@ -19,10 +19,10 @@ export function support() {
   if (!window.isSecureContext) return { ok: false, reason: "insecure", message: "Notifications need a secure (https) connection." };
   // iPhone / iPad Safari only supports web push for sites added to the Home Screen
   if (isIOS() && !isStandalone() && !("PushManager" in window)) {
-    return { ok: false, reason: "ios-install", message: "On iPhone and iPad, add FORKSY to your Home Screen (Share > Add to Home Screen) and open it from there to turn on notifications." };
+    return { ok: false, reason: "ios-install", message: "On iPhone and iPad, add FORKY to your Home Screen (Share > Add to Home Screen) and open it from there to turn on notifications." };
   }
   if (!("serviceWorker" in navigator)) return { ok: false, reason: "no-service-worker", message: "This browser does not support background notifications." };
-  if (!("PushManager" in window)) return { ok: false, reason: isIOS() ? "ios-install" : "no-push", message: isIOS() ? "On iPhone and iPad, add FORKSY to your Home Screen (Share > Add to Home Screen) and open it from there to turn on notifications." : "This browser does not support push notifications." };
+  if (!("PushManager" in window)) return { ok: false, reason: isIOS() ? "ios-install" : "no-push", message: isIOS() ? "On iPhone and iPad, add FORKY to your Home Screen (Share > Add to Home Screen) and open it from there to turn on notifications." : "This browser does not support push notifications." };
   if (!("Notification" in window)) return { ok: false, reason: "no-notification", message: "This browser does not support notifications." };
   return { ok: true, reason: "ok", message: "" };
 }

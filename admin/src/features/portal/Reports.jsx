@@ -194,7 +194,7 @@ function PromotionsReport({ range }) {
           <div className="row gy-3 mb-24">
             <div className="col-md-4"><StatCard label="Platform promo redemptions" value={num(d.platformImpact.redemptions)} icon="solar:ticket-outline" tone="primary" /></div>
             <div className="col-md-4"><StatCard label="Sales with platform promos" value={money(d.platformImpact.gmv)} icon="solar:wallet-money-outline" tone="success" /></div>
-            <div className="col-md-4"><StatCard label="Discount cost (FORKSY funded)" value={money(d.platformImpact.discountCost)} icon="solar:tag-price-outline" tone="info" /></div>
+            <div className="col-md-4"><StatCard label="Discount cost (FORKY funded)" value={money(d.platformImpact.discountCost)} icon="solar:tag-price-outline" tone="info" /></div>
           </div>
           <Card title="Your promotions" noPadding>
             <div className="table-responsive">

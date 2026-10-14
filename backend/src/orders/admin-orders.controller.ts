@@ -27,7 +27,7 @@ class ForceStatusDto {
   @IsEnum(OrderStatus) status: OrderStatus;
   @IsOptional() @IsString() @MaxLength(500) reason?: string;
 }
-/** Who at the restaurant agreed (phone / chat / email / in person) when FORKSY cancels an order the restaurant already has. */
+/** Who at the restaurant agreed (phone / chat / email / in person) when FORKY cancels an order the restaurant already has. */
 class RestaurantApprovalDto {
   @IsString() @MinLength(2) @MaxLength(80) contactName: string;
   @IsIn(['PHONE', 'CHAT', 'EMAIL', 'IN_PERSON']) channel: string;
@@ -157,7 +157,7 @@ export class AdminOrdersController {
     return order;
   }
 
-  /** Waive the driver wait-time charge (e.g. after a restaurant dispute): the restaurant is made whole, FORKSY absorbs it, the driver keeps the pay. */
+  /** Waive the driver wait-time charge (e.g. after a restaurant dispute): the restaurant is made whole, FORKY absorbs it, the driver keeps the pay. */
   @Post(':id/wait-fee/waive')
   @Permission(Module.ORDERS, Action.APPROVE)
   async waiveWaitFee(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser, @Body() dto: CancelRequestDto) {

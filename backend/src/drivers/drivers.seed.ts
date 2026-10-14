@@ -49,7 +49,7 @@ export async function seedDrivers(ds: DataSource, opts: SeedOptions): Promise<vo
   for (let i = 0; i < PLANS.length; i++) {
     const n = i + 1;
     const p = PLANS[i];
-    const email = `driver${n}@demo.forksy.ca`;
+    const email = `driver${n}@demo.forky.ca`;
     if (await users.findOne({ where: { email } })) continue;
     const phone = `+1416555${String(100 + n).padStart(4, '0')}`;
     const user = await users.save(
@@ -153,7 +153,7 @@ export async function seedDriversExtra(ds: DataSource, opts: SeedOptions): Promi
 
   for (const [i, p] of EXTRA_PLANS.entries()) {
     const n = PLANS.length + 1 + i; // 15..28
-    const email = `driver${n}@demo.forksy.ca`;
+    const email = `driver${n}@demo.forky.ca`;
     if (await users.findOne({ where: { email } })) continue;
     const zone = zoneByName.get(p.zone);
     if (!zone) {

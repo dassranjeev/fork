@@ -1,4 +1,4 @@
-/* FORKSY service worker: one worker for every web surface of this origin (Admin Console, Restaurant Portal, customer website at
+/* FORKY service worker: one worker for every web surface of this origin (Admin Console, Restaurant Portal, customer website at
  * /order, driver demo). It only handles push; it does not cache anything and has no fetch handler.
  *   push                     show the notification (collapsed by tag), unless a page of the same surface is visible AND focused
  *                            (that page shows its own toast / alarm: never a double alert)
@@ -36,7 +36,7 @@ function parse(event) {
     return event.data.json();
   } catch (e) {
     try {
-      return { title: "FORKSY", body: event.data.text() };
+      return { title: "FORKY", body: event.data.text() };
     } catch (e2) {
       return {};
     }
@@ -57,7 +57,7 @@ async function handlePush(p) {
   // a page of this surface is open, visible and focused: it already shows the toast / alarm itself
   const live = wins.some((c) => c.visibilityState === "visible" && c.focused && surfaceOf(new URL(c.url).pathname) === surface);
   if (live) return "page-focused";
-  const title = String(p.title || "FORKSY").slice(0, 120);
+  const title = String(p.title || "FORKY").slice(0, 120);
   await self.registration.showNotification(title, {
     body: String(p.body || "").slice(0, 300),
     tag: p.tag || undefined,

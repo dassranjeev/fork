@@ -279,7 +279,7 @@ export class AdminCustomersService {
   private async anonymise(userId: string) {
     const user = await this.ds.getRepository(User).findOne({ where: { id: userId } });
     if (!user) return;
-    const anonEmail = `deleted+${userId}@forksy.invalid`;
+    const anonEmail = `deleted+${userId}@forky.invalid`;
     await this.ds.transaction(async (em) => {
       await em.update(
         User,

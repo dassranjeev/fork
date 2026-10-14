@@ -1,4 +1,4 @@
-/* FORKSY notifications for the static driver demo page (plain browser JS, no modules, no inline scripts: the page CSP is strict).
+/* FORKY notifications for the static driver demo page (plain browser JS, no modules, no inline scripts: the page CSP is strict).
  * A small port of admin/src/lib/notify (push.js, sound.js, alerts.js, store.js, sw-register.js) for a page without a bundler.
  *
  *   FkNotify.init({ api: () => 'http://localhost:4000/api/v1', token: () => accessToken, onOfferAccepted: fn, onTripChange: fn })
@@ -46,7 +46,7 @@
   var ua = navigator.userAgent || '';
   var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   function isStandalone() { try { return !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true; } catch (e) { return false; } }
-  var IOS_MSG = 'On iPhone and iPad, add FORKSY to your Home Screen (Share > Add to Home Screen) and open it from there to turn on notifications.';
+  var IOS_MSG = 'On iPhone and iPad, add FORKY to your Home Screen (Share > Add to Home Screen) and open it from there to turn on notifications.';
   function support() {
     if (!window.isSecureContext) return { ok: false, reason: 'insecure', message: 'Notifications need a secure (https) connection.' };
     if (isIOS && !isStandalone() && !('PushManager' in window)) return { ok: false, reason: 'ios-install', message: IOS_MSG };
@@ -131,7 +131,7 @@
     if (!config.enabled || !config.publicKey) config = await getConfig(true);
     perm = await ask;
     if (perm !== 'granted') throw Object.assign(new Error(perm === 'denied' ? 'Notifications are blocked for this site. Allow them in the browser\'s site settings, then try again.' : 'Notifications were not allowed.'), { code: 'denied' });
-    if (!config.enabled || !config.publicKey) throw Object.assign(new Error('Push notifications are switched off by FORKSY right now.'), { code: 'disabled' });
+    if (!config.enabled || !config.publicKey) throw Object.assign(new Error('Push notifications are switched off by FORKY right now.'), { code: 'disabled' });
     await registerSW();
     var sub = await ensureSub(config);
     await registerOnServer(sub);
@@ -189,7 +189,7 @@
     } else if (config.failed) {
       msg.textContent = 'Could not reach the server to check notifications.';
     } else if (!config.enabled) {
-      msg.textContent = 'Push notifications are switched off by FORKSY right now.';
+      msg.textContent = 'Push notifications are switched off by FORKY right now.';
     } else {
       msg.textContent = 'Get new delivery offers even when this tab is in the background.';
       on.classList.remove('hide');

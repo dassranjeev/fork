@@ -37,7 +37,7 @@ const env = (k, d) => process.env[k] ?? d;
 const BASE = env("BASE_URL", "http://localhost:3000").replace(/\/$/, "");
 const API = env("API_URL", "http://localhost:4000/api/v1").replace(/\/$/, "");
 const ACCOUNTS = [
-  { name: "admin", email: env("ADMIN_EMAIL", "admin@forksy.ca"), password: env("ADMIN_PASSWORD", "Admin@12345"), start: "/", extra: ["/inbox", "/notification-settings"] },
+  { name: "admin", email: env("ADMIN_EMAIL", "admin@forky.ca"), password: env("ADMIN_PASSWORD", "Admin@12345"), start: "/", extra: ["/inbox", "/notification-settings"] },
   { name: "owner", email: env("OWNER_EMAIL", "owner1@demo-restaurant.ca"), password: env("OWNER_PASSWORD", "Demo@12345"), start: "/portal", extra: ["/portal/notifications", "/portal/notification-settings"] },
 ];
 const MAX_DETAIL = Number(env("MAX_DETAIL", "2"));
@@ -115,8 +115,8 @@ async function newContext(browser, session, { csp, store = "admin" }) {
   } else {
     await ctx.addInitScript(([a, r]) => {
       try {
-        localStorage.setItem("forksy.access", a);
-        localStorage.setItem("forksy.refresh", r);
+        localStorage.setItem("forky.access", a);
+        localStorage.setItem("forky.refresh", r);
       } catch {}
     }, [session.accessToken, session.refreshToken]);
   }
@@ -467,7 +467,7 @@ async function cspPolicyCheck() {
   if (/unsafe-eval|unsafe-inline/.test((dir["script-src"] || []).join(" "))) fail("script-src must not allow unsafe-inline / unsafe-eval");
   if ((dir["default-src"] || []).join(" ") !== "'self'") fail("default-src must stay 'self'");
   if ((dir["object-src"] || []).join(" ") !== "'none'") fail("object-src must stay 'none'");
-  const conn = (dir["connect-src"] || []).filter((s) => /^https?:\/\//.test(s) && !/localhost|stripe\.(com|network)$/.test(s) && !/forksy\.ca$/.test(s));
+  const conn = (dir["connect-src"] || []).filter((s) => /^https?:\/\//.test(s) && !/localhost|stripe\.(com|network)$/.test(s) && !/forky\.ca$/.test(s));
   if (conn.length) fail("connect-src has unexpected third-party origins: " + conn.join(" "));
   else pass("connect-src: only the API, websocket and Stripe origins");
 }
@@ -488,7 +488,7 @@ try {
   await cspPolicyCheck();
   const sessions = {};
   for (const a of ACCOUNTS) sessions[a.name] = await login(a);
-  if (!env("NO_STOREFRONT", "")) sessions.customer = await login({ name: "customer", email: env("CUSTOMER_EMAIL", "customer1@demo.forksy.ca"), password: env("CUSTOMER_PASSWORD", "Demo@12345") });
+  if (!env("NO_STOREFRONT", "")) sessions.customer = await login({ name: "customer", email: env("CUSTOMER_EMAIL", "customer1@demo.forky.ca"), password: env("CUSTOMER_PASSWORD", "Demo@12345") });
   const modes = env("CSP_ONLY") ? ["csp"] : env("NOCSP_ONLY") ? ["nocsp"] : ["nocsp", "csp"];
   for (const mode of modes) {
     const only = env("STOREFRONT_ONLY", "") ? "storefront" : env("CHAT_ONLY", "") ? "chat" : "";

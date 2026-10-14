@@ -173,10 +173,10 @@ function OrderCard({ order, reload, highlight }) {
   const answerCancel = async (approve) => {
     const r = await confirm({
       title: approve ? "Approve the cancellation?" : "Decline the cancellation?",
-      message: approve ? "FORKSY support can then cancel this order and the customer is refunded." : "The order stays active and you keep preparing it.",
+      message: approve ? "FORKY support can then cancel this order and the customer is refunded." : "The order stays active and you keep preparing it.",
       confirmText: approve ? "Approve" : "Decline",
       danger: approve,
-      prompt: { label: "Note for FORKSY (optional)", type: "text" },
+      prompt: { label: "Note for FORKY (optional)", type: "text" },
     });
     if (!r.confirmed) return;
     const res = await run("cancel-answer", () => api.post(`/restaurant/orders/${order.id}/cancel-request/respond`, { approve, note: r.value || undefined }), approve ? "Approved" : "Declined");
@@ -191,7 +191,7 @@ function OrderCard({ order, reload, highlight }) {
       <div className="card-body p-16">
         {cancelReq && (
           <div className="alert alert-warning radius-8 py-8 px-12 mb-12 text-sm" data-testid="cancel-request">
-            <div className="fw-semibold">FORKSY support asks to cancel this order</div>
+            <div className="fw-semibold">FORKY support asks to cancel this order</div>
             <div className="mb-8">{cancelReq.reason}</div>
             <div className="d-flex gap-2">
               <Button variant="danger" loading={isBusy("cancel-answer")} onClick={() => answerCancel(true)}>

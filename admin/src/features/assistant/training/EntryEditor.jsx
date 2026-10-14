@@ -33,7 +33,7 @@ export default function EntryEditor({ open, onClose, api, entry, preset, entries
     try {
       const res = teachFrom ? await api.post(`/unanswered/${teachFrom}/teach`, body) : entry ? await api.patch(`/entries/${entry.id}`, body) : await api.post("/entries", body);
       const issues = res.issues || [];
-      if (res.entry?.held) toast.warning("Saved, but FORKSY has to review this answer before the bot can use it.");
+      if (res.entry?.held) toast.warning("Saved, but FORKY has to review this answer before the bot can use it.");
       else toast.success("Answer saved to your draft. Publish it when you are ready.");
       if (issues.some((i) => i.severity === "warn")) setNotes(issues.filter((i) => i.severity === "warn"));
       onSaved?.(res.entry, issues);
@@ -99,7 +99,7 @@ export default function EntryEditor({ open, onClose, api, entry, preset, entries
       <ProblemList list={err.list} skip={shown} />
       {err.list.filter((i) => ["hold", "warn"].includes(i.severity)).length > 0 && (
         <div className="mb-12">
-          {err.list.some((i) => i.severity === "hold") && <Badge tone="warning">Held for FORKSY review</Badge>} {err.list.some((i) => i.code === "live_data") && <Badge tone="info">Live data is used instead</Badge>}
+          {err.list.some((i) => i.severity === "hold") && <Badge tone="warning">Held for FORKY review</Badge>} {err.list.some((i) => i.code === "live_data") && <Badge tone="info">Live data is used instead</Badge>}
         </div>
       )}
       {f.answer && (

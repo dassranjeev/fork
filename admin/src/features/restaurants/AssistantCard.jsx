@@ -13,12 +13,12 @@ export default function AssistantCard({ r, className = "mb-20" }) {
   const { data, loading, error, reload } = useFetch(`/admin/restaurants/${r.id}/assistant`);
   const canEdit = can("restaurants", "edit");
 
-  const status = !data ? null : !data.platformEnabled ? ["Platform off", "warning"] : data.forcedOff ? ["Off (by FORKSY)", "danger"] : !data.config.enabled ? ["Off (by restaurant)", "neutral"] : ["Active", "success"];
+  const status = !data ? null : !data.platformEnabled ? ["Platform off", "warning"] : data.forcedOff ? ["Off (by FORKY)", "danger"] : !data.config.enabled ? ["Off (by restaurant)", "neutral"] : ["Active", "success"];
 
   const toggle = async (forcedOff) => {
     const res = await confirm({
       title: forcedOff ? `Turn off the assistant for ${r.name}?` : `Allow the assistant for ${r.name} again?`,
-      message: forcedOff ? "The bot stops answering on the restaurant's website and on FORKSY at once, and the restaurant cannot switch it back on." : "The restaurant can use the assistant again (it follows the restaurant's own on/off setting).",
+      message: forcedOff ? "The bot stops answering on the restaurant's website and on FORKY at once, and the restaurant cannot switch it back on." : "The restaurant can use the assistant again (it follows the restaurant's own on/off setting).",
       confirmText: forcedOff ? "Turn off" : "Allow again",
       danger: forcedOff,
     });
@@ -40,7 +40,7 @@ export default function AssistantCard({ r, className = "mb-20" }) {
             <div className="text-secondary-light text-sm mt-8">
               Last 7 days: {s.chats7d ?? 0} chats, {s.carts7d ?? 0} carts, {s.handoffs7d ?? 0} sent to checkout, {s.imported7d ?? 0} imported
             </div>
-            <div className="text-secondary-light text-sm">{data.config.allowedOrigins.length ? `Allowed websites: ${data.config.allowedOrigins.join(", ")}` : "No website is allowed yet (works on FORKSY only)."}</div>
+            <div className="text-secondary-light text-sm">{data.config.allowedOrigins.length ? `Allowed websites: ${data.config.allowedOrigins.join(", ")}` : "No website is allowed yet (works on FORKY only)."}</div>
           </div>
           {canEdit ? (
             <Switch label="Force off (admin)" hint="Overrides the restaurant's own switch." className="mb-0" checked={!!data.forcedOff} disabled={!!busy} onChange={toggle} />

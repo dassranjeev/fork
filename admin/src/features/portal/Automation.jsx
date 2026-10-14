@@ -54,7 +54,7 @@ export default function OrderAutomationCard({ api, path, canEdit = true, classNa
                 value={toSel(data.overrides?.[it.key])}
                 onChange={(v) => change(it.key, v)}
                 options={[
-                  { value: "default", label: `Follow FORKSY default (${data.platformDefaults?.[it.key] ? "on" : "off"})` },
+                  { value: "default", label: `Follow FORKY default (${data.platformDefaults?.[it.key] ? "on" : "off"})` },
                   { value: "on", label: "Always on" },
                   { value: "off", label: "Always off (I do it by hand)" },
                 ]}

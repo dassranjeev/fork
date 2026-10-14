@@ -1,13 +1,13 @@
-# FORKSY ordering assistant ("the bot")
+# FORKY ordering assistant ("the bot")
 
-A private ordering assistant for every restaurant, plus one central bot for the FORKSY website.
+A private ordering assistant for every restaurant, plus one central bot for the FORKY website.
 
-* **Restaurant bot** - answers questions about THAT restaurant only (menu, prices, dietary tags and allergens as recorded, hours, delivery / pickup, minimum order, prep time, the restaurant's own FAQs), makes suggestions, builds a cart ("add 2 margherita and a pop", "remove the pop", "no onions", "allergy: peanuts") and hands the guest over to the FORKSY website to pay.
-* **Central bot** - on the main FORKSY website: finds restaurants ("pizza near me", "vegetarian, open now", "halal delivery", by name or dish); "order from X" scopes the session to that restaurant and continues as above.
-* **Embed** - every restaurant gets a one-line embed code for its own website. The visitor chats as a guest; on **Checkout** they are redirected to FORKSY with the same items (one-time hand-off token), log in or register there, and the items are placed in their cart.
+* **Restaurant bot** - answers questions about THAT restaurant only (menu, prices, dietary tags and allergens as recorded, hours, delivery / pickup, minimum order, prep time, the restaurant's own FAQs), makes suggestions, builds a cart ("add 2 margherita and a pop", "remove the pop", "no onions", "allergy: peanuts") and hands the guest over to the FORKY website to pay.
+* **Central bot** - on the main FORKY website: finds restaurants ("pizza near me", "vegetarian, open now", "halal delivery", by name or dish); "order from X" scopes the session to that restaurant and continues as above.
+* **Embed** - every restaurant gets a one-line embed code for its own website. The visitor chats as a guest; on **Checkout** they are redirected to FORKY with the same items (one-time hand-off token), log in or register there, and the items are placed in their cart.
 * **Logged-in customers** (the main website sends the customer Bearer token) - every cart change is mirrored into the customer's real server cart, so checkout continues with no hand-off.
 
-**Training**: restaurants (and FORKSY, for the website bot) teach their bot custom answers, nicknames and documents with the in-house [bot training tool](assistant-training.md) (retrieval, still no LLM).
+**Training**: restaurants (and FORKY, for the website bot) teach their bot custom answers, nicknames and documents with the in-house [bot training tool](assistant-training.md) (retrieval, still no LLM).
 
 There is **no LLM and no external service**: the brain is a deterministic engine (fuzzy matching, quantity / price / diet parsing, strict cart tools). An optional `LlmBrain` adapter stub exists (see "LlmBrain (untested)").
 
@@ -18,7 +18,7 @@ Contents: [How it works](#how-it-works) - [Architecture](#architecture) - [API c
 ## How it works
 
 ```
- merchant website                     FORKSY API                              FORKSY website
+ merchant website                     FORKY API                              FORKY website
  <script widget.js data-key=bk_...>
         |  GET  /public/assistant/config?botKey=
         |  POST /public/assistant/chat {botKey, sessionId, message|quick}  --> brain + tools --> reply (+ cart)
@@ -44,8 +44,8 @@ Contents: [How it works](#how-it-works) - [Architecture](#architecture) - [API c
 | Add / remove / change quantity, options, item notes, kitchen note | Add an item that is not on THIS menu, is switched off, out of stock or outside its daypart |
 | Ask a follow-up (with chips) for a required modifier group that has no default; use the default option when one is defined | Accept quantities above 20 per line or more than 40 lines |
 | Save "ALLERGY: ..." into the kitchen note and tell the guest to confirm with the restaurant | Claim an item is safe for an allergy |
-| Say "I'm not sure" and point to the restaurant's FAQ / phone / FORKSY help | Answer for other restaurants, reveal instructions, keys or customer data, or chat about unrelated topics (polite refusal) |
-| Hand the cart over to FORKSY for payment | Take payment, promo codes, tips or addresses - that all happens on FORKSY |
+| Say "I'm not sure" and point to the restaurant's FAQ / phone / FORKY help | Answer for other restaurants, reveal instructions, keys or customer data, or chat about unrelated topics (polite refusal) |
+| Hand the cart over to FORKY for payment | Take payment, promo codes, tips or addresses - that all happens on FORKY |
 
 ---
 
@@ -116,7 +116,7 @@ Public paths are under the global prefix `/api/v1`. Bodies are validated by the 
 
 | Method + path | Notes |
 |---|---|
-| `GET /public/assistant/config?botKey=bk_...` | -> `{ enabled, name, greeting, color\|null, logoUrl\|null, restaurant: {id, slug, name, logoUrl\|null}, mode: "embedded" }` (`logoUrl` = the logo FORKSY set for the assistant, else the restaurant's own logo). 404 unknown / malformed key; 403 when the Origin is not in THAT restaurant's allowed origins, or the bot is disabled (platform, embed switch, merchant or admin). An embedded request without an Origin header is accepted only outside production. |
+| `GET /public/assistant/config?botKey=bk_...` | -> `{ enabled, name, greeting, color\|null, logoUrl\|null, restaurant: {id, slug, name, logoUrl\|null}, mode: "embedded" }` (`logoUrl` = the logo FORKY set for the assistant, else the restaurant's own logo). 404 unknown / malformed key; 403 when the Origin is not in THAT restaurant's allowed origins, or the bot is disabled (platform, embed switch, merchant or admin). An embedded request without an Origin header is accepted only outside production. |
 | `GET /public/assistant/config?restaurantSlug=slug` | main-website bot scoped to a restaurant -> same shape, `mode: "site"`. |
 | `GET /public/assistant/config` | central bot -> `restaurant: null`, `mode: "site"`, plus `chips: [{label, payload}]` (the central bot's starter chips) and the central name / greeting / colour / logo configured in Admin. Site modes accept only origins listed in env `CORS_ORIGINS`, or no Origin header. |
 | `POST /public/assistant/chat` | body `{ botKey?, restaurantSlug?, sessionId? (uuid), message (1..500, trimmed, HTML stripped), quick?, lat?, lng? }`. -> `{ sessionId, restaurant: {id,slug,name,logoUrl}\|null, reply: { text, cards?[<=6], restaurants?[<=6], chips?[<=6] }, cart: { items: [{lineId, menuItemId, name, quantity, unitPrice, options:[{id,name,priceDelta}], notes?, lineTotal}], count, subtotalEstimate }, orderNote, canCheckout, loggedIn }`. Throttle 30/min per IP, 12/min per session (429 `SESSION_RATE_LIMIT`). 429 `SESSION_LIMIT` after `assistant.maxMessagesPerSession` messages. `canCheckout` = non-empty cart, restaurant takes orders, subtotal >= minimum order. `lat`/`lng` (optional, never stored) only sort the central bot's "near me". |
@@ -133,14 +133,14 @@ The token is claimed with one atomic `UPDATE ... WHERE hash = ? AND usedAt IS NU
 
 ### Who may change what (permission split)
 
-| What | FORKSY staff (Admin Console) | Restaurant (portal) |
+| What | FORKY staff (Admin Console) | Restaurant (portal) |
 |---|---|---|
-| Assistant name, greeting, accent colour, **logo**, enabled / forced-off | **edit** (`restaurants:edit`) | read-only preview ("Set by FORKSY. Contact support to change the look of your assistant.") |
+| Assistant name, greeting, accent colour, **logo**, enabled / forced-off | **edit** (`restaurants:edit`) | read-only preview ("Set by FORKY. Contact support to change the look of your assistant.") |
 | FAQs (question and answer) | edit | **edit** (OWNER, LOCATION_MANAGER) |
 | Allowed websites (origins) | edit | **edit** (OWNER, LOCATION_MANAGER) |
 | Embed code: view / copy | view | view / copy (all roles) |
 | Rotate the bot key | edit | **rotate** (OWNER, LOCATION_MANAGER) |
-| Central (FORKSY website) bot, platform switches | `settings:edit` | - |
+| Central (FORKY website) bot, platform switches | `settings:edit` | - |
 
 The split is enforced by the API, not only by the screens: `PATCH /restaurant/assistant` accepts ONLY `{ faqs, allowedOrigins }`; any other field (name, greeting, color, logoUrl, enabled, forcedOff, botKey ...) is rejected with 400 by the global whitelist and **nothing** is changed (the whole request is refused, including valid fields sent together with a forbidden one).
 
@@ -178,13 +178,13 @@ The split is enforced by the API, not only by the screens: `PATCH /restaurant/as
 
 | Key | Default | Meaning |
 |---|---|---|
-| `assistant.enabled` | `true` | master switch (FORKSY website bot and every restaurant bot) |
+| `assistant.enabled` | `true` | master switch (FORKY website bot and every restaurant bot) |
 | `assistant.embed.enabled` | `true` | allow bots on merchants' own websites |
 | `assistant.maxMessagesPerSession` | `200` | messages per chat session |
 | `assistant.sessionTtlHours` | `24` | inactivity after which a session (and its cart) expires |
 | `assistant.handoffTtlMinutes` | `30` | validity of the checkout hand-off link |
 
-Environment: `WEB_URL` (default `http://localhost:3000`, the FORKSY website; used in the hand-off URL), `PUBLIC_URL` (the API's public URL; used in the embed snippet), `CORS_ORIGINS` (FORKSY web origins allowed for the site modes), optional `ANTHROPIC_API_KEY` (LlmBrain stub).
+Environment: `WEB_URL` (default `http://localhost:3000`, the FORKY website; used in the hand-off URL), `PUBLIC_URL` (the API's public URL; used in the embed snippet), `CORS_ORIGINS` (FORKY web origins allowed for the site modes), optional `ANTHROPIC_API_KEY` (LlmBrain stub).
 
 ---
 
@@ -194,14 +194,14 @@ Visible to staff with `restaurants:view` or `settings:view` (super admin always)
 
 | Page | Path | Permission | What |
 |---|---|---|---|
-| Overview | `/assistant` | restaurants:view or settings:view | platform switches (`assistant.enabled`, `assistant.embed.enabled`, central bot on/off, session TTL, max messages per session, hand-off TTL) saved through the normal settings API (so the super-admin-only rule of that API still applies); platform-wide statistics for the last 7 and 30 days (chats, on merchant sites vs FORKSY site, messages, carts, hand-offs, imports); restaurant counts; an explainer |
-| Restaurant bots | `/assistant/restaurants` | restaurants:view (switch: restaurants:edit) | searchable, filterable, sortable, paginated table of ALL restaurants: bot name, active / off (restaurant) / off (FORKSY), number of allowed websites, FAQ count, chats 7d, checkouts 7d, last activity, inline force-off switch, Edit |
+| Overview | `/assistant` | restaurants:view or settings:view | platform switches (`assistant.enabled`, `assistant.embed.enabled`, central bot on/off, session TTL, max messages per session, hand-off TTL) saved through the normal settings API (so the super-admin-only rule of that API still applies); platform-wide statistics for the last 7 and 30 days (chats, on merchant sites vs FORKY site, messages, carts, hand-offs, imports); restaurant counts; an explainer |
+| Restaurant bots | `/assistant/restaurants` | restaurants:view (switch: restaurants:edit) | searchable, filterable, sortable, paginated table of ALL restaurants: bot name, active / off (restaurant) / off (FORKY), number of allowed websites, FAQ count, chats 7d, checkouts 7d, last activity, inline force-off switch, Edit |
 | Bot editor | `/assistant/restaurants/:id` | restaurants:view (edit: restaurants:edit) | everything for one bot: enabled, name, greeting, accent colour, **logo upload with preview**, FAQs, allowed websites, force-off, embed code (copy), rotate key, statistics, a **live preview** (opens `/assistant-demo.html?key=...`; the demo origin has to be in the allowed websites, the page offers to add it) |
-| Central bot | `/assistant/central` | settings:view (edit: settings:edit) | the main-website bot: name, greeting, accent colour, logo, enabled, FAQs about FORKSY itself (delivery areas, fees, how it works, support contact), starter chips |
+| Central bot | `/assistant/central` | settings:view (edit: settings:edit) | the main-website bot: name, greeting, accent colour, logo, enabled, FAQs about FORKY itself (delivery areas, fees, how it works, support contact), starter chips |
 | Training | `/assistant/training` | restaurants:view (approve / reject / release: restaurants:edit; approval switch: settings:edit) | platform stats, **approval queue** (approve / reject with note, see what changes), **held queue** (guardrail-held allergen / medical answers: release or remove) |
 | Training coverage | `/assistant/training/restaurants` | restaurants:view | every restaurant: live answers, version, unpublished changes, unanswered, answer rate (30 days), pending requests; row opens the restaurant's training area |
 | Restaurant training | `/assistant/training/restaurants/:id` | restaurants:view (edit: restaurants:edit) | the full training area (Overview, Knowledge, Nicknames & synonyms, Documents, Unanswered inbox, Test bench, Versions & publish) on behalf of the restaurant; publishes directly |
-| Central bot training | `/assistant/training/central` | settings:view (edit: settings:edit) | the same training area for the FORKSY website bot (synonyms, no menu nicknames) |
+| Central bot training | `/assistant/training/central` | settings:view (edit: settings:edit) | the same training area for the FORKY website bot (synonyms, no menu nicknames) |
 
 The restaurant detail page keeps a small status card with a **Manage assistant** link to the editor.
 
@@ -215,19 +215,19 @@ The restaurant detail page keeps a small status card with a **Manage assistant**
 
 ## Embedding on a merchant site
 
-1. Restaurant portal -> **Assistant**. (The look - name, greeting, colour, logo - is set by FORKSY and shown read-only.) Add the website(s) where the bot will appear under **Websites that may show the assistant** (for example `https://www.mybistro.ca` and `https://mybistro.ca`), save.
+1. Restaurant portal -> **Assistant**. (The look - name, greeting, colour, logo - is set by FORKY and shown read-only.) Add the website(s) where the bot will appear under **Websites that may show the assistant** (for example `https://www.mybistro.ca` and `https://mybistro.ca`), save.
 2. Copy the **embed code** and paste it before `</body>` on every page where the bot should appear:
 
 ```html
-<script src="https://api.forksy.ca/assistant/widget.js" data-key="bk_XXXXXXXXXXXXXXXXXXXXXXXX" async></script>
+<script src="https://api.forky.ca/assistant/widget.js" data-key="bk_XXXXXXXXXXXXXXXXXXXXXXXX" async></script>
 ```
 
-3. Optional attributes: `data-position="left"` (default right). For the FORKSY website itself: `data-mode="site"` (central bot) or `data-mode="site" data-restaurant="<slug>"` (scoped).
-4. `window.ForksyAssistant.open()` / `.close()` / `.version` open the chat from your own buttons.
+3. Optional attributes: `data-position="left"` (default right). For the FORKY website itself: `data-mode="site"` (central bot) or `data-mode="site" data-restaurant="<slug>"` (scoped).
+4. `window.ForkyAssistant.open()` / `.close()` / `.version` open the chat from your own buttons.
 5. Content-Security-Policy on your site: allow the API origin in `script-src` and `connect-src`. The widget styles itself through a constructable stylesheet (works without `style-src 'unsafe-inline'`; falls back to a `<style>` element in older browsers) and loads item photos from `https:` (`img-src`).
 6. **Rotate key** (portal) if a copy of the code is abused; paste the new snippet. The old key stops working at once.
 
-What guests see: a round button bottom-right; a panel with the greeting, quick-reply chips, item cards with an **Add** button, a cart drawer (+/- / remove / kitchen note / estimated subtotal - "final price is shown at checkout") and a **Checkout on FORKSY** button that navigates the whole window to FORKSY. It is keyboard accessible (focus trap, Esc closes, labelled controls, live log), full-screen on phones (< 480 px), follows `prefers-color-scheme` and uses the restaurant's accent colour. All server text is inserted with `textContent` (never `innerHTML`); images only from `http(s)` URLs. The session id is kept in `localStorage` (guarded; the widget works without it).
+What guests see: a round button bottom-right; a panel with the greeting, quick-reply chips, item cards with an **Add** button, a cart drawer (+/- / remove / kitchen note / estimated subtotal - "final price is shown at checkout") and a **Checkout on FORKY** button that navigates the whole window to FORKY. It is keyboard accessible (focus trap, Esc closes, labelled controls, live log), full-screen on phones (< 480 px), follows `prefers-color-scheme` and uses the restaurant's accent colour. All server text is inserted with `textContent` (never `innerHTML`); images only from `http(s)` URLs. The session id is kept in `localStorage` (guarded; the widget works without it).
 
 Local test: open `http://localhost:3000/assistant-demo.html?key=bk_...` (the page loads the widget from `http://localhost:4000`). Add `http://localhost:3000` to the restaurant's allowed websites first.
 
@@ -271,7 +271,7 @@ What the deterministic brain **cannot** do (by design, no language model):
 * It only answers from the data the restaurant entered: no ingredient-level knowledge, no nutrition beyond what is recorded, no recommendations based on taste. "Popular" means the restaurant's own *popular* flag; if none are flagged it shows one dish per section without claiming popularity.
 * Allergen / diet information is exactly as complete as the restaurant made it. The bot says so and never certifies safety.
 * Pairings are rule-based (drinks -> sides -> desserts by category / item name keywords).
-* It does not modify existing orders, track deliveries, issue refunds, apply promo codes, take tips or addresses (all on FORKSY), nor schedule orders - it explains that and points to FORKSY help.
+* It does not modify existing orders, track deliveries, issue refunds, apply promo codes, take tips or addresses (all on FORKY), nor schedule orders - it explains that and points to FORKY help.
 * Fuzzy matching can pick the wrong item for very short or very generic words; when several items match it asks instead of guessing, and a single weak match is confirmed ("Did you mean ...?").
 * Sessions are in the database but the per-session 12/min limiter and the knowledge caches are in memory: with several API instances each instance keeps its own counters / caches (the same limitation as the platform's other in-memory throttles - use a shared store in production).
 * The "near me" ranking needs the client to send `lat`/`lng`; the bot has no other way to know the location.
@@ -308,7 +308,7 @@ Additive, backward compatible changes relative to the original contract:
 * Chip payload grammar is extended: `add:<id>[:qty]`, `pick:<id>`, `chg:<lineId>:<optionId>`, `cat:<id>`, `inc|dec|remove:<lineId>`, `note:<text>`, `pair:<class>`, `find:<text>`, `faq[:n]`, `confirm`, `cancel`, `hours`, `delivery`, `help`, `cheapest`. Clients must treat payloads as opaque and send back exactly what they received.
 * Error shapes: `429` from chat carries `code: "SESSION_RATE_LIMIT"` or `"SESSION_LIMIT"` (the latter means: forget the session id and start a new chat).
 * `GET /restaurant/assistant` / admin view also return `embedEnabled`, `config.logoUrl`, `effectiveLogoUrl`.
-* **Bot training** ([assistant-training.md](assistant-training.md)): new endpoint families `/restaurant/assistant/training/*`, `/admin/assistant/training/*`; FAQs now live in the training store (the FAQ endpoints are unchanged and edit the same entries; they publish immediately, or create an approval request when `assistant.training.requireApproval` is on); public chat replies from taught answers add `feedback: true` and `entryId`; `GET /public/assistant/config` falls back to the **FORKSY icon** (`GET /assistant/forksy-icon.png`, public, cacheable) when there is neither an admin logo nor a restaurant logo.
+* **Bot training** ([assistant-training.md](assistant-training.md)): new endpoint families `/restaurant/assistant/training/*`, `/admin/assistant/training/*`; FAQs now live in the training store (the FAQ endpoints are unchanged and edit the same entries; they publish immediately, or create an approval request when `assistant.training.requireApproval` is on); public chat replies from taught answers add `feedback: true` and `entryId`; `GET /public/assistant/config` falls back to the **FORKY icon** (`GET /assistant/forky-icon.png`, public, cacheable) when there is neither an admin logo nor a restaurant logo.
 * **Permission split**: `PATCH /restaurant/assistant` now accepts only `{ faqs, allowedOrigins }` (name, greeting, color, logoUrl, enabled -> 400); the admin PATCH gained `logoUrl`.
 * `GET /public/assistant/config` returns `logoUrl` (assistant logo, else restaurant logo, else null); central mode also returns `chips`.
 * New admin endpoints under `/admin/assistant/*` (overview, restaurants, central, rotate-key).
@@ -318,8 +318,8 @@ Additive, backward compatible changes relative to the original contract:
 
 ## Decisions for the owner
 
-1. **Default on.** A restaurant's bot is enabled by default (only the central bot and the FORKSY site-scoped bot work until the merchant lists a website). Change by pre-seeding `meta.assistant.enabled = false` or flipping `assistant.enabled`.
-2. **Central bot may scope to a restaurant whose bot is merely disabled (enabled=false, set by FORKSY)** (it is then FORKSY's bot ordering from that restaurant); only the admin force-off removes a restaurant from the central directory.
+1. **Default on.** A restaurant's bot is enabled by default (only the central bot and the FORKY site-scoped bot work until the merchant lists a website). Change by pre-seeding `meta.assistant.enabled = false` or flipping `assistant.enabled`.
+2. **Central bot may scope to a restaurant whose bot is merely disabled (enabled=false, set by FORKY)** (it is then FORKY's bot ordering from that restaurant); only the admin force-off removes a restaurant from the central directory.
 3. **Session retention**: content is wiped at expiry (24 h), the empty row is kept 35 more days (30-day statistics).
 4. **Logged-in customers**: the real server cart wins for the scoped restaurant; adding from another restaurant replaces the customer's cart (the bot tells them). The kitchen note is returned in every chat response (`orderNote`) because the real cart has no note field - the website must pass it as `customerNotes`.
 5. **Production CORS / Origin**: embedded requests without an Origin header are refused in production; `http://localhost*` origins are refused in production.

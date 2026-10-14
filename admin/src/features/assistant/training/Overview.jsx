@@ -110,8 +110,8 @@ export default function Overview({ api, ov, canEdit, reload, goTo, teach }) {
               </Button>
             </div>
           )}
-          {ov.pendingRequest && <div className="alert alert-info radius-8 mb-0">Your publish request is waiting for FORKSY approval ({ov.pendingRequest.counts?.entries ?? 0} answers).</div>}
-          {ov.held > 0 && <div className="alert alert-danger radius-8 mb-0">{ov.held} item{ov.held === 1 ? " is" : "s are"} held for FORKSY review (for example a guarantee about allergens). The bot does not use them until FORKSY releases them.</div>}
+          {ov.pendingRequest && <div className="alert alert-info radius-8 mb-0">Your publish request is waiting for FORKY approval ({ov.pendingRequest.counts?.entries ?? 0} answers).</div>}
+          {ov.held > 0 && <div className="alert alert-danger radius-8 mb-0">{ov.held} item{ov.held === 1 ? " is" : "s are"} held for FORKY review (for example a guarantee about allergens). The bot does not use them until FORKY releases them.</div>}
         </div>
       )}
 

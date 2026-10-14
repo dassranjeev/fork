@@ -212,7 +212,7 @@ export class ChatAgentService {
       await this.tickets.tickets.update(t.id, { assignedToId: target.id });
       await this.tickets.sysNote(t.id, `Chat transferred from ${user.name} to ${target.name}${dto.reason ? `: ${dto.reason}` : ''}`);
       const fresh = await this.load(id);
-      const text = `You are now chatting with ${target.firstName} from FORKSY Support.`;
+      const text = `You are now chatting with ${target.firstName} from FORKY Support.`;
       const sys = await this.chat.msgs.save(this.chat.msgs.create({ ticketId: s.ticketId, senderType: 'SYSTEM', senderId: null, body: text, attachments: [], internal: false }));
       this.chat.toRequester(fresh, 'chat.transferred', { sessionId: s.id, agent: { firstName: target.firstName }, status: 'ACTIVE' });
       this.chat.toRequester(fresh, 'chat.message', { sessionId: s.id, message: { id: sys.id, senderType: 'SYSTEM', senderName: null, body: text, attachments: [], createdAt: sys.createdAt, readAt: null } });
@@ -243,7 +243,7 @@ export class ChatAgentService {
     if (s.status !== 'ACTIVE' && s.status !== 'WAITING') return this.detail(user, id);
     if (s.status === 'ACTIVE') this.assertCanAct(user, s);
     if (dto.reasonCode && !dto.chargedTo) throw new BadRequestException('chargedTo is required together with reasonCode');
-    await this.chat.finish(s, { by: 'AGENT', reason: 'AGENT_ENDED', message: dto.note ? `The agent ended the chat: ${dto.note}` : 'The agent ended the chat. Thanks for contacting FORKSY Support.' });
+    await this.chat.finish(s, { by: 'AGENT', reason: 'AGENT_ENDED', message: dto.note ? `The agent ended the chat: ${dto.note}` : 'The agent ended the chat. Thanks for contacting FORKY Support.' });
     if (dto.reasonCode && dto.chargedTo) {
       await this.tickets.resolve(s.ticketId, this.tickets.actorFromStaff(user), { reasonCode: dto.reasonCode, chargedTo: dto.chargedTo, resolution: dto.resolution });
     }

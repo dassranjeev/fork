@@ -1,4 +1,4 @@
-/* FORKSY customer website (storefront). Scoped under .sf so nothing leaks into the Admin Console / Restaurant Portal,
+/* FORKY customer website (storefront). Scoped under .sf so nothing leaks into the Admin Console / Restaurant Portal,
    and so the admin template's global styles (WowDash) do not leak in. Mobile first. Always light. */
 .sf {
   --sf-brand: #ff6917;

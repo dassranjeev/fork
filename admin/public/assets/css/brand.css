@@ -1,8 +1,8 @@
 /*
- * FORKSY brand
+ * FORKY brand
  * Logo orange sampled from the supplied logo: #ff6917.
  * Wordmark typeface: Chewy (Apache License 2.0, see /fonts/Chewy-LICENSE.txt), bundled locally so no external font service is used.
- * Use .forksy-wordmark for any live "FORKSY" text (headings, footers, emails rendered in the web apps). The logo images in /brand
+ * Use .forky-wordmark for any live "FORKY" text (headings, footers, emails rendered in the web apps). The logo images in /brand
  * already contain the wordmark.
  */
 @font-face {
@@ -14,21 +14,21 @@
 }
 
 :root {
-  --forksy-orange: #ff6917;
+  --forky-orange: #ff6917;
 }
 
-.forksy-wordmark {
+.forky-wordmark {
   font-family: "Chewy", "Segoe UI", system-ui, sans-serif;
   font-weight: 400;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: var(--forksy-orange);
+  color: var(--forky-orange);
   /* thickens the strokes to match the heavy, rounded logo lettering */
   -webkit-text-stroke: 0.045em currentColor;
   paint-order: stroke fill;
   stroke-linejoin: round;
 }
 
-.forksy-wordmark.is-white {
+.forky-wordmark.is-white {
   color: #fff;
 }

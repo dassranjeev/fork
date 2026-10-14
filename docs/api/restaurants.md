@@ -203,7 +203,7 @@ All order actions go through `OrdersService.transition` / `removeItem` / `setEta
 
 ## Portal - `POST /api/v1/restaurant/orders/:id/rate-customer` (OWNER, LOCATION_MANAGER, CASHIER)
 
-`?restaurantId=` + body `{rating 1-5, tags[], note?}` (same tags as the driver endpoint). The order must belong to the location, be DELIVERED/COLLECTED, within `ratings.partnerWindowDays` (3 days), once per order (409). Private feedback for FORKSY staff; the customer and their average are never returned. Policy: [../ratings.md](../ratings.md).
+`?restaurantId=` + body `{rating 1-5, tags[], note?}` (same tags as the driver endpoint). The order must belong to the location, be DELIVERED/COLLECTED, within `ratings.partnerWindowDays` (3 days), once per order (409). Private feedback for FORKY staff; the customer and their average are never returned. Policy: [../ratings.md](../ratings.md).
 
 ## Notes / deferrals
 
@@ -230,7 +230,7 @@ Every store (restaurant or convenience store) has a `serviceMode` (`Restaurant.s
 
 ## Menu editing permission (admin controls it)
 
-Restaurants can add, update and remove menu items, categories, modifier groups/options and import a CSV **only while FORKSY staff allow it**. New restaurants start **NOT_ALLOWED**; restaurants that existed when this was introduced were granted access once.
+Restaurants can add, update and remove menu items, categories, modifier groups/options and import a CSV **only while FORKY staff allow it**. New restaurants start **NOT_ALLOWED**; restaurants that existed when this was introduced were granted access once.
 
 | State | Meaning |
 |---|---|

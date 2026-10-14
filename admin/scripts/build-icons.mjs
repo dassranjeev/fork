@@ -12,7 +12,7 @@ import { createRequire } from "node:module";
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/(\w:)/, "$1")), "..");
 const require = createRequire(path.join(root, "package.json"));
 const SRC_DIRS = ["features", "ui", "layout", "lib", "helper"]; // the routed app (template demo pages are not bundled)
-const NOT_ICON_PREFIX = /^(http|https|data|blob|tel|mailto|ws|wss|javascript|forksy|m|h|mm|ss|hh|yyyy|dd|mm)$/;
+const NOT_ICON_PREFIX = /^(http|https|data|blob|tel|mailto|ws|wss|javascript|forky|m|h|mm|ss|hh|yyyy|dd|mm)$/;
 
 const files = [];
 (function walk(d) {

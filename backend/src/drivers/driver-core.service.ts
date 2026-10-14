@@ -232,7 +232,7 @@ export class DriverCoreService {
     await this.incentives.save(
       this.incentives.create({
         name: 'First-week boost',
-        description: `Welcome to FORKSY! +$${amount.toFixed(2)} on every trip for your first ${days} days.`,
+        description: `Welcome to FORKY! +$${amount.toFixed(2)} on every trip for your first ${days} days.`,
         type: 'FIRST_WEEK',
         driverId: p.id,
         cityId: p.cityId,
@@ -250,7 +250,7 @@ export class DriverCoreService {
     p.welcomeBoostSent = true;
     await this.profiles.save(p);
     await this.notifyDriver(p, 'driver.welcome', { name: p.user?.firstName ?? '', boost: `$${amount.toFixed(2)}`, days }, {}, {
-      title: 'Welcome to FORKSY!',
+      title: 'Welcome to FORKY!',
       body: `You are active. Enjoy a +$${amount.toFixed(2)} boost on every trip for your first ${days} days. Go online in your zones to start earning.`,
     });
   }

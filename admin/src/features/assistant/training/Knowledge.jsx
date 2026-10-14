@@ -86,7 +86,7 @@ function ImportModal({ open, onClose, api, onDone }) {
         </label>
         <Switch label="Replace all current answers" checked={replace} onChange={(v) => { setReplace(v); setPreview(null); }} className="mb-0" />
       </div>
-      <textarea className="form-control radius-8 font-monospace text-sm mb-12" rows={7} aria-label="File content" value={text} onChange={(e) => { setText(e.target.value); setPreview(null); }} placeholder={kind === "csv" ? "title,questions,answer\nParking,do you have parking | where do I park,Free parking behind the building." : '{ "format": "forksy-assistant-kb", ... }'} />
+      <textarea className="form-control radius-8 font-monospace text-sm mb-12" rows={7} aria-label="File content" value={text} onChange={(e) => { setText(e.target.value); setPreview(null); }} placeholder={kind === "csv" ? "title,questions,answer\nParking,do you have parking | where do I park,Free parking behind the building." : '{ "format": "forky-assistant-kb", ... }'} />
       <div className="text-secondary-light text-sm mb-12">Every row goes through the same checks as a typed answer (no emails, phone numbers or card numbers; no allergen-safety guarantees; at most 500 answers). Nothing is changed until you press Import, and imported answers land in your DRAFT.</div>
       {preview && (
         <div>
@@ -268,7 +268,7 @@ export default function Knowledge({ api, canEdit, onChanged, preset, onPresetUse
                     <td>{e.questions.length}</td>
                     <td>
                       <Badge tone={STATE_TONE[e.state] || "neutral"}>{STATE_LABEL[e.state] || e.state}</Badge>
-                      {e.held && <div className="text-warning-main text-xs mt-4">FORKSY reviews this before it can go live</div>}
+                      {e.held && <div className="text-warning-main text-xs mt-4">FORKY reviews this before it can go live</div>}
                     </td>
                     <td className="text-end">{e.stats.answered}</td>
                     <td className="text-end text-nowrap">

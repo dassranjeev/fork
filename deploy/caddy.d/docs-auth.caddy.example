@@ -1,0 +1,9 @@
+# Put a password in front of the API documentation (Swagger UI, /docs and /docs-json).
+# Copy this file to docs-auth.caddy (git-ignored: the hash must never reach GitHub) and paste your hash below.
+#   1. hash:    docker compose --env-file deploy/.env exec proxy caddy hash-password --plaintext "a-long-random-password"
+#   2. enable:  add SWAGGER_ENABLED=true to backend/.env.production, then: docker compose --env-file deploy/.env up -d --force-recreate api
+#   3. reload:  docker compose --env-file deploy/.env exec proxy caddy reload --config /etc/caddy/Caddyfile
+@apidocs path /docs /docs/* /docs-json /docs-yaml
+basic_auth @apidocs {
+  apidocs PASTE_THE_HASH_HERE
+}

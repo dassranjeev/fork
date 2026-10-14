@@ -17,7 +17,7 @@ import { Order, Payment, StripeIntent } from '../database/entities';
 
 // ------------------------------------------------------------------ webhook
 /**
- * Stripe -> FORKSY. Public (no JWT): authenticity is the Stripe signature over the RAW body (main.ts mounts express.raw for this path only).
+ * Stripe -> FORKY. Public (no JWT): authenticity is the Stripe signature over the RAW body (main.ts mounts express.raw for this path only).
  * Not throttled (Stripe retries / bursts must never be rejected) and the body is never parsed or sanitised before verification.
  */
 @Controller('webhooks/stripe')
@@ -126,7 +126,7 @@ export class GiftCardPurchaseDto {
   @IsOptional() @IsString() @MaxLength(300) message?: string;
 }
 
-/** /customer/wallet/top-up-intent + /top-up/confirm - adding money to the FORKSY wallet is a Stripe payment. */
+/** /customer/wallet/top-up-intent + /top-up/confirm - adding money to the FORKY wallet is a Stripe payment. */
 @CustomerController('wallet')
 export class CustomerTopUpController {
   constructor(private svc: TopUpService) {}

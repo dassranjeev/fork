@@ -28,11 +28,11 @@ export interface AssistantTranscriptEntry {
 
 /**
  * A chat with the ordering assistant. Guests are anonymous: no IP is stored, only the page origin (embedded mode).
- * The cart lives here until it is handed to the FORKSY website (one-time token) or written to a logged-in customer's real cart.
+ * The cart lives here until it is handed to the FORKY website (one-time token) or written to a logged-in customer's real cart.
  */
 @Entity('assistant_sessions')
 export class AssistantSession extends BaseEntity {
-  /** null = the central FORKSY bot that has not been scoped to a restaurant yet */
+  /** null = the central FORKY bot that has not been scoped to a restaurant yet */
   @Index()
   @Column({ type: 'uuid', nullable: true })
   restaurantId: string | null;

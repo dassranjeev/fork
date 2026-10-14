@@ -501,7 +501,7 @@ function GroupsTab({ menu, reload }) {
 }
 
 // ------------------------------------------------------------------ page
-/** Shown while FORKSY has not allowed this restaurant to change its own menu. */
+/** Shown while FORKY has not allowed this restaurant to change its own menu. */
 function MenuAccessBanner({ access, reload }) {
   const api = useApi();
   const { isManager } = usePortal();
@@ -511,7 +511,7 @@ function MenuAccessBanner({ access, reload }) {
   if (!access || access.canEdit) return null;
   const waiting = access.status === "REQUESTED";
   const submit = async () => {
-    const r = await run("access", () => api.post("/restaurant/menu/access/request", { note: note.trim() || undefined }), "Request sent to FORKSY");
+    const r = await run("access", () => api.post("/restaurant/menu/access/request", { note: note.trim() || undefined }), "Request sent to FORKY");
     if (r.ok) {
       setOpen(false);
       setNote("");
@@ -521,12 +521,12 @@ function MenuAccessBanner({ access, reload }) {
   return (
     <div className={`alert ${waiting ? "alert-info" : "alert-warning"} radius-8 mb-20 d-flex flex-wrap align-items-center justify-content-between gap-3`}>
       <div>
-        <strong>{waiting ? "Waiting for FORKSY approval" : "Menu editing is turned off"}</strong>
+        <strong>{waiting ? "Waiting for FORKY approval" : "Menu editing is turned off"}</strong>
         <div className="text-sm">
           {waiting
             ? `You asked to edit your menu${access.requestedAt ? " on " + fmtDateTime(access.requestedAt) : ""}. You can keep marking items out of stock (86) meanwhile.`
-            : "Your menu is read-only. You can still mark items out of stock (86) and back in stock. Ask FORKSY to allow you to add, update and remove items."}
-          {!waiting && access.decisionNote ? ` FORKSY note: ${access.decisionNote}` : ""}
+            : "Your menu is read-only. You can still mark items out of stock (86) and back in stock. Ask FORKY to allow you to add, update and remove items."}
+          {!waiting && access.decisionNote ? ` FORKY note: ${access.decisionNote}` : ""}
         </div>
       </div>
       {isManager && !waiting && (
@@ -536,7 +536,7 @@ function MenuAccessBanner({ access, reload }) {
       )}
       <FormModal open={open} onClose={() => setOpen(false)} title="Request menu editing access" onSubmit={submit} busy={!!busy} submitText="Send request" size="sm">
         <TextArea label="Why do you need to edit the menu? (optional)" value={note} onChange={setNote} rows={3} />
-        <div className="text-secondary-light text-sm">FORKSY staff will review your request and you will be notified.</div>
+        <div className="text-secondary-light text-sm">FORKY staff will review your request and you will be notified.</div>
       </FormModal>
     </div>
   );

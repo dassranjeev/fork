@@ -1,6 +1,6 @@
 /**
  * Storefront payments helpers: the public payment configuration (Stripe publishable key / mock / none) and the Stripe.js loader.
- * Card details are typed into Stripe's own iframes (Payment Element): they never reach FORKSY's page code or API.
+ * Card details are typed into Stripe's own iframes (Payment Element): they never reach FORKY's page code or API.
  * Stripe.js is loaded from https://js.stripe.com by the official loader; the CSP allows exactly that (see docs/security-frontend.md).
  */
 // the "pure" entry: Stripe.js is downloaded only when loadStripe() is called (checkout / wallet), never when a page merely imports this file

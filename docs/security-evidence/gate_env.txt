@@ -1,5 +1,5 @@
 
-=== FORKSY refuses to start: insecure PRODUCTION configuration ===
+=== FORKY refuses to start: insecure PRODUCTION configuration ===
   - DB_SYNC=true (schema auto-sync must be OFF in production; use migrations)
   - EXPOSE_OTP=true (one-time codes would be returned in API responses)
   - CORS_ORIGINS contains a local/wildcard origin: http://localhost:3000

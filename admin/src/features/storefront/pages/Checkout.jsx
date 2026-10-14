@@ -25,7 +25,7 @@ function Section({ n, title, children, hint }) {
   );
 }
 
-/** "Add a delivery address" dialog. With address search (Mapbox through the FORKSY API) the street, city, postal code and map position are filled from a suggestion; without it the demo areas are the fallback. */
+/** "Add a delivery address" dialog. With address search (Mapbox through the FORKY API) the street, city, postal code and map position are filled from a suggestion; without it the demo areas are the fallback. */
 function AddressDialog({ open, onClose, onSaved }) {
   const loc = useSfLocation();
   const first = DEMO_LOCATIONS.find((l) => loc && l.lat === loc.lat && l.lng === loc.lng) || DEMO_LOCATIONS[0];
@@ -496,7 +496,7 @@ export default function Checkout() {
             {q?.promotion && <p className="sf-small sf-ok mt-1 mb-0">Applied: {q.promotion.name || q.promotion.code || "promotion"}</p>}
             {wallet > 0 && (
               <label className="sf-check mt-3">
-                <input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} data-testid="wallet-toggle" /> Use my FORKSY wallet credit ({money(wallet)} available)
+                <input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} data-testid="wallet-toggle" /> Use my FORKY wallet credit ({money(wallet)} available)
               </label>
             )}
           </Section>

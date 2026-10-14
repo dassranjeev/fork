@@ -21,7 +21,7 @@ export async function teardownActivePush() {
 const DEFAULT_RESTAURANT_RULES = [
   { event: "order.status", kind: "order", id: (p) => p?.orderId, when: (p) => p?.status && p.status !== "PLACED" },
   { event: "order.status", kind: "cancel", id: (p) => p?.orderId, when: (p) => ["CANCELLED", "REJECTED", "PICKED_UP", "ON_THE_WAY", "DELIVERED", "COLLECTED"].includes(p?.status) },
-  // another staff member of the restaurant (or FORKSY) answered the cancellation request
+  // another staff member of the restaurant (or FORKY) answered the cancellation request
   { event: "order.cancel_request_answered", kind: "cancel", id: (p) => p?.orderId },
 ];
 

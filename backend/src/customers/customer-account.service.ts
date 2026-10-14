@@ -330,7 +330,7 @@ export class CustomerAccountService {
     const um = new Map(users.map((u) => [u.id, u]));
     return {
       code: p.referralCode,
-      shareText: `Order on FORKSY with my code ${p.referralCode} and get a credit on your first order.`,
+      shareText: `Order on FORKY with my code ${p.referralCode} and get a credit on your first order.`,
       rewards: {
         referrer: this.settings.get<number>('marketing.referralReferrerReward', 10),
         referee: this.settings.get<number>('marketing.referralRefereeReward', 10),

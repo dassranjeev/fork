@@ -248,7 +248,7 @@ export enum RefundChargedTo {
 
 export enum RefundType {
   REFUND = 'REFUND', // back to original payment method
-  CREDIT = 'CREDIT', // FORKSY wallet credit
+  CREDIT = 'CREDIT', // FORKY wallet credit
 }
 
 export enum RefundStatus {
@@ -350,7 +350,7 @@ export enum ProofType {
   HANDED_OVER = 'HANDED_OVER',
 }
 
-/** Whether a restaurant may add / update / remove its own menu items (decided by FORKSY staff). */
+/** Whether a restaurant may add / update / remove its own menu items (decided by FORKY staff). */
 export enum MenuEditStatus {
   NOT_ALLOWED = 'NOT_ALLOWED',
   REQUESTED = 'REQUESTED',

@@ -4,15 +4,15 @@ import { toast } from "react-toastify";
 export const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000/api/v1";
 export const WS_URL = process.env.REACT_APP_WS_URL || "http://localhost:4000";
 
-const ACCESS = "forksy.access";
-const REFRESH = "forksy.refresh";
+const ACCESS = "forky.access";
+const REFRESH = "forky.refresh";
 
 /**
  * Admin "open restaurant panel" (server-side impersonation). The short-lived impersonation token lives in
  * sessionStorage (per tab, survives reload) so the admin's own tokens in localStorage stay untouched:
  * exiting simply drops the impersonation and the admin session is exactly as it was.
  */
-const IMP = "forksy.impersonation";
+const IMP = "forky.impersonation";
 export const impersonation = {
   get info() {
     try {
@@ -51,14 +51,14 @@ export const tokens = {
 };
 
 /**
- * Remove EVERY app key (forksy.*) from localStorage and sessionStorage: tokens, impersonation, cached UI state,
+ * Remove EVERY app key (forky.*) from localStorage and sessionStorage: tokens, impersonation, cached UI state,
  * last-activity marker. Called on logout / idle timeout. The (non sensitive) theme preference is kept.
  */
 export function clearAppStorage() {
   for (const store of [localStorage, sessionStorage]) {
     try {
       Object.keys(store)
-        .filter((k) => k.startsWith("forksy."))
+        .filter((k) => k.startsWith("forky."))
         .forEach((k) => store.removeItem(k));
     } catch {
       /* storage unavailable */
@@ -123,11 +123,11 @@ api.interceptors.response.use(
         return api(original);
       } catch (e) {
         tokens.clear();
-        window.dispatchEvent(new Event("forksy:logout"));
+        window.dispatchEvent(new Event("forky:logout"));
       }
     } else if (status === 401 && !isAuthCall) {
       tokens.clear();
-      window.dispatchEvent(new Event("forksy:logout"));
+      window.dispatchEvent(new Event("forky:logout"));
     }
     return Promise.reject(error);
   }

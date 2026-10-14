@@ -45,7 +45,7 @@ function deviceStatus(st, impersonating) {
   if (!st) return { tone: "neutral", label: "Checking..." };
   if (impersonating) return { tone: "neutral", label: "Not available" };
   if (!st.support?.ok) return { tone: "neutral", label: "Not supported" };
-  if (st.config && !st.config.enabled && !st.browserSubscribed) return { tone: "neutral", label: "Switched off by FORKSY" };
+  if (st.config && !st.config.enabled && !st.browserSubscribed) return { tone: "neutral", label: "Switched off by FORKY" };
   if (st.permission === "denied") return { tone: "warning", label: "Blocked in browser" };
   if (st.otherAccount) return { tone: "warning", label: "Another account" };
   if (st.on && st.pushEnabledPref === false) return { tone: "warning", label: "On, muted in preferences" };
@@ -73,7 +73,7 @@ function TestResult({ result }) {
 }
 
 /** Notification settings: this device (push), preferences (channels, quiet hours, restaurant sound) and the devices of the account. */
-export default function NotificationSettings({ title = "Notification settings", subtitle = "Choose how and where FORKSY alerts you", crumbs }) {
+export default function NotificationSettings({ title = "Notification settings", subtitle = "Choose how and where FORKY alerts you", crumbs }) {
   const ctx = useNotify();
   const restaurant = ctx?.app === "restaurant";
   const { impersonating } = useAuth();
@@ -225,7 +225,7 @@ export default function NotificationSettings({ title = "Notification settings", 
                 )}
                 {!advice && st.on && (
                   <p className="text-secondary-light mb-16">
-                    Notifications are on for this browser. You will get alerts here even when the FORKSY tab is closed{restaurant ? ", including new-order alerts" : ""}.
+                    Notifications are on for this browser. You will get alerts here even when the FORKY tab is closed{restaurant ? ", including new-order alerts" : ""}.
                     {st.pushEnabledPref === false && " Push is currently muted by the master switch below."}
                   </p>
                 )}

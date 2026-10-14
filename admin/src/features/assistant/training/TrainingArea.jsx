@@ -12,7 +12,7 @@ import { problem, useTrainingApi } from "./kit";
 
 /**
  * The bot training area: Overview, Knowledge, Nicknames & synonyms, Documents, Unanswered inbox, Test bench, Versions & publish.
- * Used by the restaurant portal, the admin editor of any restaurant and the admin editor of the central (FORKSY website) bot.
+ * Used by the restaurant portal, the admin editor of any restaurant and the admin editor of the central (FORKY website) bot.
  *   base   "/restaurant/assistant/training" | "/admin/assistant/training/restaurants/<id>" | "/admin/assistant/training/central"
  *   params { restaurantId } for portal accounts with several locations
  */
@@ -64,7 +64,7 @@ export default function TrainingArea({ base, params, canEdit, staff = false, cen
       <div className="d-flex flex-wrap gap-2 align-items-center mb-16">
         <Badge tone="primary">Live: v{ov.liveVersion}</Badge>
         {ov.dirty ? <Badge tone="warning">Unpublished changes</Badge> : <Badge tone="success">Draft = live</Badge>}
-        {ov.requireApproval && !staff && <Badge tone="info">Publishing needs FORKSY approval</Badge>}
+        {ov.requireApproval && !staff && <Badge tone="info">Publishing needs FORKY approval</Badge>}
         {!canEdit && <span className="text-secondary-light text-sm">You can look, but only an owner or location manager can train the assistant.</span>}
       </div>
       <Tabs tabs={tabs} active={tab} onChange={setTab} />

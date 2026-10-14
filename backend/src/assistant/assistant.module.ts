@@ -15,7 +15,7 @@ import { TrainingStore } from './training/training.store';
 
 /**
  * The ordering assistant ("bot"): a private assistant per restaurant (embeddable on the merchant's own website) plus one central
- * FORKSY bot. See docs/assistant.md. Deterministic engine, no external AI service required.
+ * FORKY bot. See docs/assistant.md. Deterministic engine, no external AI service required.
  */
 @Module({
   imports: [CustomersModule],

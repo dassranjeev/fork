@@ -73,7 +73,7 @@ export default function Wallet() {
       {note && <Notice tone="success" className="mb-3"><span data-testid="wallet-note">{note}</span></Notice>}
 
       <section className="sf-card sf-pad sf-section">
-        <h2 className="sf-h3"><Ri name="wallet-3-line" /> FORKSY wallet</h2>
+        <h2 className="sf-h3"><Ri name="wallet-3-line" /> FORKY wallet</h2>
         <div className="sf-bigprice" data-testid="wallet-balance">{balance === null ? "..." : money(balance)}</div>
         <p className="sf-small sf-muted">Wallet credit is used at checkout before your card.</p>
         {cfg?.walletEnabled !== false && (

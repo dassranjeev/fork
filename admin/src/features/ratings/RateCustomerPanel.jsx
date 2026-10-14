@@ -33,7 +33,7 @@ export default function RateCustomerPanel({ order }) {
       <div className="d-flex justify-content-between align-items-center gap-2 flex-wrap">
         <div>
           <div className="fw-semibold text-sm">Customer feedback</div>
-          <div className="text-secondary-light text-xs">Private: only FORKSY staff see it, never the customer.</div>
+          <div className="text-secondary-light text-xs">Private: only FORKY staff see it, never the customer.</div>
         </div>
         {done ? <span className="text-success-600 text-sm"><Icon icon="solar:check-circle-bold" /> Submitted</span> : <Button variant="outline" icon="solar:star-outline" onClick={() => setOpen(true)}>Rate customer</Button>}
       </div>
@@ -46,7 +46,7 @@ export default function RateCustomerPanel({ order }) {
           ))}
         </div>
         <MultiCheck label="What stood out? (optional)" options={all.map((t) => ({ value: t.code, label: t.label }))} value={tags} onChange={setTags} cols={2} />
-        <TextArea label="Note for FORKSY (optional)" rows={2} value={note} onChange={setNote} maxLength={500} />
+        <TextArea label="Note for FORKY (optional)" rows={2} value={note} onChange={setNote} maxLength={500} />
       </FormModal>
     </div>
   );

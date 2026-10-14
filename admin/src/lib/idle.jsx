@@ -11,7 +11,7 @@ export const IDLE_MINUTES = {
   restaurant: num(process.env.REACT_APP_IDLE_MINUTES_PORTAL, 480),
 };
 export const IDLE_WARNING_SECONDS = 60;
-const ACTIVITY_KEY = "forksy.lastActive"; // shared across tabs so activity in one tab keeps the others alive
+const ACTIVITY_KEY = "forky.lastActive"; // shared across tabs so activity in one tab keeps the others alive
 const EVENTS = ["mousedown", "keydown", "touchstart", "scroll", "wheel", "pointermove"];
 
 const readLast = () => {

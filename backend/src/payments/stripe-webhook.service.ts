@@ -179,7 +179,7 @@ export class StripeWebhookService {
   }
 
   // ------------------------------------------------------------------ refunds and disputes
-  /** charge.refunded: keep our records right when a refund was made in the Stripe dashboard (refunds made by FORKSY are already recorded). */
+  /** charge.refunded: keep our records right when a refund was made in the Stripe dashboard (refunds made by FORKY are already recorded). */
   private async onChargeRefunded(charge: any): Promise<boolean> {
     const piId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
     if (!piId) return false;
@@ -193,7 +193,7 @@ export class StripeWebhookService {
     await this.payments.insert({ orderId: order.id, provider: 'stripe', kind: 'REFUND', amount: missing, status: 'SUCCEEDED', externalId: charge.id, meta: { intentId: piId, source: 'stripe_dashboard' } } as any);
     await this.orders.update(order.id, { paymentStatus: total >= r2(Number(order.total) - Number(order.walletUsed ?? 0)) - 0.01 ? PaymentStatus.REFUNDED : PaymentStatus.PARTIALLY_REFUNDED });
     await this.ledger.add({ partyType: PartyType.PLATFORM, partyId: null, orderId: order.id, type: LedgerType.REFUND, amount: -missing, description: `Refund made in the Stripe dashboard (${charge.id})` });
-    await this.notifications.notifyOps('finance.stripe_alert', { message: `A refund of $${missing.toFixed(2)} for order ${order.code} was made directly in Stripe and has been recorded in FORKSY.` }, { orderId: order.id });
+    await this.notifications.notifyOps('finance.stripe_alert', { message: `A refund of $${missing.toFixed(2)} for order ${order.code} was made directly in Stripe and has been recorded in FORKY.` }, { orderId: order.id });
     return true;
   }
 
@@ -268,7 +268,7 @@ export class StripeWebhookService {
 
   private async onConnectedPayout(event: any, po: any): Promise<boolean> {
     const account = event.account;
-    if (!account) return false; // platform-level payout (FORKSY's own bank), not a party payout
+    if (!account) return false; // platform-level payout (FORKY's own bank), not a party payout
     const party = await this.payouts.findPartyByAccount(account);
     if (!party) return false;
     if (event.type === 'payout.failed') {

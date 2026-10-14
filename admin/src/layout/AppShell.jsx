@@ -232,9 +232,9 @@ function Shell({ menu, home = "/", portal = "admin", topbarLeft, extraNav }) {
         </button>
         <div>
           <Link to={home} className="sidebar-logo">
-            <img src="/brand/logo-horizontal-orange.png" alt="FORKSY" className="light-logo" />
-            <img src="/brand/logo-horizontal-orange.png" alt="FORKSY" className="dark-logo" />
-            <img src="/brand/icon-96.png" alt="FORKSY" className="logo-icon" />
+            <img src="/brand/logo-horizontal-orange.png" alt="FORKY" className="light-logo" />
+            <img src="/brand/logo-horizontal-orange.png" alt="FORKY" className="dark-logo" />
+            <img src="/brand/icon-96.png" alt="FORKY" className="logo-icon" />
           </Link>
         </div>
         <div className="sidebar-menu-area">
@@ -329,7 +329,7 @@ function Shell({ menu, home = "/", portal = "admin", topbarLeft, extraNav }) {
         <footer className="d-footer">
           <div className="row align-items-center justify-content-between">
             <div className="col-auto">
-              <p className="mb-0">© {new Date().getFullYear()} FORKSY. All rights reserved.</p>
+              <p className="mb-0">© {new Date().getFullYear()} FORKY. All rights reserved.</p>
             </div>
             <div className="col-auto">
               <p className="mb-0">Food delivery network · Ontario, Canada</p>

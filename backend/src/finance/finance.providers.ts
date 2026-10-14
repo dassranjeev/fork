@@ -68,7 +68,7 @@ export class FinanceProviders {
         amount: toCents(payout.net),
         currency: 'cad',
         destination: destinationAccountId,
-        description: `FORKSY payout ${payout.periodStart}..${payout.periodEnd}`,
+        description: `FORKY payout ${payout.periodStart}..${payout.periodEnd}`,
         transfer_group: payout.batchId ? `batch_${payout.batchId}` : `payout_${payout.id}`,
         metadata: { payoutId: payout.id, batchId: payout.batchId ?? '', partyType: payout.partyType, partyId: payout.partyId, instant: String(payout.instant) },
       },

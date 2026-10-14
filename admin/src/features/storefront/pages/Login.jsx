@@ -27,7 +27,7 @@ export default function Login() {
   if (!loading && user) return <Navigate to={next} replace />;
   return (
     <div className="sf-container sf-narrow">
-      <h1 className="sf-h1">Welcome to FORKSY</h1>
+      <h1 className="sf-h1">Welcome to FORKY</h1>
       <p className="sf-muted">Sign in or create an account to place your order and follow it live.</p>
       {notice && <Notice tone="info">{notice}</Notice>}
       {next === "/order/checkout" && <Notice tone="info" icon="shopping-basket-2-line">Your cart is saved. Sign in and we take you straight to checkout.</Notice>}

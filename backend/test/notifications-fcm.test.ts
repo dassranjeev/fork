@@ -45,7 +45,7 @@ async function main() {
   const port = (server.address() as any).port;
   process.env.FCM_API_BASE = `http://127.0.0.1:${port}`;
   process.env.FCM_TOKEN_URI = `http://127.0.0.1:${port}/token`;
-  process.env.FCM_SERVICE_ACCOUNT_JSON = JSON.stringify({ client_email: 'svc@forksy-test.iam.gserviceaccount.com', private_key: pem, project_id: 'forksy-test' });
+  process.env.FCM_SERVICE_ACCOUNT_JSON = JSON.stringify({ client_email: 'svc@forky-test.iam.gserviceaccount.com', private_key: pem, project_id: 'forky-test' });
 
   // in-memory device token repo
   const rows: any[] = [
@@ -81,7 +81,7 @@ async function main() {
   let r = await fcm.sendToUser('u1', payload, { urgency: 'high', ttl: 35 });
   check('2 devices: both sent', r.sent === 2 && r.failed === 0, r);
   check('OAuth: one token request (jwt-bearer grant with an assertion)', oauth.length === 1 && /grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer/.test(oauth[0].body) && /assertion=[\w-]+\.[\w-]+\.[\w-]+/.test(oauth[0].body), oauth);
-  check('FCM v1 path /v1/projects/<id>/messages:send with Bearer token', sends.length === 2 && sends.every((x) => x.path === '/v1/projects/forksy-test/messages:send' && x.auth === 'Bearer tok-1'), sends.map((x) => [x.path, x.auth]));
+  check('FCM v1 path /v1/projects/<id>/messages:send with Bearer token', sends.length === 2 && sends.every((x) => x.path === '/v1/projects/forky-test/messages:send' && x.auth === 'Bearer tok-1'), sends.map((x) => [x.path, x.auth]));
   const m = sends.map((x) => x.body.message).find((x: any) => x.token === 'tok-android-1');
   check('message: token + notification + string-only data', m.token === 'tok-android-1' && m.notification.title === payload.title && Object.values(m.data).every((x) => typeof x === 'string') && m.data.offerId === 'o1' && m.data.seconds === '30' && m.data.url === payload.url, m);
   check('urgency high -> android priority HIGH, apns-priority 10, TTL 35s, collapse key', m.android.priority === 'HIGH' && m.apns.headers['apns-priority'] === '10' && m.android.ttl === '35s' && m.android.collapse_key === 'offer:1' && m.android.notification.channel_id === 'critical', m);

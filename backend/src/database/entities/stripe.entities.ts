@@ -2,7 +2,7 @@ import { Column, Entity, Index } from 'typeorm';
 import { BaseEntity, MoneyColumn } from '../../common/base.entity';
 
 /**
- * Every Stripe PaymentIntent FORKSY created for a customer (checkout hold, wallet top-up, gift card purchase).
+ * Every Stripe PaymentIntent FORKY created for a customer (checkout hold, wallet top-up, gift card purchase).
  * It is the server-side record that lets us (a) prove an intent belongs to the customer, (b) credit a top-up exactly once,
  * (c) cancel intents that never became an order (hold clean-up cron) and (d) show provider ids in the admin.
  */

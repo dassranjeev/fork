@@ -1,9 +1,9 @@
-# Gitleaks config for FORKSY.
+# Gitleaks config for FORKY.
 # The only allow-listed material is deliberately fake: the Stripe/Mapbox test fixtures used by the
 # payments end-to-end test (they point at a local fake Stripe server and are not real credentials).
 # Real secrets must never be committed - they live in git-ignored .env files or the encrypted
 # Integrations settings.
-title = "FORKSY gitleaks config"
+title = "FORKY gitleaks config"
 
 [extend]
 useDefault = true

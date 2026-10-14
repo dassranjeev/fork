@@ -117,7 +117,7 @@ export function EmbedBox({ snippet, onRotate, rotating, id = "assistant-embed" }
       </div>
       <ul className="text-secondary-light text-sm mt-16 mb-0 ps-20">
         <li>The assistant only loads on the websites in the allowed list; anywhere else it stays hidden.</li>
-        <li>If the site uses a Content-Security-Policy, allow the FORKSY API address in <code>script-src</code> and <code>connect-src</code>.</li>
+        <li>If the site uses a Content-Security-Policy, allow the FORKY API address in <code>script-src</code> and <code>connect-src</code>.</li>
         <li>Rotate the key to shut off a copy of the code someone else is using.</li>
       </ul>
     </>
@@ -180,7 +180,7 @@ export function BrandingPreview({ config, fallbackLogo, forcedOff, platformOff }
   const c = config.color || DEFAULT_COLOR;
   const on = config.enabled && !forcedOff && !platformOff;
   return (
-    <Card title="How your assistant looks" subtitle="Set by FORKSY. Contact support to change the look of your assistant." className="mb-20">
+    <Card title="How your assistant looks" subtitle="Set by FORKY. Contact support to change the look of your assistant." className="mb-20">
       <div className="d-flex flex-wrap gap-4 align-items-start">
         <div className="radius-12 overflow-hidden border" style={{ width: 280, maxWidth: "100%" }} data-testid="assistant-preview">
           <div className="d-flex align-items-center gap-2 px-12 py-10" style={{ background: c, color: "#fff" }}>
@@ -224,13 +224,13 @@ export function StatsStrip({ stats }) {
         <StatCard label="Sent to checkout" value={s.handoffs7d ?? 0} icon="solar:link-round-outline" tone="warning" />
       </div>
       <div className="col-6 col-xl-3">
-        <StatCard label="Carts imported on FORKSY" value={s.imported7d ?? 0} icon="solar:bag-check-outline" tone="success" hint="guest logged in and loaded the cart" />
+        <StatCard label="Carts imported on FORKY" value={s.imported7d ?? 0} icon="solar:bag-check-outline" tone="success" hint="guest logged in and loaded the cart" />
       </div>
     </div>
   );
 }
 
 export const BotStatusBadge = ({ status }) =>
-  status === "forced_off" ? <Badge tone="danger">Off (by FORKSY)</Badge> : status === "disabled" ? <Badge tone="neutral">Off (by restaurant)</Badge> : <Badge tone="success">Active</Badge>;
+  status === "forced_off" ? <Badge tone="danger">Off (by FORKY)</Badge> : status === "disabled" ? <Badge tone="neutral">Off (by restaurant)</Badge> : <Badge tone="success">Active</Badge>;
 
 export { Switch };

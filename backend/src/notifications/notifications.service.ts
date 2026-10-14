@@ -135,8 +135,8 @@ const BASE_MESSAGES: Record<string, Partial<Record<Audience, { title: string; bo
     DRIVER: { title: 'Payout sent', body: 'Your payout of {{amount}} has been sent.' },
   },
   'account.approved': {
-    RESTAURANT: { title: 'You are live on FORKSY', body: '{{name}} is now live. Welcome aboard!' },
-    DRIVER: { title: 'You are approved!', body: 'Welcome to FORKSY. You can go online in your approved zones.' },
+    RESTAURANT: { title: 'You are live on FORKY', body: '{{name}} is now live. Welcome aboard!' },
+    DRIVER: { title: 'You are approved!', body: 'Welcome to FORKY. You can go online in your approved zones.' },
   },
   'account.rejected': {
     RESTAURANT: { title: 'Application update', body: 'We could not approve {{name}}: {{reason}}' },
@@ -151,9 +151,9 @@ const BASE_MESSAGES: Record<string, Partial<Record<Audience, { title: string; bo
   'order.tip_updated': { DRIVER: { title: 'Tip updated', body: 'The tip for order {{code}} is now {{tip}}.' } },
   'menu.access_requested': { ADMIN: { title: 'Menu editing requested: {{name}}', body: '{{name}} asked to be allowed to edit its own menu. {{note}}' } },
   'assistant.training.requested': { ADMIN: { title: 'Bot training approval: {{name}}', body: '{{name}} asks to publish its trained assistant ({{entries}} answers). Review it in Assistant > Training.' } },
-  'assistant.training.decided': { RESTAURANT: { title: 'Your assistant training was {{decision}}', body: 'FORKSY has {{decision}} the change to your assistant. {{note}}' } },
-  'menu.access_decided': { RESTAURANT: { title: 'Menu editing {{decision}}', body: 'FORKSY has {{decision}} menu editing for {{name}}. {{note}}' } },
-  'order.cancel_requested': { RESTAURANT: { title: 'Cancellation request: order {{code}}', body: 'FORKSY support asks to cancel order {{code}}: {{reason}}. Please approve or decline in your portal.' } },
+  'assistant.training.decided': { RESTAURANT: { title: 'Your assistant training was {{decision}}', body: 'FORKY has {{decision}} the change to your assistant. {{note}}' } },
+  'menu.access_decided': { RESTAURANT: { title: 'Menu editing {{decision}}', body: 'FORKY has {{decision}} menu editing for {{name}}. {{note}}' } },
+  'order.cancel_requested': { RESTAURANT: { title: 'Cancellation request: order {{code}}', body: 'FORKY support asks to cancel order {{code}}: {{reason}}. Please approve or decline in your portal.' } },
   'order.cancel_request_answered': { ADMIN: { title: 'Cancellation request {{decision}}: {{code}}', body: 'The restaurant {{decision}} the cancellation of order {{code}}. {{note}}' } },
   'driver.waiting': { RESTAURANT: { title: 'Driver is waiting: order {{code}}', body: 'The driver for order {{code}} is waiting. Hand the order over now: wait charges of {{perMinute}} per minute start {{startsIn}}.' } },
   'wait.fee_charged': { RESTAURANT: { title: 'Driver wait charge: order {{code}}', body: 'The driver waited {{minutes}} min for order {{code}}. {{amount}} is deducted from your payout (driver wait-time pay).' }, DRIVER: { title: 'Wait-time pay: order {{code}}', body: 'You earned {{amount}} for waiting {{minutes}} min at the restaurant for order {{code}}.' } },
@@ -162,7 +162,7 @@ const BASE_MESSAGES: Record<string, Partial<Record<Audience, { title: string; bo
   'refund.rejected': { CUSTOMER: { title: 'Refund request update', body: 'Your refund request for order {{code}} was not approved.' } },
   'payment.failed': { ADMIN: { title: 'Payment problem', body: 'Order {{code}}: {{reason}}' } },
   'refund.issued': { CUSTOMER: { title: 'Refund issued', body: 'We refunded {{amount}} for order {{code}}.' } },
-  'credit.issued': { CUSTOMER: { title: 'FORKSY credit added', body: '{{amount}} of credit was added to your wallet.' } },
+  'credit.issued': { CUSTOMER: { title: 'FORKY credit added', body: '{{amount}} of credit was added to your wallet.' } },
   'promo.pending': { ADMIN: { title: 'Promotion awaiting approval', body: '{{restaurant}} submitted "{{name}}" for approval.' } },
   'promo.approved': { RESTAURANT: { title: 'Promotion approved', body: 'Your promotion "{{name}}" was approved and is now live.' } },
   'promo.rejected': { RESTAURANT: { title: 'Promotion not approved', body: 'Your promotion "{{name}}" was not approved: {{reason}}' } },
@@ -171,10 +171,10 @@ const BASE_MESSAGES: Record<string, Partial<Record<Audience, { title: string; bo
   'sos.alert': { ADMIN: { title: 'SOS from driver', body: 'Driver {{driverName}} triggered the safety button.' } },
   'supply.alert': { DRIVER: { title: 'Busy in {{zone}}', body: 'Demand is high in {{zone}}. Go online for a {{boost}} boost.' } },
   'otp.code': {
-    CUSTOMER: { title: 'Your FORKSY code', body: 'Your FORKSY verification code is {{code}}. It expires in {{minutes}} minutes.' },
-    DRIVER: { title: 'Your FORKSY code', body: 'Your FORKSY verification code is {{code}}. It expires in {{minutes}} minutes.' },
-    RESTAURANT: { title: 'Your FORKSY code', body: 'Your FORKSY verification code is {{code}}. It expires in {{minutes}} minutes.' },
-    ADMIN: { title: 'Your FORKSY code', body: 'Your FORKSY verification code is {{code}}. It expires in {{minutes}} minutes.' },
+    CUSTOMER: { title: 'Your FORKY code', body: 'Your FORKY verification code is {{code}}. It expires in {{minutes}} minutes.' },
+    DRIVER: { title: 'Your FORKY code', body: 'Your FORKY verification code is {{code}}. It expires in {{minutes}} minutes.' },
+    RESTAURANT: { title: 'Your FORKY code', body: 'Your FORKY verification code is {{code}}. It expires in {{minutes}} minutes.' },
+    ADMIN: { title: 'Your FORKY code', body: 'Your FORKY verification code is {{code}}. It expires in {{minutes}} minutes.' },
   },
 };
 
@@ -479,8 +479,8 @@ export class NotificationsService implements OnModuleInit {
         (await this.templates.findOne({ where: { key: input.event, channel: NotificationChannel.PUSH, language: 'en', audience: aud, active: true } }));
       copy = { title: t?.subject ?? adef.push.title, body: t?.body ?? adef.push.body };
     }
-    if (!copy) copy = { title: 'FORKSY', body: 'You have a new notification.' };
-    const title = clip(scrubPush(renderTemplate(copy.title, allowedVars)) || 'FORKSY', PUSH_TITLE_MAX);
+    if (!copy) copy = { title: 'FORKY', body: 'You have a new notification.' };
+    const title = clip(scrubPush(renderTemplate(copy.title, allowedVars)) || 'FORKY', PUSH_TITLE_MAX);
     const body = clip(scrubPush(renderTemplate(copy.body, allowedVars)), PUSH_BODY_MAX);
     const urgency: Urgency = adef?.urgency ?? 'normal';
     let ttl = adef?.ttl ?? URGENCY_TTL[urgency];

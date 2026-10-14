@@ -64,7 +64,7 @@ export default function Editor() {
   const forceOff = async (forcedOff) => {
     const res = await confirm({
       title: forcedOff ? "Turn this assistant off?" : "Allow this assistant again?",
-      message: forcedOff ? "The bot stops answering at once, on the restaurant's website and on FORKSY, and the restaurant cannot switch it back on." : "The bot follows the restaurant's own on/off setting again.",
+      message: forcedOff ? "The bot stops answering at once, on the restaurant's website and on FORKY, and the restaurant cannot switch it back on." : "The bot follows the restaurant's own on/off setting again.",
       confirmText: forcedOff ? "Turn off" : "Allow again",
       danger: forcedOff,
     });

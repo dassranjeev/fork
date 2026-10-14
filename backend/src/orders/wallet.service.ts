@@ -6,7 +6,7 @@ import { IWalletService } from '../common/contracts';
 import { round2 } from './pricing.math';
 
 /**
- * FORKSY wallet / credits. `CustomerProfile.walletBalance` is the cached balance;
+ * FORKY wallet / credits. `CustomerProfile.walletBalance` is the cached balance;
  * `wallet_transactions` is the append-only audit trail (source of truth for history).
  * Every mutation runs inside a transaction with a row lock on the profile to avoid
  * lost updates from concurrent credits/debits (e.g. a refund landing mid-checkout).

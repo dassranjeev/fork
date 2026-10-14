@@ -8,7 +8,7 @@
   menu item name/description/imageUrl                neutralised                  "HTTP 400 \"Invalid input - imageUrl: must be an http(s) URL or site-relative path\""
   CMS page title/body                                neutralised                  ["Terms","<p>ok</p><a rel=\"noopener noreferrer nofollow\">x</a><img src=\"x\" /><h2>t</h2
   FAQ question/answer                                neutralised                  ["?","<p>a</p>"]
-  banner title/subtitle/link                         neutralised                  ["","\">","url:https://forksy.ca/deal"]
+  banner title/subtitle/link                         neutralised                  ["","\">","url:https://forky.ca/deal"]
   banner link=javascript:                            neutralised                  "HTTP 400 (rejected)"
   banner imageUrl=javascript:                        neutralised                  "HTTP 400 (rejected)"
   campaign name/subject/body                         neutralised                  ["","\">"," sale"]

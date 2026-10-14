@@ -552,7 +552,7 @@ export class PayoutsService implements IPayoutsService {
       .where("p.status = :st AND p.provider = 'mock' AND p.createdAt >= :from AND p.createdAt < :to", { st: 'SUCCEEDED', from, to })
       .getRawOne<{ net: string }>();
     const realNet = r2(Number(row?.net ?? 0) + Number(topups?.[0]?.s ?? 0));
-    // real mode compares what FORKSY recorded through Stripe with Stripe's own balance transactions (old demo "mock" rows are not in Stripe);
+    // real mode compares what FORKY recorded through Stripe with Stripe's own balance transactions (old demo "mock" rows are not in Stripe);
     // the development mock provider simply reports the recorded total
     const captured = this.providers.mode === 'stripe' ? realNet : r2(realNet + Number(mockRow?.net ?? 0));
     const res = await this.providers.balanceFor(from, to, captured);

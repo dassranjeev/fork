@@ -1,6 +1,6 @@
 {
-  "name": "FORKSY",
-  "short_name": "FORKSY",
+  "name": "FORKY",
+  "short_name": "FORKY",
   "description": "Food delivery for Mississauga and Brampton",
   "start_url": "/order",
   "scope": "/",

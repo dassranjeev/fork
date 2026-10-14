@@ -386,7 +386,7 @@ function SendTest() {
           {kind === "app" && <Select label="App" value={app} onChange={setApp} options={APPS.map((a) => ({ value: a, label: titleCase(a) }))} placeholder="Choose an app" hint="Everyone of that app who has at least one browser subscription (max 200)." />}
           <div className="mb-16">
             <label className="form-label fw-semibold text-sm">Message (optional)</label>
-            <input className="form-control radius-8" maxLength={120} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="This is a test push from FORKSY." aria-label="Message" />
+            <input className="form-control radius-8" maxLength={120} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="This is a test push from FORKY." aria-label="Message" />
           </div>
           <Button icon="solar:plain-outline" loading={busy} disabled={!valid} onClick={send}>Send test</Button>
           {err && <div className="alert alert-danger radius-8 mt-16 mb-0">{err}</div>}

@@ -43,7 +43,7 @@ and `GiftCardsService` (`src/marketing/gift-cards.service.ts`) implements `IGift
 | `GET /restaurant/promotions` | `PageQueryDto` + `restaurantId?, status?` | `{data:Promotion[+status], meta}` |
 | `POST /restaurant/promotions` | `RestaurantPromotionDto`: `restaurantId?` (required if multi-location), `name`, `description?`, `type: PERCENT\|BOGO\|FREE_ITEM\|FREE_DELIVERY`, `value?` (PERCENT), `maxDiscount?, minSubtotal?, menuItemId?` (FREE_ITEM/BOGO), `orderTypes?, startsAt?, endsAt?, usageLimit?, perUserLimit?, budget?, code?` | created promo (restaurant-funded); `active=false, pendingApproval=true` when setting `restaurant.selfServePromosNeedApproval` is on |
 | `GET /restaurant/promotions/:id/stats` | - | same shape as admin stats |
-| `POST /restaurant/promotions/:id/pause` \| `/resume` | - | updated promo (blocked while pending approval, or if FORKSY rejected it) |
+| `POST /restaurant/promotions/:id/pause` \| `/resume` | - | updated promo (blocked while pending approval, or if FORKY rejected it) |
 | `DELETE /restaurant/promotions/:id` | - | `{deleted, deactivated}` |
 
 ## Public deals — `public/deals`
@@ -154,7 +154,7 @@ campaign whose `scheduledAt` has passed. `filters.cityId`/`zoneId` are applied f
 
 Reward is granted automatically: `ReferralRewardListener` listens for `Events.ORDER_DELIVERED`
 (`@nestjs/event-emitter`) and, the first time a referred customer's order reaches `DELIVERED`/`COLLECTED`,
-credits both parties' FORKSY wallets (`WalletService.credit(..., 'REFERRAL', ...)`) and marks the `Referral`
+credits both parties' FORKY wallets (`WalletService.credit(..., 'REFERRAL', ...)`) and marks the `Referral`
 row `REWARDED`. `Referral` rows themselves are created at signup by `AuthService` (`referralCode` /
 `referredById` on `CustomerProfile`) — not by this module.
 

@@ -10,11 +10,11 @@ import { clone, same } from "./parts";
 const STATS = [
   ["chats", "Chats"],
   ["embeddedChats", "- on merchant websites"],
-  ["siteChats", "- on the FORKSY website"],
+  ["siteChats", "- on the FORKY website"],
   ["messages", "Messages"],
   ["carts", "Carts started"],
   ["handoffs", "Sent to checkout"],
-  ["imported", "Carts imported on FORKSY"],
+  ["imported", "Carts imported on FORKY"],
 ];
 
 export default function Overview() {
@@ -59,7 +59,7 @@ export default function Overview() {
 
   return (
     <>
-      <PageHeader title="Assistant" subtitle="Ordering bots for every restaurant and for the FORKSY website" crumbs={[{ label: "Assistant" }]} />
+      <PageHeader title="Assistant" subtitle="Ordering bots for every restaurant and for the FORKY website" crumbs={[{ label: "Assistant" }]} />
 
       <div className="row g-3 mb-20">
         <div className="col-6 col-xl-3">
@@ -72,20 +72,20 @@ export default function Overview() {
           <StatCard label="Off (restaurant)" value={r.disabled} icon="solar:power-outline" tone="warning" to="/assistant/restaurants" />
         </div>
         <div className="col-6 col-xl-3">
-          <StatCard label="Off (by FORKSY)" value={r.forcedOff} icon="solar:shield-warning-outline" tone="danger" to="/assistant/restaurants" />
+          <StatCard label="Off (by FORKY)" value={r.forcedOff} icon="solar:shield-warning-outline" tone="danger" to="/assistant/restaurants" />
         </div>
       </div>
 
       <Card title="Platform switches" subtitle={canEdit ? "These apply to every bot immediately." : "You need the 'edit settings' permission to change these."} className="mb-20">
         <div className="row">
-          <Switch col={4} label="Assistant enabled (all bots)" hint="Master switch for the FORKSY website bot and every restaurant bot." checked={form.enabled} disabled={!canEdit} onChange={(v) => setForm((f) => ({ ...f, enabled: v }))} />
-          <Switch col={4} label="Embedding on merchant websites" hint="Off: restaurants' own websites lose the widget; the FORKSY website keeps working." checked={form.embedEnabled} disabled={!canEdit} onChange={(v) => setForm((f) => ({ ...f, embedEnabled: v }))} />
-          <Switch col={4} label="Central bot (FORKSY website)" hint="The restaurant finder on the main website. More options under Central bot." checked={form.centralEnabled} disabled={!canEdit} onChange={(v) => setForm((f) => ({ ...f, centralEnabled: v }))} />
+          <Switch col={4} label="Assistant enabled (all bots)" hint="Master switch for the FORKY website bot and every restaurant bot." checked={form.enabled} disabled={!canEdit} onChange={(v) => setForm((f) => ({ ...f, enabled: v }))} />
+          <Switch col={4} label="Embedding on merchant websites" hint="Off: restaurants' own websites lose the widget; the FORKY website keeps working." checked={form.embedEnabled} disabled={!canEdit} onChange={(v) => setForm((f) => ({ ...f, embedEnabled: v }))} />
+          <Switch col={4} label="Central bot (FORKY website)" hint="The restaurant finder on the main website. More options under Central bot." checked={form.centralEnabled} disabled={!canEdit} onChange={(v) => setForm((f) => ({ ...f, centralEnabled: v }))} />
         </div>
         <div className="row">
           {num("sessionTtlHours", "Chat expires after (hours of inactivity)", "The cart in the chat is lost after this.", 1, 168)}
           {num("maxMessagesPerSession", "Max messages per chat", "After this the guest starts a new chat.", 10, 2000)}
-          {num("handoffTtlMinutes", "Checkout link valid for (minutes)", "One-time link to the FORKSY website.", 1, 1440)}
+          {num("handoffTtlMinutes", "Checkout link valid for (minutes)", "One-time link to the FORKY website.", 1, 1440)}
         </div>
         {canEdit && (
           <Button loading={saving} disabled={!dirty} onClick={save}>
@@ -125,10 +125,10 @@ export default function Overview() {
 
       <Card title="How the assistant works">
         <ul className="mb-16 ps-20">
-          <li>Each restaurant has a private bot that only knows that restaurant's menu, hours and FAQs. It builds a cart and hands the guest over to FORKSY to pay.</li>
+          <li>Each restaurant has a private bot that only knows that restaurant's menu, hours and FAQs. It builds a cart and hands the guest over to FORKY to pay.</li>
           <li>A restaurant can show its bot on its own website with an embed code; the bot only runs on the websites listed for it.</li>
-          <li>The central bot on the FORKSY website finds restaurants and then continues as that restaurant's bot.</li>
-          <li>Restaurants teach their bot (answers, nicknames, documents) and set allowed websites; FORKSY controls the name, greeting, colour, logo and on/off.</li>
+          <li>The central bot on the FORKY website finds restaurants and then continues as that restaurant's bot.</li>
+          <li>Restaurants teach their bot (answers, nicknames, documents) and set allowed websites; FORKY controls the name, greeting, colour, logo and on/off.</li>
         </ul>
         <div className="d-flex flex-wrap gap-2">
           <Link className="btn btn-primary-600 btn-sm radius-8" to="/assistant/restaurants">

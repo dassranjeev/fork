@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FORKSY - Complete workflow</title>
+<title>FORKY - Complete workflow</title>
 <link rel="icon" href="../admin/public/favicon.ico" sizes="any">
 <style>
   @font-face { font-family: "Chewy"; src: url("../admin/public/fonts/Chewy-Regular.ttf") format("truetype"); font-display: swap; }
@@ -87,7 +87,7 @@
 <body>
 <header class="top">
   <div class="wrap">
-    <h1><img src="../admin/public/brand/icon-128.png" alt=""><span><span class="brand">FORKSY</span> - Complete workflow</span></h1>
+    <h1><img src="../admin/public/brand/icon-128.png" alt=""><span><span class="brand">FORKY</span> - Complete workflow</span></h1>
     <p>How the food-delivery marketplace for Mississauga and Brampton works end to end: who does what, what the system does by itself, and where a person still has to step in. Written from the current code of this repository.</p>
   </div>
 </header>
@@ -120,7 +120,7 @@
 <!-- ============================================================ 1 -->
 <section id="overview">
   <h2>1. The big picture</h2>
-  <p class="lead">Three groups use the platform, and a fourth group (FORKSY staff) runs it. Everything goes through one API; the screens and apps are thin.</p>
+  <p class="lead">Three groups use the platform, and a fourth group (FORKY staff) runs it. Everything goes through one API; the screens and apps are thin.</p>
 
   <div class="card">
     <svg viewBox="0 0 900 360" role="img" aria-label="System overview diagram">
@@ -131,7 +131,7 @@
       <rect class="box" x="10" y="290" width="190" height="64" rx="12"/><text x="105" y="318" text-anchor="middle" font-weight="700">Admin Console</text><text class="sm" x="105" y="338" text-anchor="middle">web, /</text>
 
       <rect class="box brand" x="320" y="70" width="250" height="220" rx="14"/>
-      <text class="w" x="445" y="104" text-anchor="middle" font-weight="700" font-size="18">FORKSY API</text>
+      <text class="w" x="445" y="104" text-anchor="middle" font-weight="700" font-size="18">FORKY API</text>
       <text class="w" x="445" y="126" text-anchor="middle" font-size="13">NestJS, one codebase</text>
       <text class="w" x="445" y="158" text-anchor="middle" font-size="13">Orders - Dispatch - Restaurants</text>
       <text class="w" x="445" y="178" text-anchor="middle" font-size="13">Drivers - Customers - Finance</text>
@@ -157,7 +157,7 @@
     <div class="card"><h3 style="margin-top:0">Customers</h3><p>Browse open restaurants and stores, order for delivery or pickup, pay, track, tip, rate, get support. Uses the customer API.</p></div>
     <div class="card"><h3 style="margin-top:0">Restaurants and stores</h3><p>Receive orders, run the kitchen, manage the menu (if allowed), choose their service mode, see money and reviews. Uses the Restaurant Portal.</p></div>
     <div class="card"><h3 style="margin-top:0">Drivers</h3><p>Go online, receive one offer at a time, pick up, deliver with proof, get paid. Uses the driver API.</p></div>
-    <div class="card"><h3 style="margin-top:0">FORKSY staff</h3><p>Onboard restaurants and drivers, watch the live map, handle exceptions, support, finance and settings. Uses the Admin Console.</p></div>
+    <div class="card"><h3 style="margin-top:0">FORKY staff</h3><p>Onboard restaurants and drivers, watch the live map, handle exceptions, support, finance and settings. Uses the Admin Console.</p></div>
   </div>
 </section>
 
@@ -170,7 +170,7 @@
     <thead><tr><th>Step</th><th>Who does it</th><th>How</th><th>Switch</th></tr></thead>
     <tbody>
       <tr><td>Order placement and payment hold</td><td><span class="tag t-auto">Automatic</span></td><td>Instant. The order is PLACED the moment the card hold succeeds.</td><td>-</td></tr>
-      <tr><td>Cancellation window</td><td><span class="tag t-auto">Automatic</span></td><td>For 120 seconds after the payment is confirmed the customer can cancel for free. During that time the order is held by FORKSY and the restaurant does not see it. After it, the order goes to the restaurant and the customer can no longer cancel.</td><td><code>orders.customerCancelGraceSeconds</code></td></tr>
+      <tr><td>Cancellation window</td><td><span class="tag t-auto">Automatic</span></td><td>For 120 seconds after the payment is confirmed the customer can cancel for free. During that time the order is held by FORKY and the restaurant does not see it. After it, the order goes to the restaurant and the customer can no longer cancel.</td><td><code>orders.customerCancelGraceSeconds</code></td></tr>
       <tr><td>Order acceptance</td><td><span class="tag t-auto">Automatic</span></td><td>As soon as the order is sent to the restaurant (after the window), it is accepted with a prep estimate that includes the kitchen load. Waits for the restaurant only if the kitchen is overloaded, the store is paused or closed, or the restaurant turned it off.</td><td><code>automation.orders.autoAccept</code> + per restaurant</td></tr>
       <tr><td>Start of preparation</td><td><span class="tag t-auto">Automatic</span></td><td>Moves to PREPARING and starts the kitchen ticket. Scheduled orders start in time to be ready.</td><td><code>automation.orders.autoStartPrep</code> + per restaurant</td></tr>
       <tr><td>Order ready</td><td><span class="tag t-auto">Automatic</span> <span class="tag t-manual">Kitchen can override</span></td><td>When the prep time has elapsed the order is marked READY. The kitchen may mark it ready earlier, or extend the prep time.</td><td><code>automation.orders.autoReady</code> + per restaurant</td></tr>
@@ -184,7 +184,7 @@
       <tr><td>Rating prompts, late alerts, stuck-order alerts, payouts, reports</td><td><span class="tag t-auto">Automatic</span></td><td>Scheduled jobs (section 15).</td><td>settings</td></tr>
     </tbody>
   </table></div>
-  <div class="note">Restaurants can choose, per switch, to follow the FORKSY default or force a step always on or always off. Staff can do the same for any restaurant. Defaults live in the Admin Console under System, Platform Settings, group "automation".</div>
+  <div class="note">Restaurants can choose, per switch, to follow the FORKY default or force a step always on or always off. Staff can do the same for any restaurant. Defaults live in the Admin Console under System, Platform Settings, group "automation".</div>
 </section>
 
 <!-- ============================================================ 3 -->
@@ -196,7 +196,7 @@
     <li><div class="who"><span class="tag t-manual">Customer</span></div><h4>Browse and build a cart</h4><p>Discovery shows only restaurants that are open and offer what the customer wants (delivery or pickup, based on the store's service mode). Items that are out of stock (86'd) cannot be added.</p></li>
     <li><div class="who"><span class="tag t-manual">Customer</span> <span class="tag t-auto">System</span></div><h4>Checkout quote</h4><p>The system prices the order: items, delivery fee (zone and distance), service fee, tax, promo code, wallet or gift card, tip. The customer picks an address, the handoff (hand to me, leave at door, meet outside), whether to use a private delivery PIN, notes for the driver, and notes for the kitchen.</p></li>
     <li><div class="who"><span class="tag t-auto">System</span></div><h4>Place the order and hold the money</h4><p>Checks hours, service mode, delivery zone and minimum order; reserves the promo; authorises the card (a hold, not a charge); debits the wallet portion. The order becomes <code>PLACED</code> instantly. The restaurant and operations are notified.</p></li>
-    <li><div class="who"><span class="tag t-auto">System</span> <span class="tag t-manual">Customer (optional)</span></div><h4>Cancellation window (120 seconds)</h4><p>The order is held by FORKSY and is <strong>not</strong> given to the kitchen. The customer sees a countdown and can cancel for free; if they do, the restaurant never hears about it and the card hold is released. When the countdown ends the order is sent to the restaurant (the restaurant is notified at that moment) and the customer can no longer cancel.</p></li>
+    <li><div class="who"><span class="tag t-auto">System</span> <span class="tag t-manual">Customer (optional)</span></div><h4>Cancellation window (120 seconds)</h4><p>The order is held by FORKY and is <strong>not</strong> given to the kitchen. The customer sees a countdown and can cancel for free; if they do, the restaurant never hears about it and the card hold is released. When the countdown ends the order is sent to the restaurant (the restaurant is notified at that moment) and the customer can no longer cancel.</p></li>
     <li><div class="who"><span class="tag t-auto">System</span></div><h4>Accept automatically</h4><p>As soon as the order is sent to the restaurant it is accepted with a prep time based on the restaurant's usual time plus kitchen load (a minute per order beyond three, up to 15 extra minutes). The customer gets "accepted, ready in about N minutes". If auto-accept is off or blocked, the restaurant accepts by hand; an order nobody acts on within 180 seconds is rejected and the hold released.</p></li>
     <li><div class="who"><span class="tag t-auto">System</span></div><h4>Start preparing</h4><p>Status moves to <code>PREPARING</code> and the ticket appears on the kitchen display. Scheduled orders wait until it is time to start.</p></li>
     <li><div class="who"><span class="tag t-manual">Kitchen (optional)</span></div><h4>Cook</h4><p>The kitchen cooks. It can bump items, mark an item out of stock, extend the prep time (the automatic "ready" then waits), or mark the order ready early.</p></li>
@@ -288,7 +288,7 @@
     <tbody>
       <tr><td>Hand to me / meet outside, <strong>PIN on</strong> (default)</td><td>The app shows four PIN boxes. The customer reads out their private 4-digit PIN; the driver types it.</td><td>PIN verified, time, GPS distance. Strong proof.</td></tr>
       <tr><td>Hand to me / meet outside, <strong>PIN off</strong></td><td>The driver chooses <strong>Handed to the customer</strong> (no photo needed) or <strong>Delivered / left at the location</strong> (photo compulsory).</td><td>Hand-over: time, location, flagged "no PIN or photo". Left: private photo plus location. </td></tr>
-      <tr><td><strong>Leave at door (contactless)</strong></td><td>Always a photo, taken in the FORKSY app at the door, after arriving. No setting can waive it.</td><td>Private photo, location, time. Strong proof when clean.</td></tr>
+      <tr><td><strong>Leave at door (contactless)</strong></td><td>Always a photo, taken in the FORKY app at the door, after arriving. No setting can waive it.</td><td>Private photo, location, time. Strong proof when clean.</td></tr>
       <tr><td>Pickup order</td><td>Pickup code only.</td><td>No delivery proof.</td></tr>
     </tbody>
   </table></div>
@@ -332,10 +332,10 @@
       <tr><td>Driver declines or ignores an offer</td><td>Counts against their acceptance rate; next driver is offered the order; radius widens.</td><td>-</td></tr>
       <tr><td>No driver found</td><td>Escalation alert to operations.</td><td>Ops assign manually from the live map, or offer an alternative</td></tr>
       <tr><td>Driver goes missing mid-trip</td><td>Order is flagged on the live map.</td><td>Ops unassign and re-dispatch (needs support approval after pickup)</td></tr>
-      <tr><td>Driver kept waiting at the restaurant</td><td>The restaurant is warned a couple of minutes before charges start. After 5 minutes past the promised ready time, wait-time pay accrues per minute: paid to the driver, deducted from the restaurant payout (shown on the order and the restaurant statement).</td><td>Staff can waive it after a dispute (FORKSY then absorbs the cost; the driver keeps the pay)</td></tr>
+      <tr><td>Driver kept waiting at the restaurant</td><td>The restaurant is warned a couple of minutes before charges start. After 5 minutes past the promised ready time, wait-time pay accrues per minute: paid to the driver, deducted from the restaurant payout (shown on the order and the restaurant statement).</td><td>Staff can waive it after a dispute (FORKY then absorbs the cost; the driver keeps the pay)</td></tr>
       <tr><td>Order running late</td><td>Flagged as late; customer can be notified.</td><td>Support if the customer contacts them</td></tr>
       <tr><td>Customer cancels within 120 s</td><td>Order cancelled, card hold released in full, restaurant never notified.</td><td>-</td></tr>
-      <tr><td>Customer wants to cancel after 120 s</td><td>Not possible in the app: the order is already with the restaurant.</td><td>FORKSY support, <strong>only with the restaurant's approval</strong>: staff send a cancellation request that the restaurant approves or declines in its portal, or record who at the restaurant agreed by phone or chat. Both are written to the order timeline and audit log.</td></tr>
+      <tr><td>Customer wants to cancel after 120 s</td><td>Not possible in the app: the order is already with the restaurant.</td><td>FORKY support, <strong>only with the restaurant's approval</strong>: staff send a cancellation request that the restaurant approves or declines in its portal, or record who at the restaurant agreed by phone or chat. Both are written to the order timeline and audit log.</td></tr>
       <tr><td>Wrong or missing item</td><td>Self-serve help flow offers a refund or credit within limits.</td><td>Support tier 1 / 2 for larger cases</td></tr>
       <tr><td>"Never delivered"</td><td>Decided from the delivery proof (section 6).</td><td>Tier 2 if proof exists</td></tr>
     </tbody>
@@ -354,7 +354,7 @@
   <h3>Running the store</h3>
   <div class="grid">
     <div class="card"><h3 style="margin-top:0">Service mode</h3><p>Closed, Pickup only, or Pickup and delivery. Customers and drivers see and obey it at once. Orders already placed carry on. An optional auto switch-back time brings the store back.</p></div>
-    <div class="card"><h3 style="margin-top:0">Order automation</h3><p>Accept, start prep and ready can each follow the FORKSY default or be forced on or off per restaurant (Store Settings in the portal). The portal also has live orders and a kitchen display.</p></div>
+    <div class="card"><h3 style="margin-top:0">Order automation</h3><p>Accept, start prep and ready can each follow the FORKY default or be forced on or off per restaurant (Store Settings in the portal). The portal also has live orders and a kitchen display.</p></div>
     <div class="card"><h3 style="margin-top:0">Menu editing (admin controlled)</h3><p>A restaurant edits its own items, categories and modifiers only while an administrator has allowed it. Otherwise the menu is read-only (out-of-stock marking still works) and the restaurant can request access; staff approve or decline, any time. New restaurants start locked.</p></div>
     <div class="card"><h3 style="margin-top:0">Everything else</h3><p>Opening hours and closures, staff accounts and roles, prep times and radius, promotions, finance and payouts, reviews and replies, reports.</p></div>
   </div>
@@ -500,6 +500,6 @@
 
 </main>
 </div>
-<footer>FORKSY workflow document. Generated from the repository code on 2026-10-07. The behaviour described here is configurable; defaults are shown. If a setting was changed in Platform Settings, the live system follows the setting.</footer>
+<footer>FORKY workflow document. Generated from the repository code on 2026-10-07. The behaviour described here is configurable; defaults are shown. If a setting was changed in Platform Settings, the live system follows the setting.</footer>
 </body>
 </html>

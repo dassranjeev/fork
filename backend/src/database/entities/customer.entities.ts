@@ -18,7 +18,7 @@ export class CustomerProfile extends BaseEntity {
   @Column({ type: 'jsonb', default: [] })
   allergens: string[];
 
-  /** FORKSY wallet / credits balance (CAD). Source of truth = wallet_transactions. */
+  /** FORKY wallet / credits balance (CAD). Source of truth = wallet_transactions. */
   @MoneyColumn()
   walletBalance: number;
 

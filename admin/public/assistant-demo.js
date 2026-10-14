@@ -15,7 +15,7 @@
     if (q.get('restaurant')) s.setAttribute('data-restaurant', q.get('restaurant'));
   }
   if (q.get('position') === 'left') s.setAttribute('data-position', 'left');
-  s.addEventListener('load', function () { status.textContent = 'Widget script loaded (version ' + (window.ForksyAssistant ? window.ForksyAssistant.version : '?') + ').'; });
+  s.addEventListener('load', function () { status.textContent = 'Widget script loaded (version ' + (window.ForkyAssistant ? window.ForkyAssistant.version : '?') + ').'; });
   s.addEventListener('error', function () { status.textContent = 'Could not load the widget script from http://localhost:4000.'; });
   document.body.appendChild(s);
 })();

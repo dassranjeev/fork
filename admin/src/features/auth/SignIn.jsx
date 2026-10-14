@@ -11,7 +11,7 @@ export function AuthFrame({ title, subtitle, children }) {
     <section className="auth bg-base d-flex flex-wrap">
       <div className="auth-left d-lg-flex d-none align-items-center justify-content-center" style={{ background: "linear-gradient(135deg,#ff6917,#ff8340 55%,#ffa66f)" }}>
         <div className="text-white p-48" style={{ maxWidth: 520 }}>
-          <img src="/brand/logo-horizontal-white.png" alt="FORKSY" className="mb-40" style={{ height: 64 }} />
+          <img src="/brand/logo-horizontal-white.png" alt="FORKY" className="mb-40" style={{ height: 64 }} />
           <h3 className="text-white mb-16">Run the whole delivery network from one console.</h3>
           <p className="text-white opacity-75 mb-32">Customers, restaurants and drivers, live dispatch, payouts and support, all in one place.</p>
           <ul className="list-unstyled d-grid gap-3 mb-0">
@@ -25,7 +25,7 @@ export function AuthFrame({ title, subtitle, children }) {
       </div>
       <div className="auth-right py-32 px-24 d-flex flex-column justify-content-center">
         <div className="max-w-464-px mx-auto w-100">
-          <img src="/brand/logo-horizontal-orange.png" alt="FORKSY" className="mb-32 d-lg-none" style={{ height: 48 }} />
+          <img src="/brand/logo-horizontal-orange.png" alt="FORKY" className="mb-32 d-lg-none" style={{ height: 48 }} />
           <h4 className="mb-12">{title}</h4>
           <p className="mb-32 text-secondary-light text-lg">{subtitle}</p>
           {children}
@@ -57,7 +57,7 @@ export default function SignIn() {
     const me = await acceptSession(res);
     const t = me.user?.type;
     if (t === "DRIVER" || t === "CUSTOMER") {
-      toast.info("This account is for the mobile app. Use the FORKSY app.");
+      toast.info("This account is for the mobile app. Use the FORKY app.");
     }
     navigate(t === "RESTAURANT" ? "/portal" : "/", { replace: true });
   };
@@ -125,7 +125,7 @@ export default function SignIn() {
   }
 
   return (
-    <AuthFrame title="Sign in to FORKSY" subtitle="Admin console and restaurant portal. Welcome back!">
+    <AuthFrame title="Sign in to FORKY" subtitle="Admin console and restaurant portal. Welcome back!">
       <form onSubmit={submitPassword}>
         <div className="icon-field mb-16">
           <span className="icon top-50 translate-middle-y">
@@ -156,7 +156,7 @@ export default function SignIn() {
           <p className="mb-0">
             Own a restaurant?{" "}
             <Link to="/apply" className="text-primary-600 fw-semibold">
-              Apply to join FORKSY
+              Apply to join FORKY
             </Link>
           </p>
         </div>

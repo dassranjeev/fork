@@ -112,7 +112,7 @@ export class ScheduledReportsService {
       groupBy: report.filters?.groupBy,
     };
     const result = await this.exportSvc.build(report.dashboard, report.format, f, SYSTEM_USER);
-    const subject = `FORKSY ${report.name} - ${range.from} to ${range.to}`;
+    const subject = `FORKY ${report.name} - ${range.from} to ${range.to}`;
     const body =
       result.format === 'csv'
         ? `Scheduled report: ${report.name}\nDashboard: ${report.dashboard}\nPeriod: ${range.from} to ${range.to}\n\n${result.csv}`

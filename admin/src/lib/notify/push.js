@@ -101,7 +101,7 @@ export function createPush({ app, http, getUserId = () => "anon", canSubscribe =
       if (!sup.ok) throw Object.assign(new Error(sup.message), { code: "unsupported", reason: sup.reason });
       if (!canSubscribe()) throw Object.assign(new Error("Notifications cannot be turned on while viewing another account."), { code: "disabled" });
       const config = await api.getConfig();
-      if (!config.enabled || !config.publicKey) throw Object.assign(new Error("Push notifications are switched off by FORKSY right now."), { code: "disabled" });
+      if (!config.enabled || !config.publicKey) throw Object.assign(new Error("Push notifications are switched off by FORKY right now."), { code: "disabled" });
       await registerServiceWorker();
       let perm = permission();
       if (perm === "default") perm = await Notification.requestPermission();

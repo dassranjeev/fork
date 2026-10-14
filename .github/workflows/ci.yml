@@ -34,11 +34,11 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: forksy
+          POSTGRES_DB: forky
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d forksy"
+          --health-cmd "pg_isready -U postgres -d forky"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 12
@@ -47,7 +47,7 @@ jobs:
       DB_PORT: "5432"
       DB_USER: postgres
       DB_PASSWORD: postgres
-      DB_NAME: forksy
+      DB_NAME: forky
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -87,9 +87,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build API image
-        run: docker build -t forksy-api ./backend
+        run: docker build -t forky-api ./backend
       - name: Build web image
-        run: docker build -t forksy-web --build-arg REACT_APP_API_URL=https://api.example.ca/api/v1 --build-arg REACT_APP_WS_URL=https://api.example.ca ./admin
+        run: docker build -t forky-web --build-arg REACT_APP_API_URL=https://api.example.ca/api/v1 --build-arg REACT_APP_WS_URL=https://api.example.ca ./admin
 
   secrets-scan:
     runs-on: ubuntu-latest

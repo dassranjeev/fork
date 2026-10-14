@@ -444,7 +444,7 @@ export class OrdersService implements IOrdersService {
     return { since: start.toISOString(), feeStartsAt: new Date(start.getTime() + cfg.graceMinutes * 60_000).toISOString(), graceMinutes: cfg.graceMinutes, perMinute: cfg.perMinute, waitedMinutes: Math.floor(waited), accruedFee: Math.min(cfg.maxPerOrder, round2(chargeable * cfg.perMinute)) };
   }
 
-  /** Staff waive the wait fee (e.g. after a restaurant dispute): the restaurant is made whole and FORKSY absorbs it; the driver keeps the pay. */
+  /** Staff waive the wait fee (e.g. after a restaurant dispute): the restaurant is made whole and FORKY absorbs it; the driver keeps the pay. */
   async waiveWaitFee(orderId: string, actor: ActorRef, reason: string): Promise<Order> {
     const order = await this.getById(orderId);
     const fee = Number(order.driverWaitFee);
@@ -455,10 +455,10 @@ export class OrdersService implements IOrdersService {
     if (settled) {
       const restaurant = await this.restaurants.findOne({ where: { id: order.restaurantId } });
       await this.ledger.add({ partyType: PartyType.RESTAURANT, partyId: restaurant?.merchantId ?? null, restaurantId: order.restaurantId, orderId: order.id, type: LedgerType.WAIT_FEE, amount: fee, description: `Wait-time charge waived on ${order.code}: ${reason}` });
-      await this.ledger.add({ partyType: PartyType.PLATFORM, partyId: null, orderId: order.id, type: LedgerType.ADJUSTMENT, amount: -fee, description: `Wait-time charge on ${order.code} absorbed by FORKSY (waived)` });
+      await this.ledger.add({ partyType: PartyType.PLATFORM, partyId: null, orderId: order.id, type: LedgerType.ADJUSTMENT, amount: -fee, description: `Wait-time charge on ${order.code} absorbed by FORKY (waived)` });
     } else {
-      order.driverWaitFee = 0; // not settled yet: nothing was posted, so the fee simply disappears; the driver is paid by FORKSY below
-      await this.ledger.add({ partyType: PartyType.DRIVER, partyId: order.driverId, orderId: order.id, type: LedgerType.WAIT_FEE, amount: fee, description: `Wait-time pay (paid by FORKSY, charge waived) for ${order.code}` }).catch(() => undefined);
+      order.driverWaitFee = 0; // not settled yet: nothing was posted, so the fee simply disappears; the driver is paid by FORKY below
+      await this.ledger.add({ partyType: PartyType.DRIVER, partyId: order.driverId, orderId: order.id, type: LedgerType.WAIT_FEE, amount: fee, description: `Wait-time pay (paid by FORKY, charge waived) for ${order.code}` }).catch(() => undefined);
     }
     await this.orders.save(order);
     await this.addEvent(order.id, 'WAIT_FEE_WAIVED', actor, reason, { amount: fee });
@@ -548,8 +548,8 @@ export class OrdersService implements IOrdersService {
 
   /**
    * Customer cancel window: from payment completion for orders.customerCancelGraceSeconds (default 120 s). While it is open the order is held
-   * by FORKSY and is NOT with the kitchen; cancelling then costs nothing and the restaurant never sees the order. When it closes the order is
-   * released to the restaurant and customers can no longer cancel (only FORKSY staff, with the restaurant's approval).
+   * by FORKY and is NOT with the kitchen; cancelling then costs nothing and the restaurant never sees the order. When it closes the order is
+   * released to the restaurant and customers can no longer cancel (only FORKY staff, with the restaurant's approval).
    */
   customerCancelWindow(order: Pick<Order, 'status' | 'createdAt' | 'fulfilment' | 'kitchenReleaseAt' | 'kitchenReleasedAt'>): { open: boolean; until: Date | null } {
     const grace = Number(this.settings.get<number>('orders.customerCancelGraceSeconds', 120));
@@ -598,13 +598,13 @@ export class OrdersService implements IOrdersService {
   }
 
   // ---- staff cancel after the restaurant already has the order: needs the restaurant's approval
-  /** FORKSY staff ask the restaurant for permission to cancel; the restaurant answers in its portal. */
+  /** FORKY staff ask the restaurant for permission to cancel; the restaurant answers in its portal. */
   async requestCancelApproval(orderId: string, actor: ActorRef, reason: string): Promise<Order> {
     const order = await this.getById(orderId);
-    if (!this.isReleased(order)) throw new BadRequestException('This order is still held by FORKSY (customer cancellation window) - no restaurant approval is needed to cancel it');
+    if (!this.isReleased(order)) throw new BadRequestException('This order is still held by FORKY (customer cancellation window) - no restaurant approval is needed to cancel it');
     if (![OrderStatus.PLACED, OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.DRIVER_ASSIGNED].includes(order.status)) throw new BadRequestException('This order can no longer be cancelled through a restaurant approval');
     if (order.meta?.cancelRequest?.status === 'PENDING') throw new ConflictException('A cancellation request is already waiting for the restaurant');
-    order.meta = { ...(order.meta ?? {}), cancelRequest: { status: 'PENDING', reason: String(reason).slice(0, 500), requestedBy: { id: actor.id ?? null, name: actor.name ?? 'FORKSY support' }, requestedAt: new Date().toISOString() } };
+    order.meta = { ...(order.meta ?? {}), cancelRequest: { status: 'PENDING', reason: String(reason).slice(0, 500), requestedBy: { id: actor.id ?? null, name: actor.name ?? 'FORKY support' }, requestedAt: new Date().toISOString() } };
     await this.orders.save(order);
     await this.addEvent(order.id, 'CANCEL_REQUESTED', actor, reason);
     this.realtime.emitToRestaurant(order.restaurantId, 'order.cancel_requested', { orderId: order.id, code: order.code, reason });
@@ -612,7 +612,7 @@ export class OrdersService implements IOrdersService {
     return this.getById(order.id);
   }
 
-  /** The restaurant approves or declines FORKSY's cancellation request. */
+  /** The restaurant approves or declines FORKY's cancellation request. */
   async respondCancelRequest(orderId: string, restaurantId: string, actor: ActorRef, approve: boolean, note?: string): Promise<Order> {
     const order = await this.getById(orderId);
     if (order.restaurantId !== restaurantId) throw new NotFoundException('Order not found');
@@ -635,7 +635,7 @@ export class OrdersService implements IOrdersService {
     } else if (actor.type === ActorType.STAFF) {
       const beforePickup = [OrderStatus.PLACED, OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.DRIVER_ASSIGNED].includes(order.status);
       if (beforePickup && this.isReleased(order)) {
-        // the restaurant already has the job: FORKSY can only cancel with the restaurant's approval
+        // the restaurant already has the job: FORKY can only cancel with the restaurant's approval
         const approved = order.meta?.cancelRequest?.status === 'APPROVED';
         const manual = opts.restaurantApproval;
         if (!approved && !(manual && manual.contactName?.trim().length >= 2)) {

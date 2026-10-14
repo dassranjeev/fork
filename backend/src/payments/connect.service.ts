@@ -53,7 +53,7 @@ export const requirementLabel = (code: string) => REQ_LABEL[code] ?? code;
 
 /**
  * Stripe Connect (Express accounts, "separate charges and transfers"): onboarding links, status sync, Express dashboard login links.
- * The Stripe account is the payout account: identity checks and bank details live at Stripe, FORKSY stores only the account id,
+ * The Stripe account is the payout account: identity checks and bank details live at Stripe, FORKY stores only the account id,
  * the status and a few non-sensitive facts (bank last 4, requirements due).
  */
 @Injectable()
@@ -155,7 +155,7 @@ export class ConnectService {
       type: 'express',
       country: cfg.platformCountry,
       capabilities: { transfers: { requested: true } },
-      metadata: { partyType, partyId, platform: 'forksy' },
+      metadata: { partyType, partyId, platform: 'forky' },
     };
     if (partyType === PartyType.DRIVER) {
       const u = await this.users.findOne({ where: { id: row.userId } });
@@ -163,14 +163,14 @@ export class ConnectService {
         business_type: 'individual',
         email: u?.email ?? undefined,
         individual: { first_name: u?.firstName || undefined, last_name: u?.lastName || undefined, email: u?.email ?? undefined },
-        business_profile: { product_description: 'Delivery driver on the FORKSY marketplace' },
+        business_profile: { product_description: 'Delivery driver on the FORKY marketplace' },
       });
     } else {
       Object.assign(base, {
         business_type: 'company',
         email: row.contactEmail ?? undefined,
         company: { name: row.legalName || row.businessName },
-        business_profile: { name: row.businessName, product_description: 'Restaurant / store on the FORKSY marketplace' },
+        business_profile: { name: row.businessName, product_description: 'Restaurant / store on the FORKY marketplace' },
       });
     }
     const acct = await stripe.accounts.create(base, { idempotencyKey: `acct-${partyType}-${partyId}` });

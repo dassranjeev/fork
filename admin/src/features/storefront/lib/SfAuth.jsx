@@ -49,7 +49,7 @@ export function SfAuthProvider({ children }) {
   /** Accepts the response of /auth/login | /auth/customer/register | /auth/otp/verify */
   const acceptSession = useCallback(async (res) => {
     if (res?.user && res.user.type !== "CUSTOMER") {
-      throw new Error("This account is not a customer account. Please use the FORKSY Admin or Restaurant Portal to sign in.");
+      throw new Error("This account is not a customer account. Please use the FORKY Admin or Restaurant Portal to sign in.");
     }
     sfTokens.set(res);
     setUser(res.user || null);

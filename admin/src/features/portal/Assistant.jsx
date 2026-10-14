@@ -15,7 +15,7 @@ function HowItWorks() {
   const steps = [
     ["solar:chat-round-dots-outline", "Answers questions about your restaurant only", "Menu, prices, dietary tags and allergens as you recorded them, opening hours, delivery or pickup, minimum order, plus your own FAQs below. It never invents menu items or prices and never claims a dish is safe for an allergy."],
     ["solar:cart-large-2-outline", "Builds the order with the guest", "\"Add 2 margherita and a pop\", \"no onions\", \"what do you recommend\". Items are validated against your live menu (available, valid options, 1-20 each)."],
-    ["solar:link-round-outline", "Hands over to FORKSY to pay", "When the guest taps Checkout they are sent to the FORKSY website with the same items and kitchen note; they log in or register there and pay. Orders then arrive exactly like any other order."],
+    ["solar:link-round-outline", "Hands over to FORKY to pay", "When the guest taps Checkout they are sent to the FORKY website with the same items and kitchen note; they log in or register there and pay. Orders then arrive exactly like any other order."],
     ["solar:shield-check-outline", "Safe on your site", "The bot key is public (it sits in your page source). It only works from the websites you list below, is rate limited, and only exposes what your public restaurant page already shows."],
   ];
   return (
@@ -39,7 +39,7 @@ function HowItWorks() {
 
 /**
  * Restaurant portal > Assistant. The restaurant manages ONLY its FAQs and the websites that may show the bot (plus the embed code / key).
- * The look (name, greeting, colour, logo) and the on/off switch are set by FORKSY and shown here read-only.
+ * The look (name, greeting, colour, logo) and the on/off switch are set by FORKY and shown here read-only.
  */
 function AssistantSettings() {
   const { restaurantRole } = useAuth();
@@ -118,21 +118,21 @@ function AssistantSettings() {
 
   return (
     <>
-      <PageHeader title="Ordering assistant" subtitle="A private chat assistant for your restaurant, for your own website and for the FORKSY website." />
+      <PageHeader title="Ordering assistant" subtitle="A private chat assistant for your restaurant, for your own website and for the FORKY website." />
 
       {platformOff && (
         <div className="alert alert-warning radius-8 mb-20" role="alert">
-          FORKSY has turned the ordering assistant off for the whole platform for now. Your settings are kept.
+          FORKY has turned the ordering assistant off for the whole platform for now. Your settings are kept.
         </div>
       )}
       {forcedOff && (
         <div className="alert alert-danger radius-8 mb-20" role="alert">
-          FORKSY has turned the assistant off for your restaurant. Please contact FORKSY support if you think this is a mistake.
+          FORKY has turned the assistant off for your restaurant. Please contact FORKY support if you think this is a mistake.
         </div>
       )}
       {!current.embedEnabled && !platformOff && (
         <div className="alert alert-info radius-8 mb-20" role="alert">
-          Embedding on merchant websites is currently switched off by FORKSY. The assistant still works on the FORKSY website.
+          Embedding on merchant websites is currently switched off by FORKY. The assistant still works on the FORKY website.
         </div>
       )}
 

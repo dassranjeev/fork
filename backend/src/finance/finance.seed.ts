@@ -178,7 +178,7 @@ async function seedHistoricalBatch(ds: DataSource, periodStart: string, periodEn
 export async function seedFinance(ds: DataSource, opts: SeedOptions): Promise<void> {
   if (!opts.demo) return;
   const users = ds.getRepository(User);
-  const finance = await users.findOne({ where: { email: 'finance@forksy.ca' } });
+  const finance = await users.findOne({ where: { email: 'finance@forky.ca' } });
   const superAdmin = await users.findOne({ where: { type: UserType.SUPER_ADMIN } });
 
   const today = torontoDate();

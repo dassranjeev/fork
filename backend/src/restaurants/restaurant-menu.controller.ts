@@ -33,7 +33,7 @@ export class RestaurantMenuController {
     return resolveRestaurantId(user, restaurantId);
   }
 
-  /** the resolved restaurant, after checking that FORKSY allows this restaurant to change its menu */
+  /** the resolved restaurant, after checking that FORKY allows this restaurant to change its menu */
   private async edit(user: AuthUser, restaurantId?: string) {
     const id = this.rid(user, restaurantId);
     await this.access.assertCanEdit(id, user);
@@ -47,13 +47,13 @@ export class RestaurantMenuController {
     return { ...tree, access };
   }
 
-  /** Can this restaurant add / update / remove menu items? (decided by FORKSY staff) */
+  /** Can this restaurant add / update / remove menu items? (decided by FORKY staff) */
   @Get('access')
   menuAccess(@CurrentUser() user: AuthUser, @Query('restaurantId') restaurantId?: string) {
     return this.access.access(this.rid(user, restaurantId));
   }
 
-  /** Ask FORKSY staff for permission to edit the menu. */
+  /** Ask FORKY staff for permission to edit the menu. */
   @Post('access/request')
   @RestaurantRoles(...MANAGERS)
   requestAccess(@CurrentUser() user: AuthUser, @Body() dto: MenuAccessRequestDto, @Query('restaurantId') restaurantId?: string) {

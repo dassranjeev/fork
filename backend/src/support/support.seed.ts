@@ -4,7 +4,7 @@ import { CannedReply } from '../database/entities';
 import { TicketCategory } from '../common/enums';
 
 const CANNED: { shortcut: string; title: string; body: string; category?: TicketCategory; audience?: string }[] = [
-  { shortcut: '/hello', title: 'Greeting', body: 'Hi {{customerName}}, this is {{agentName}} from FORKSY support. I am looking at ticket {{ticketNumber}} now.' },
+  { shortcut: '/hello', title: 'Greeting', body: 'Hi {{customerName}}, this is {{agentName}} from FORKY support. I am looking at ticket {{ticketNumber}} now.' },
   { shortcut: '/late', title: 'Late order apology', category: TicketCategory.VERY_LATE, audience: 'CUSTOMER', body: 'Sorry {{customerName}}, order {{orderCode}} arrived later than promised. We have applied a delivery-fee refund and credit.' },
   { shortcut: '/missing', title: 'Missing item', category: TicketCategory.MISSING_ITEM, audience: 'CUSTOMER', body: 'Sorry about the missing item on order {{orderCode}}. We have credited the item to your wallet.' },
   { shortcut: '/evidence', title: 'Need photo', audience: 'CUSTOMER', body: 'Could you reply with a photo of the issue on order {{orderCode}}? It helps us resolve this quickly.' },

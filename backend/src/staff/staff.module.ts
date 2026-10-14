@@ -284,7 +284,7 @@ export class StaffService implements OnModuleInit {
     );
     await this.audit.logReq(req, dto.superAdmin ? 'security.super_admin_created' : 'staff.create', 'user', user.id, undefined, { email, roleId: dto.roleId, superAdmin: !!dto.superAdmin });
     this.notifications
-      .sendEmail(email, 'Your FORKSY admin account', `Hi ${dto.firstName}, your FORKSY admin account was created. Temporary password: ${tempPassword}. You will be asked to set up two-factor authentication at first sign-in.`)
+      .sendEmail(email, 'Your FORKY admin account', `Hi ${dto.firstName}, your FORKY admin account was created. Temporary password: ${tempPassword}. You will be asked to set up two-factor authentication at first sign-in.`)
       .catch(() => undefined);
     return { user: this.toView(user), temporaryPassword: dto.password ? undefined : tempPassword };
   }
@@ -364,7 +364,7 @@ export class StaffService implements OnModuleInit {
       if (supers <= 1) throw new BadRequestException('Cannot remove the last Super Admin');
     }
     // SOP-09: remove access the same day; keep the row for audit integrity
-    await this.users.update(id, { status: UserStatus.DELETED, deletedAt: new Date(), email: `deleted+${id}@forksy.invalid`, phone: null });
+    await this.users.update(id, { status: UserStatus.DELETED, deletedAt: new Date(), email: `deleted+${id}@forky.invalid`, phone: null });
     await this.tokens.update({ userId: id, revokedAt: IsNull() }, { revokedAt: new Date() });
     await this.users.update(id, { tokensValidAfter: new Date(), tokenVersion: () => '"tokenVersion" + 1' });
     this.strategy.invalidate(id);

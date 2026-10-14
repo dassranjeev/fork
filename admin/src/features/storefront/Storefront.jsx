@@ -25,7 +25,7 @@ function NotFound() {
     <div className="sf-container sf-narrow sf-center py-5">
       <Ri name="compass-3-line" className="sf-bigicon" />
       <h1 className="sf-h2 mt-2">Page not found</h1>
-      <Link to="/order" className="sf-btn sf-btn-primary">Back to FORKSY</Link>
+      <Link to="/order" className="sf-btn sf-btn-primary">Back to FORKY</Link>
     </div>
   );
 }
@@ -43,7 +43,7 @@ function Shell() {
 
   useEffect(() => {
     const prev = document.title;
-    document.title = "FORKSY - Order food online";
+    document.title = "FORKY - Order food online";
     return () => {
       document.title = prev;
     };
@@ -71,7 +71,7 @@ function Shell() {
       </main>
       <footer className="sf-footer">
         <div className="sf-container">
-          <span>FORKSY - Mississauga and Brampton</span>
+          <span>FORKY - Mississauga and Brampton</span>
           <span className="sf-muted">Payments by Stripe. Development site: test payments only.</span>
         </div>
       </footer>

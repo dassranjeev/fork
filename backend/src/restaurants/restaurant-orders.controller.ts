@@ -70,7 +70,7 @@ export class RestaurantOrdersController {
     return restaurantOrderView(await this.ordersService.transition(id, OrderStatus.ACCEPTED, restaurantActor(user), { prepTimeMin }));
   }
 
-  /** FORKSY support asked to cancel this order; the restaurant approves or declines. */
+  /** FORKY support asked to cancel this order; the restaurant approves or declines. */
   @Post(':id/cancel-request/respond')
   async respondCancelRequest(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: CancelResponseDto, @Query('restaurantId') restaurantId?: string) {
     const rid = this.rid(user, restaurantId);

@@ -1,4 +1,4 @@
-# FORKSY web (Admin Console, Restaurant Portal, customer website) - static build served by nginx.
+# FORKY web (Admin Console, Restaurant Portal, customer website) - static build served by nginx.
 # The REACT_APP_* values are baked into the build: pass them as build args (see docker-compose.yml / deploy/.env.example).
 FROM node:22-alpine AS build
 WORKDIR /app

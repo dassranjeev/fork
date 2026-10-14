@@ -10,14 +10,14 @@ const DIET = [[], ['vegetarian'], ['vegan'], ['halal'], ['gluten-free'], []];
 const ALLERGENS = [[], [], ['peanuts'], ['dairy'], ['shellfish'], []];
 const STREETS = ['Hurontario St', 'Burnhamthorpe Rd', 'Dundas St W', 'Mavis Rd', 'Erin Centre Blvd', 'Lakeshore Rd W'];
 
-/** ~30 demo customers (customerN@demo.forksy.ca, phone +1416555 0201..) with addresses, prefs, some wallet credit. Idempotent. */
+/** ~30 demo customers (customerN@demo.forky.ca, phone +1416555 0201..) with addresses, prefs, some wallet credit. Idempotent. */
 export async function seedCustomers(ds: DataSource, opts: SeedOptions): Promise<void> {
   if (!opts.demo) return;
   const hash = await bcrypt.hash(opts.demoPassword, 10);
   const users = ds.getRepository(User);
   let created = 0;
   for (let n = 1; n <= 30; n++) {
-    const email = `customer${n}@demo.forksy.ca`;
+    const email = `customer${n}@demo.forky.ca`;
     if (await users.findOne({ where: { email } })) continue;
     const user = await users.save(
       users.create({
@@ -96,7 +96,7 @@ export async function seedCustomersExtra(ds: DataSource, opts: SeedOptions): Pro
   let created = 0;
   for (let n = 31; n <= 50; n++) {
     const idx = n - 31;
-    const email = `customer${n}@demo.forksy.ca`;
+    const email = `customer${n}@demo.forky.ca`;
     if (await users.findOne({ where: { email } })) continue;
     const brampton = idx % 2 === 0;
     const pool = SPOTS.filter((s) => (s.city === 'Brampton') === brampton);

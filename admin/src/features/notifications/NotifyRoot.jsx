@@ -96,7 +96,7 @@ export default function NotifyRoot({ portal, children }) {
           out.push({ id: o.id, kind: "order", title: `New order ${o.code}`, body: parts.join(", "), url, restaurantId: rid });
         }
         const cr = o.meta?.cancelRequest;
-        if (cr && cr.status === "PENDING") out.push({ id: o.id, kind: "cancel", title: `Cancellation request ${o.code}`, body: cr.reason || "FORKSY support asks to cancel this order", url, restaurantId: rid });
+        if (cr && cr.status === "PENDING") out.push({ id: o.id, kind: "cancel", title: `Cancellation request ${o.code}`, body: cr.reason || "FORKY support asks to cancel this order", url, restaurantId: rid });
       }
     }
     return out;

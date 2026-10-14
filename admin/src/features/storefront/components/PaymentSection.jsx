@@ -259,7 +259,7 @@ const PaymentSection = forwardRef(function PaymentSection({ quoteBody, quoteRead
         </Elements>
       )}
       <p className="sf-small sf-muted mt-2 mb-0">
-        <Ri name="lock-line" /> Secure payment by Stripe. FORKSY never sees your card number. Your card is only <b>held</b> now and charged when the order is delivered.
+        <Ri name="lock-line" /> Secure payment by Stripe. FORKY never sees your card number. Your card is only <b>held</b> now and charged when the order is delivered.
       </p>
     </div>
   );

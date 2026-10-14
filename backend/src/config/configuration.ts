@@ -9,7 +9,7 @@ export default () => ({
   env: process.env.NODE_ENV ?? 'development',
   port: parseInt(process.env.PORT ?? '4000', 10),
   publicUrl: process.env.PUBLIC_URL ?? 'http://localhost:4000',
-  /** The customer website (FORKSY storefront). Used for the assistant's checkout hand-off link: ${WEB_URL}/order/handoff?token=... */
+  /** The customer website (FORKY storefront). Used for the assistant's checkout hand-off link: ${WEB_URL}/order/handoff?token=... */
   webUrl: (process.env.WEB_URL ?? 'http://localhost:3000').replace(/[/]+$/, ''),
   /** Optional: enables the LlmBrain adapter stub of the ordering assistant (untested, see docs/assistant.md). */
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
@@ -22,7 +22,7 @@ export default () => ({
     port: parseInt(process.env.DB_PORT ?? '5432', 10),
     username: process.env.DB_USER ?? 'postgres',
     password: process.env.DB_PASSWORD ?? 'postgres',
-    database: process.env.DB_NAME ?? 'forksy',
+    database: process.env.DB_NAME ?? 'forky',
     ssl: process.env.DB_SSL === 'true',
     /** auto-create / update tables from entities. Dev only - the production gate refuses DB_SYNC=true. */
     synchronize: (process.env.DB_SYNC ?? (isProd ? 'false' : 'true')) === 'true',
@@ -38,8 +38,8 @@ export default () => ({
     secret: process.env.JWT_SECRET ?? 'change-me-in-production',
     accessTtl: process.env.JWT_ACCESS_TTL ?? '15m',
     refreshTtlDays: parseInt(process.env.JWT_REFRESH_TTL_DAYS ?? '30', 10),
-    issuer: 'forksy-api',
-    audience: 'forksy-clients',
+    issuer: 'forky-api',
+    audience: 'forky-clients',
   },
   security: {
     /** Force 2FA for staff & restaurant owners (spec 10.1). Required in production. */
@@ -86,12 +86,12 @@ export default () => ({
     authToken: process.env.TWILIO_AUTH_TOKEN ?? '',
     from: process.env.TWILIO_FROM ?? '',
   },
-  sendgrid: { apiKey: process.env.SENDGRID_API_KEY ?? '', from: process.env.EMAIL_FROM ?? 'no-reply@forksy.ca' },
+  sendgrid: { apiKey: process.env.SENDGRID_API_KEY ?? '', from: process.env.EMAIL_FROM ?? 'no-reply@forky.ca' },
   /** FCM HTTP v1 (native apps): service-account JSON; the legacy server key API is gone. Browser push needs no key (VAPID is generated). */
   fcm: { serviceAccountJson: process.env.FCM_SERVICE_ACCOUNT_JSON ?? '' },
   certn: { apiKey: process.env.CERTN_API_KEY ?? '', webhookSecret: process.env.CERTN_WEBHOOK_SECRET ?? '' },
   seed: {
-    superAdminEmail: process.env.SEED_SUPERADMIN_EMAIL ?? 'admin@forksy.ca',
+    superAdminEmail: process.env.SEED_SUPERADMIN_EMAIL ?? 'admin@forky.ca',
     superAdminPassword: process.env.SEED_SUPERADMIN_PASSWORD ?? 'Admin@12345',
     demoData: (process.env.SEED_DEMO ?? 'true') === 'true',
   },

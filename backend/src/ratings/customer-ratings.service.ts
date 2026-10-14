@@ -34,7 +34,7 @@ export class CustomerRatingsService {
     let refId: string;
     if (raterType === 'DRIVER') {
       if (!who.driverId || order.driverId !== who.driverId) throw new NotFoundException('Order not found');
-      if (order.fulfilment !== FulfilmentMode.PLATFORM_DRIVER) throw new BadRequestException('Only deliveries completed by a FORKSY driver can be rated');
+      if (order.fulfilment !== FulfilmentMode.PLATFORM_DRIVER) throw new BadRequestException('Only deliveries completed by a FORKY driver can be rated');
       refId = who.driverId;
     } else {
       if (!who.restaurantIds?.includes(order.restaurantId)) throw new NotFoundException('Order not found');

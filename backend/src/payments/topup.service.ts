@@ -78,14 +78,14 @@ export class TopUpService {
     const max = Number(this.settings.get('payments.topUpMax', 500));
     const a = round2(amount);
     if (!Number.isFinite(a) || a < min || a > max) throw new BadRequestException(`Top-up amount must be between $${min.toFixed(2)} and $${max.toFixed(2)}`);
-    return this.newIntent(customerId, 'TOPUP', a, {}, 'FORKSY wallet top-up');
+    return this.newIntent(customerId, 'TOPUP', a, {}, 'FORKY wallet top-up');
   }
 
   async createGiftCardIntent(customerId: string, input: { amount: number; recipientEmail?: string; message?: string }) {
     if (!this.settings.get<boolean>('payments.giftCardsEnabled', true)) throw new BadRequestException('Gift cards are switched off');
     const a = round2(input.amount);
     if (!Number.isFinite(a) || a < 10 || a > 500) throw new BadRequestException('Gift card amount must be between $10.00 and $500.00');
-    return this.newIntent(customerId, 'GIFT_CARD', a, { recipientEmail: input.recipientEmail ?? null, message: input.message ?? null }, 'FORKSY gift card');
+    return this.newIntent(customerId, 'GIFT_CARD', a, { recipientEmail: input.recipientEmail ?? null, message: input.message ?? null }, 'FORKY gift card');
   }
 
   // ------------------------------------------------------------------ fulfilment (exactly once)

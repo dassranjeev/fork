@@ -45,7 +45,7 @@ export interface QuoteInput {
   promoCode?: string;
   /** tip in CAD */
   tip?: number;
-  /** apply FORKSY wallet balance */
+  /** apply FORKY wallet balance */
   useWallet?: boolean;
   scheduledFor?: Date | null;
 }

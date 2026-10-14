@@ -101,7 +101,7 @@ function Approvals({ onChanged, refreshKey }) {
     if (r.confirmed) run(() => http.post(`/admin/promotions/${p.id}/reject`, { reason: r.value }), { success: "Promotion rejected", onDone: done });
   };
   return (
-    <Card title="Restaurant promo approvals" subtitle="Self-serve promotions waiting for FORKSY review." className="mb-24" actions={rows.length ? <Badge tone="warning">{rows.length} pending</Badge> : null}>
+    <Card title="Restaurant promo approvals" subtitle="Self-serve promotions waiting for FORKY review." className="mb-24" actions={rows.length ? <Badge tone="warning">{rows.length} pending</Badge> : null}>
       {error && <ErrorState error={error} onRetry={reload} />}
       {loading && !data ? (
         <Loading minHeight={60} />

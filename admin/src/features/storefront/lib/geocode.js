@@ -1,5 +1,5 @@
 /**
- * Address search client. The browser talks ONLY to the FORKSY API (/public/geocode/*); the Mapbox token never leaves the server,
+ * Address search client. The browser talks ONLY to the FORKY API (/public/geocode/*); the Mapbox token never leaves the server,
  * so the Content-Security-Policy needs no Mapbox origin. When the server answers { enabled:false } the callers fall back to the
  * demo areas / manual coordinates.
  */

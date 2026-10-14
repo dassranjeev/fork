@@ -289,7 +289,7 @@ const has = (r: any, re: RegExp) => re.test(r.text);
   check('checkout below the minimum explains the gap', has(r, /minimum order/i) && has(r, /\$7\.75/), r);
   await s.say('add 2 garlic bread');
   r = await s.say('check out please');
-  check('checkout ready', has(r, /Checkout on FORKSY/) && has(r, /ready/i), r);
+  check('checkout ready', has(r, /Checkout on FORKY/) && has(r, /ready/i), r);
 
   // ---------------------------------------------------------------- safety
   s = session();
@@ -382,12 +382,12 @@ const has = (r: any, re: RegExp) => re.test(r.text);
   c = central('pizza near me', null, { lat: 43.55, lng: -79.58 });
   check('central: with a position the closest pizza place comes first', c.restaurants?.[0]?.slug === 'napoli-port', c);
   {
-    const withFaq = (message: string) => new CentralRun({ message, quick: null, now: new Date(), scope: 'central', mode: 'site', canScope: true, loggedIn: false, kb: null, directory: dir, geo: null, centralFaqs: [{ q: 'Which areas do you deliver to?', a: 'We deliver across Mississauga and Brampton.' }, { q: 'How do I contact support?', a: 'Email support@forksy.ca.' }], starterChips: [{ label: 'Sushi', payload: 'find:sushi' }], draft: { restaurantId: null, cart: [], orderNote: null, pending: null, messageCount: 0 }, tools: null, cart: () => ({ lines: [], count: 0, subtotal: 0 }) } as any).run();
+    const withFaq = (message: string) => new CentralRun({ message, quick: null, now: new Date(), scope: 'central', mode: 'site', canScope: true, loggedIn: false, kb: null, directory: dir, geo: null, centralFaqs: [{ q: 'Which areas do you deliver to?', a: 'We deliver across Mississauga and Brampton.' }, { q: 'How do I contact support?', a: 'Email support@forky.ca.' }], starterChips: [{ label: 'Sushi', payload: 'find:sushi' }], draft: { restaurantId: null, cart: [], orderNote: null, pending: null, messageCount: 0 }, tools: null, cart: () => ({ lines: [], count: 0, subtotal: 0 }) } as any).run();
     let f = withFaq('which areas do you deliver to');
-    check('central: FAQ about FORKSY answered verbatim', /Mississauga and Brampton/.test(f.text) && f.intent === 'faq', f);
+    check('central: FAQ about FORKY answered verbatim', /Mississauga and Brampton/.test(f.text) && f.intent === 'faq', f);
     check('central: configured starter chips are used', (f.chips ?? []).length === 1 && f.chips![0].payload === 'find:sushi', f.chips);
     f = withFaq('how can i contact the support team');
-    check('central: FAQ fuzzy match', /support@forksy/.test(f.text), f);
+    check('central: FAQ fuzzy match', /support@forky/.test(f.text), f);
     f = withFaq('pizza');
     check('central: a restaurant search is not swallowed by the FAQs', (f.restaurants ?? []).length > 0, f);
   }

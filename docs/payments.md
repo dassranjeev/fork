@@ -1,7 +1,7 @@
 # Payments (Stripe) and payouts (Stripe Connect)
 
-Every payment on FORKSY goes through **Stripe on-page payments**, and drivers and restaurants are paid out through **Stripe Connect**.
-Card details are typed into Stripe's own iframes (Payment Element): they never touch the FORKSY page code or API (PCI SAQ-A).
+Every payment on FORKY goes through **Stripe on-page payments**, and drivers and restaurants are paid out through **Stripe Connect**.
+Card details are typed into Stripe's own iframes (Payment Element): they never touch the FORKY page code or API (PCI SAQ-A).
 
 > **Status.** The code is complete and was proven end to end against a **fake Stripe server** (`backend/test/fakes/fake-stripe.mjs`) and the
 > real Stripe.js in a browser (which rejects the fake publishable key, so the card form itself was not exercised). It has NOT been run against the real Stripe
@@ -20,7 +20,7 @@ Card details are typed into Stripe's own iframes (Payment Element): they never t
 | Refunds | `refunds.create` against the PaymentIntent, idempotency key `refund-<refund id>` | What the card cannot take (paid with wallet credit, not yet captured) goes to the wallet |
 | Cash | **Removed** (the enum value stays for old rows) | |
 
-Platform charges, then transfers ("separate charges and transfers"): the customer's money lands on the FORKSY Stripe balance, payouts are Stripe **transfers**
+Platform charges, then transfers ("separate charges and transfers"): the customer's money lands on the FORKY Stripe balance, payouts are Stripe **transfers**
 to the connected accounts (`transfer_group` = `batch_<id>` / `payout_<id>`, idempotency key `payout_<payout id>`).
 
 ## Checkout flow
@@ -54,7 +54,7 @@ shows them, a link to the Stripe dashboard and any dispute (`GET /admin/orders/:
 Bad / missing / stale signature = **400**. Each event id is stored once in `stripe_events` (idempotent: a repeated event answers `duplicate:true`); an unknown event type is
 stored as IGNORED and answered **200**. A known event whose processing fails is answered 500 so Stripe retries (after 6 attempts it is answered 200 and stays FAILED for a manual replay).
 
-| Event | What FORKSY does |
+| Event | What FORKY does |
 |---|---|
 | `payment_intent.succeeded` | credits a wallet top-up / issues a gift card (exactly once); heals an order whose capture record was lost |
 | `payment_intent.amount_capturable_updated` | stores the status |

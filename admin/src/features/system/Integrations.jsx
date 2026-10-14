@@ -193,7 +193,7 @@ function MapboxCard({ m, reload, canChange }) {
       </div>}
     >
       {m.warnings?.map((w, i) => <div key={i} className="alert alert-warning radius-8 py-8 text-sm">{w}</div>)}
-      <SecretField name="accessToken" label="Access token (server)" view={m.keys.accessToken} value={f.accessToken} onChange={(v) => setF((x) => ({ ...x, accessToken: v }))} cleared={clear.accessToken} onClear={() => setClear((c) => ({ ...c, accessToken: true }))} disabled={!canChange} placeholder="sk.... (Search scope) or pk...." hint="Used by the FORKSY API only. Browsers never receive it." />
+      <SecretField name="accessToken" label="Access token (server)" view={m.keys.accessToken} value={f.accessToken} onChange={(v) => setF((x) => ({ ...x, accessToken: v }))} cleared={clear.accessToken} onClear={() => setClear((c) => ({ ...c, accessToken: true }))} disabled={!canChange} placeholder="sk.... (Search scope) or pk...." hint="Used by the FORKY API only. Browsers never receive it." />
       <SecretField name="publicToken" label="Public token (optional)" view={m.keys.publicToken} value={f.publicToken} onChange={(v) => setF((x) => ({ ...x, publicToken: v }))} cleared={clear.publicToken} onClear={() => setClear((c) => ({ ...c, publicToken: true }))} disabled={!canChange} placeholder="pk...." hint="Reserved for future browser maps." />
       <div className="row">
         <div className="col-md-4"><TextInput label="Search country" value={val("country")} onChange={(v) => setF((x) => ({ ...x, country: v }))} disabled={!canChange} hint="e.g. ca" /></div>

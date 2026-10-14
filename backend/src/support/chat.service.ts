@@ -443,7 +443,7 @@ export class ChatService {
       userId: s.requesterUserId,
       audience: s.requesterType,
       event: 'chat.message',
-      title: `${s.agentFirstName ?? 'FORKSY Support'} replied`,
+      title: `${s.agentFirstName ?? 'FORKY Support'} replied`,
       body: text.length > 120 ? `${text.slice(0, 117)}...` : text,
       data: { chatSessionId: s.id, ticketId: s.ticketId },
       channels: [NotificationChannel.PUSH, NotificationChannel.IN_APP],
@@ -534,7 +534,7 @@ export class ChatService {
     const t = await this.tickets.get(s.ticketId);
     await this.tickets.tickets.update(t.id, { assignedToId: agent.id, ...(t.status === TicketStatus.ESCALATED ? { status: TicketStatus.OPEN } : {}) });
     await this.tickets.sysNote(t.id, `Live chat ${via === 'auto' ? 'auto-assigned' : 'accepted'}: ${agent.name} (waited ${s.waitSec}s)`);
-    const text = `${agent.firstName} from FORKSY Support joined the chat.`;
+    const text = `${agent.firstName} from FORKY Support joined the chat.`;
     const sys = await this.msgs.save(this.msgs.create({ ticketId: t.id, senderType: 'SYSTEM', senderId: null, body: text, attachments: [], internal: false }));
     this.toRequester(s, 'chat.accepted', { sessionId: s.id, agent: { firstName: agent.firstName }, acceptedAt: s.acceptedAt, waitSec: s.waitSec });
     this.toRequester(s, 'chat.message', { sessionId: s.id, message: this.reqMsg(sys, new Map()) });

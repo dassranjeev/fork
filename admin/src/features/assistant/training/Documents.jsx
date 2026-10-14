@@ -30,7 +30,7 @@ export default function Documents({ api, canEdit, onChanged }) {
     setErr({ fields: {}, list: [] });
     try {
       const res = open?.id ? await api.patch(`/documents/${open.id}`, f) : await api.post("/documents", f);
-      if (res.document?.held) toast.warning("Saved, but FORKSY has to review this document before the bot can quote it.");
+      if (res.document?.held) toast.warning("Saved, but FORKY has to review this document before the bot can quote it.");
       else toast.success("Document saved to your draft. Publish to use it.");
       setOpen(null);
       load();
@@ -89,7 +89,7 @@ export default function Documents({ api, canEdit, onChanged }) {
                     <div className="text-secondary-light text-sm text-truncate" style={{ maxWidth: 420 }}>{d.text}</div>
                   </td>
                   <td>{d.chars.toLocaleString("en-CA")} characters</td>
-                  <td>{d.held ? <Badge tone="warning">Held for FORKSY review</Badge> : <Badge tone="success">Searchable</Badge>}</td>
+                  <td>{d.held ? <Badge tone="warning">Held for FORKY review</Badge> : <Badge tone="success">Searchable</Badge>}</td>
                   <td className="text-end text-nowrap">
                     <Button variant="outline" onClick={() => edit(d)}>
                       {canEdit ? "Edit" : "View"}

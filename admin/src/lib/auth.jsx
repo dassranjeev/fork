@@ -42,17 +42,17 @@ export function AuthProvider({ children }) {
     };
     // another tab logged out / its tokens were removed: drop this tab's session too
     const onStorage = (e) => {
-      if (e.key === "forksy.access" && !e.newValue && !impersonation.active) onLogout();
+      if (e.key === "forky.access" && !e.newValue && !impersonation.active) onLogout();
     };
     // back/forward cache: never show a restored authenticated page after logout
     const onPageShow = (e) => {
       if (e.persisted && !tokens.access) window.location.reload();
     };
-    window.addEventListener("forksy:logout", onLogout);
+    window.addEventListener("forky:logout", onLogout);
     window.addEventListener("storage", onStorage);
     window.addEventListener("pageshow", onPageShow);
     return () => {
-      window.removeEventListener("forksy:logout", onLogout);
+      window.removeEventListener("forky:logout", onLogout);
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("pageshow", onPageShow);
     };
@@ -156,7 +156,7 @@ export function useOpenPanel() {
       const res = await act(() => http.post(`/admin/restaurants/${restaurant.id}/impersonate`, {}));
       if (!res) return setBusy(null);
       try {
-        localStorage.setItem("forksy.ui.portal.restaurantId", JSON.stringify(res.restaurantId));
+        localStorage.setItem("forky.ui.portal.restaurantId", JSON.stringify(res.restaurantId));
       } catch {
         /* ignore */
       }

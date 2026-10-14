@@ -8,7 +8,7 @@ import { FieldIssue, KbChip, KbEntry, LIMITS } from './types';
  *
  *  BLOCK  (400, nothing saved)   pasted personal data (email, phone, card number), links that are not https, javascript: / data: URLs,
  *                                prompt-injection phrasing, profanity / abuse, size limits.
- *  HOLD   (saved, kept OUT of the live bot until FORKSY staff release it)   allergen-safety guarantees and medical claims.
+ *  HOLD   (saved, kept OUT of the live bot until FORKY staff release it)   allergen-safety guarantees and medical claims.
  *  WARN   (saved)                prices / opening hours: the live menu and hours are always used for those, the entry is only a fallback.
  */
 
@@ -119,7 +119,7 @@ export function checkText(text: string, field: string, cfg: GuardrailConfig = DE
     if (at >= 0 && !negated(n, at)) held.add('flagged phrase');
   }
   if (held.size) {
-    out.push({ field, code: 'hold_claim', severity: 'hold', message: `${[...held].join(', ')}: statements that guarantee allergen safety or make medical claims need FORKSY review before the bot can use them. The bot never promises safety; point guests to the restaurant staff instead.` });
+    out.push({ field, code: 'hold_claim', severity: 'hold', message: `${[...held].join(', ')}: statements that guarantee allergen safety or make medical claims need FORKY review before the bot can use them. The bot never promises safety; point guests to the restaurant staff instead.` });
   }
   if (opts.checkLive && (PRICE.test(t) || HOURS.test(t))) {
     out.push({ field, code: 'live_data', severity: 'warn', message: 'This mentions prices or opening hours. The bot always uses the live menu prices and hours for those questions, so this answer is only a fallback and will not override them.' });

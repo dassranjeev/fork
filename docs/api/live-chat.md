@@ -1,6 +1,6 @@
 # Live chat support (SupportModule)
 
-Real-time chat between customers / drivers and FORKSY support agents. REST is the source of truth, Socket.IO delivers events in real time. Base `/api/v1`, Socket.IO on the same host and port (`http://localhost:4000`).
+Real-time chat between customers / drivers and FORKY support agents. REST is the source of truth, Socket.IO delivers events in real time. Base `/api/v1`, Socket.IO on the same host and port (`http://localhost:4000`).
 
 A live chat **is a Ticket** (`source = "CHAT"`, tag `live-chat`) plus a **ChatSession** that holds queue / agent / timing state. Messages are `ticket_messages`, so agents keep every ticket tool: order context, refund-from-ticket, escalation, canned replies, internal notes, SLA, CSAT, history. Ended chats always stay visible as tickets with the full transcript.
 

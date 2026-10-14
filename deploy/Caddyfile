@@ -9,5 +9,7 @@
 	encode gzip
 	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 	# websockets (Socket.IO) are proxied automatically
+	# Optional private snippets (git-ignored), e.g. the API documentation password: see docs/deployment.md
+	import /etc/caddy/caddy.d/*.caddy
 	reverse_proxy api:4000
 }

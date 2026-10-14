@@ -6,7 +6,7 @@ Full description, architecture and security model: [`docs/assistant.md`](../assi
 
 | Method path | Throttle | Body / query | Response |
 |---|---|---|---|
-| `GET /public/assistant/config` | 60/min/IP | `?botKey=bk_...` (embedded) or `?restaurantSlug=slug` (site, scoped) or nothing (central) | `{ enabled, name, greeting, color\|null, logoUrl\|null, restaurant: {id, slug, name, logoUrl\|null}\|null, mode: "embedded"\|"site", chips? }`. `logoUrl` = assistant logo (set by FORKSY), else the restaurant logo, else null. `chips` (central only) = configured starter chips. 404 unknown key / slug, 403 origin not allowed or bot disabled |
+| `GET /public/assistant/config` | 60/min/IP | `?botKey=bk_...` (embedded) or `?restaurantSlug=slug` (site, scoped) or nothing (central) | `{ enabled, name, greeting, color\|null, logoUrl\|null, restaurant: {id, slug, name, logoUrl\|null}\|null, mode: "embedded"\|"site", chips? }`. `logoUrl` = assistant logo (set by FORKY), else the restaurant logo, else null. `chips` (central only) = configured starter chips. 404 unknown key / slug, 403 origin not allowed or bot disabled |
 | `POST /public/assistant/chat` | 30/min/IP, 12/min/session | `{ botKey?, restaurantSlug?, sessionId?: uuid, message: 1..500, quick?: string, lat?, lng? }` | `{ sessionId, restaurant\|null, reply: { text, cards?[<=6], restaurants?[<=6], chips?[<=6] }, cart: { items: [{lineId, menuItemId, name, quantity, unitPrice, options:[{id,name,priceDelta}], notes?, lineTotal}], count, subtotalEstimate }, orderNote\|null, canCheckout, loggedIn }` |
 | `POST /public/assistant/handoff` | 6/min/IP | `{ sessionId: uuid, botKey? }` | `{ token, url, expiresAt }` (`url = WEB_URL/order/handoff?token=...`) |
 | `POST /public/assistant/feedback` | 30/min/IP | `{ sessionId: uuid, messageId?, rating: "up"\|"down", comment? }` | `{ ok: true }` (emits event `assistant.feedback`) |
@@ -57,7 +57,7 @@ Errors: 400 validation (unknown fields rejected, `quick` payload grammar), 403 o
 
 Full contract in [../assistant-training.md](../assistant-training.md) section 7: `/restaurant/assistant/training/*` (read: any role of the restaurant; write: OWNER, LOCATION_MANAGER), `/admin/assistant/training/restaurants/:rid/*` (`restaurants:view|edit`), `/admin/assistant/training/central/*` (`settings:view|edit`), platform routes `/admin/assistant/training/{overview,restaurants,requests,requests/:id,requests/:id/approve|reject,held}`. Settings: `assistant.training.requireApproval`, `assistant.training.holdPhrases`, `assistant.training.blockPhrases`.
 
-Default avatar: `GET /assistant/forksy-icon.png` (outside `/api/v1`, public, `Cache-Control: public, max-age=86400`, CORP cross-origin) is returned as `logoUrl` when a bot has neither an admin logo nor a restaurant logo.
+Default avatar: `GET /assistant/forky-icon.png` (outside `/api/v1`, public, `Cache-Control: public, max-age=86400`, CORP cross-origin) is returned as `logoUrl` when a bot has neither an admin logo nor a restaurant logo.
 
 ## In-process events
 

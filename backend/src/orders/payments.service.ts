@@ -199,7 +199,7 @@ export class PaymentsService implements IPaymentsService {
         automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
         ...(savedPm ? { payment_method: savedPm } : {}),
         ...(opts.saveCard && !savedPm ? { setup_future_usage: 'off_session' } : {}),
-        description: 'FORKSY order',
+        description: 'FORKY order',
         metadata,
       },
       { idempotencyKey: `intent-${customer}-${hash}-${savedPm ?? ''}${opts.saveCard ? 's' : ''}-${Math.floor(Date.now() / 60_000)}` },
@@ -213,7 +213,7 @@ export class PaymentsService implements IPaymentsService {
       }
       const fresh = await stripe.paymentIntents.create({
         amount: toCents(cardAmount), currency: 'cad', capture_method: 'manual', customer, automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
-        ...(savedPm ? { payment_method: savedPm } : {}), ...(opts.saveCard && !savedPm ? { setup_future_usage: 'off_session' } : {}), description: 'FORKSY order', metadata,
+        ...(savedPm ? { payment_method: savedPm } : {}), ...(opts.saveCard && !savedPm ? { setup_future_usage: 'off_session' } : {}), description: 'FORKY order', metadata,
       }, { idempotencyKey: `intent-${randomUUID()}` });
       return this.rememberIntent(customerId, fresh, cardAmount, hash, cfg.publishableKey);
     }
@@ -300,7 +300,7 @@ export class PaymentsService implements IPaymentsService {
     if (hold.provider === 'stripe') {
       const stripe = this.stripeClient.client();
       await stripe?.paymentIntents
-        .update(hold.intentId, { metadata: { orderId: order.id, orderCode: order.code }, description: `FORKSY order ${order.code}`, transfer_group: `order_${order.code}` })
+        .update(hold.intentId, { metadata: { orderId: order.id, orderCode: order.code }, description: `FORKY order ${order.code}`, transfer_group: `order_${order.code}` })
         .catch((e: any) => this.logger.warn(`could not tag intent ${hold.intentId} with order ${order.code}: ${e?.code ?? e?.message}`));
     }
   }
@@ -393,7 +393,7 @@ export class PaymentsService implements IPaymentsService {
   }
 
   /**
-   * Money back to the customer's card. `refundId` (the FORKSY refund row) makes the Stripe call idempotent: replaying the same
+   * Money back to the customer's card. `refundId` (the FORKY refund row) makes the Stripe call idempotent: replaying the same
    * refund can never pay twice. Whatever the card cannot take (no card payment, hold not captured yet, more than was charged to the
    * card because part of the order was paid with wallet credit) is returned as `walletCredit` for the caller to credit.
    */
@@ -433,7 +433,7 @@ export class PaymentsService implements IPaymentsService {
       return this.record(order, 'TIP_ADJUST', delta, 'mock', mockId('tip'), 'SUCCEEDED', { phase: 'hold' });
     }
     if (!intentId) {
-      // the whole order was paid with FORKSY wallet credit: the tip moves in the wallet
+      // the whole order was paid with FORKY wallet credit: the tip moves in the wallet
       if (delta > 0) await this.wallet.debit(order.customerId, delta, 'PURCHASE', { orderId: order.id, note: `Extra tip on ${order.code}` });
       else await this.wallet.credit(order.customerId, -delta, 'ADJUSTMENT', { orderId: order.id, note: `Tip reduced on ${order.code}` });
       return this.record(order, 'WALLET', delta, 'wallet', null, 'SUCCEEDED', { phase: 'wallet-tip' });
@@ -465,7 +465,7 @@ export class PaymentsService implements IPaymentsService {
       let extra: any;
       try {
         extra = await stripe.paymentIntents.create(
-          { amount: toCents(delta), currency: 'cad', confirm: true, off_session: true, payment_method: pm.id, customer: pm.customer, description: `FORKSY tip ${order.code}`, metadata: { orderId: order.id, orderCode: order.code, kind: 'tip', customerId: order.customerId } },
+          { amount: toCents(delta), currency: 'cad', confirm: true, off_session: true, payment_method: pm.id, customer: pm.customer, description: `FORKY tip ${order.code}`, metadata: { orderId: order.id, orderCode: order.code, kind: 'tip', customerId: order.customerId } },
           { idempotencyKey: `order-${order.id}-tip-${toCents(newTip)}` },
         );
       } catch (e: any) {

@@ -1,17 +1,17 @@
 /*!
- * FORKSY ordering assistant - embeddable chat widget.
+ * FORKY ordering assistant - embeddable chat widget.
  *
- *   <script src="https://api.forksy.ca/assistant/widget.js" data-key="bk_XXXXXXXXXXXXXXXXXXXXXXXX" async></script>
+ *   <script src="https://api.forky.ca/assistant/widget.js" data-key="bk_XXXXXXXXXXXXXXXXXXXXXXXX" async></script>
  *
- * Attributes:  data-key (restaurant bot key)  |  data-mode="site" [data-restaurant="slug"] (FORKSY website bots)
+ * Attributes:  data-key (restaurant bot key)  |  data-mode="site" [data-restaurant="slug"] (FORKY website bots)
  *              data-position="left|right" (default right)
  * No dependencies, ES2015, one IIFE. Style isolation with Shadow DOM. Everything the server sends is inserted with textContent
  * (never innerHTML) and images are only loaded from http(s) URLs.
- * Public API: window.ForksyAssistant = { open(), close(), version }.
+ * Public API: window.ForkyAssistant = { open(), close(), version }.
  */
 (function () {
   'use strict';
-  if (window.ForksyAssistant) return;
+  if (window.ForkyAssistant) return;
 
   var VERSION = '1.0.0';
   var script = document.currentScript;
@@ -27,12 +27,12 @@
   var siteMode = script.getAttribute('data-mode') === 'site';
   var restaurantSlug = script.getAttribute('data-restaurant') || '';
   var position = script.getAttribute('data-position') === 'left' ? 'left' : 'right';
-  if (!botKey && !siteMode) { try { console.warn('[FORKSY assistant] data-key is missing'); } catch (e) {} return; }
+  if (!botKey && !siteMode) { try { console.warn('[FORKY assistant] data-key is missing'); } catch (e) {} return; }
 
   var apiBase;
   try { apiBase = new URL(script.src).origin + '/api/v1'; } catch (e) { return; }
 
-  var storeKey = 'forksy-assistant:' + (botKey || restaurantSlug || 'central');
+  var storeKey = 'forky-assistant:' + (botKey || restaurantSlug || 'central');
   var state = {
     config: null, sessionId: null, cart: { items: [], count: 0, subtotalEstimate: 0 }, orderNote: null, canCheckout: false,
     restaurant: null, busy: false, open: false, started: false, cartOpen: false, lastQuick: null
@@ -80,7 +80,7 @@
 
   // ---------------------------------------------------------------- build UI
   var host = document.createElement('div');
-  host.id = 'forksy-assistant-root';
+  host.id = 'forky-assistant-root';
   host.style.cssText = 'all:initial;position:fixed;z-index:2147483000;bottom:0;' + position + ':0;';
   var root = host.attachShadow ? host.attachShadow({ mode: 'open' }) : null;
   if (!root) return;
@@ -235,7 +235,7 @@
   panel.appendChild(chipsBox);
 
   var foot = el('div', 'foot');
-  var checkoutBtn = el('button', 'co', 'Checkout on FORKSY');
+  var checkoutBtn = el('button', 'co', 'Checkout on FORKY');
   attr(checkoutBtn, 'type', 'button');
   checkoutBtn.hidden = true;
   var form = el('form', 'row');
@@ -245,7 +245,7 @@
   var sendBtn = el('button', 'send', 'Send');
   attr(sendBtn, 'type', 'submit');
   form.appendChild(input); form.appendChild(sendBtn);
-  var pw = el('div', 'pw', 'Powered by FORKSY');
+  var pw = el('div', 'pw', 'Powered by FORKY');
   foot.appendChild(checkoutBtn); foot.appendChild(form); foot.appendChild(pw);
   panel.appendChild(foot);
 
@@ -273,7 +273,7 @@
   tot.appendChild(totL); tot.appendChild(totV);
   var fine = el('div', 'fine', 'Estimate from menu prices. The final price is shown at checkout.');
   var dfoot = el('div', 'dfoot');
-  var dco = el('button', 'co', 'Checkout on FORKSY');
+  var dco = el('button', 'co', 'Checkout on FORKY');
   attr(dco, 'type', 'button');
   dfoot.appendChild(dco);
   drawer.appendChild(dh); drawer.appendChild(lines); drawer.appendChild(dnote); drawer.appendChild(tot); drawer.appendChild(fine); drawer.appendChild(dfoot);
@@ -416,7 +416,7 @@
   function renderHeader() {
     hname.textContent = (state.config && state.config.name) || 'Assistant';
     var r = state.restaurant || (state.config && state.config.restaurant);
-    hsub.textContent = r && r.name ? r.name : 'FORKSY';
+    hsub.textContent = r && r.name ? r.name : 'FORKY';
     var logo = safeImg(state.config && state.config.logoUrl) || safeImg(r && r.logoUrl);
     if (logo) { if (hlogo.getAttribute('src') !== logo) hlogo.src = logo; hlogo.hidden = false; } else { hlogo.hidden = true; }
     panel.setAttribute('aria-label', hname.textContent + (r && r.name ? ' for ' + r.name : ''));
@@ -500,8 +500,8 @@
     api('POST', '/public/assistant/handoff', body)
       .then(function (res) {
         if (!res || typeof res.url !== 'string' || !/^https?:\/\//i.test(res.url)) throw new Error('bad url');
-        addMsg('bot', 'Taking you to FORKSY to finish your order…');
-        // top-level navigation so the FORKSY login / checkout runs in the whole window (not inside a frame)
+        addMsg('bot', 'Taking you to FORKY to finish your order…');
+        // top-level navigation so the FORKY login / checkout runs in the whole window (not inside a frame)
         try { (window.top || window).location.assign(res.url); }
         catch (e) { var w = window.open(res.url, '_blank', 'noopener'); if (!w) window.location.assign(res.url); }
       })
@@ -603,11 +603,11 @@
       .catch(function (e) {
         // not enabled / origin not allowed / offline: stay invisible instead of showing a broken button
         wrap.hidden = true;
-        try { console.warn('[FORKSY assistant] not started: ' + (e && e.message)); } catch (x) {}
+        try { console.warn('[FORKY assistant] not started: ' + (e && e.message)); } catch (x) {}
       });
   }
 
-  window.ForksyAssistant = { open: openPanel, close: closePanel, version: VERSION };
+  window.ForkyAssistant = { open: openPanel, close: closePanel, version: VERSION };
   wrap.hidden = true; // shown once the configuration was loaded
   init();
 })();

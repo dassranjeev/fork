@@ -20,15 +20,15 @@ import { backfillDeliveryInstructions } from '../orders/delivery-backfill';
 
 /** Demo staff (one per default role). Password = demoPassword. */
 const DEMO_STAFF: { email: string; first: string; last: string; role: string }[] = [
-  { email: 'ops@forksy.ca', first: 'Olivia', last: 'Operations', role: 'Operations Manager' },
-  { email: 'dispatch@forksy.ca', first: 'Dev', last: 'Dispatcher', role: 'Dispatcher' },
-  { email: 'support@forksy.ca', first: 'Sam', last: 'Support', role: 'Customer Support Agent' },
-  { email: 'supervisor@forksy.ca', first: 'Sara', last: 'Supervisor', role: 'Support Supervisor' },
-  { email: 'success@forksy.ca', first: 'Rita', last: 'Success', role: 'Restaurant Success Manager' },
-  { email: 'driverops@forksy.ca', first: 'Dan', last: 'DriverOps', role: 'Driver Operations' },
-  { email: 'finance@forksy.ca', first: 'Fiona', last: 'Finance', role: 'Finance Manager' },
-  { email: 'marketing@forksy.ca', first: 'Max', last: 'Marketing', role: 'Marketing Manager' },
-  { email: 'analyst@forksy.ca', first: 'Anya', last: 'Analyst', role: 'Analyst (read-only)' },
+  { email: 'ops@forky.ca', first: 'Olivia', last: 'Operations', role: 'Operations Manager' },
+  { email: 'dispatch@forky.ca', first: 'Dev', last: 'Dispatcher', role: 'Dispatcher' },
+  { email: 'support@forky.ca', first: 'Sam', last: 'Support', role: 'Customer Support Agent' },
+  { email: 'supervisor@forky.ca', first: 'Sara', last: 'Supervisor', role: 'Support Supervisor' },
+  { email: 'success@forky.ca', first: 'Rita', last: 'Success', role: 'Restaurant Success Manager' },
+  { email: 'driverops@forky.ca', first: 'Dan', last: 'DriverOps', role: 'Driver Operations' },
+  { email: 'finance@forky.ca', first: 'Fiona', last: 'Finance', role: 'Finance Manager' },
+  { email: 'marketing@forky.ca', first: 'Max', last: 'Marketing', role: 'Marketing Manager' },
+  { email: 'analyst@forky.ca', first: 'Anya', last: 'Analyst', role: 'Analyst (read-only)' },
 ];
 
 async function seedCore(ds: DataSource, config: ConfigService, opts: SeedOptions) {

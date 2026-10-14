@@ -34,7 +34,7 @@ export const presenceKeeper = {
     timer = null;
   },
 };
-if (typeof window !== "undefined") window.addEventListener("forksy:logout", () => presenceKeeper.stop());
+if (typeof window !== "undefined") window.addEventListener("forky:logout", () => presenceKeeper.stop());
 
 /** Short two-tone chime (no asset needed). */
 let audio = null;

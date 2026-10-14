@@ -3,7 +3,7 @@ import { BaseEntity } from '../../common/base.entity';
 
 /**
  * The trainable knowledge base of the ordering assistant (docs/assistant-training.md).
- * scopeKey = "r:<restaurantId>" for a restaurant bot, "central" for the FORKSY website bot.
+ * scopeKey = "r:<restaurantId>" for a restaurant bot, "central" for the FORKY website bot.
  */
 
 /** The DRAFT being edited (one row per scope). The live bot never reads it. */

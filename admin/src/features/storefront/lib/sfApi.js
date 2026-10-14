@@ -3,8 +3,8 @@
  *
  * Deliberately NOT the admin client (src/lib/api.js): its own axios instance, its own token store and its own
  * events, so signing in to the storefront never signs in to the Admin Console / Restaurant Portal and the other way
- * round. Tokens live in sessionStorage (per tab) under "sf.*" keys: the admin console uses "forksy.*" keys in
- * localStorage and wipes "forksy.*" on logout, which therefore never touches the storefront session.
+ * round. Tokens live in sessionStorage (per tab) under "sf.*" keys: the admin console uses "forky.*" keys in
+ * localStorage and wipes "forky.*" on logout, which therefore never touches the storefront session.
  */
 import axios from "axios";
 import { API_URL, WS_URL, clean, errorMessage } from "../../../lib/api";

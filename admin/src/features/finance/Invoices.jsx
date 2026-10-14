@@ -101,7 +101,7 @@ export default function Invoices() {
   ];
   return (
     <>
-      <PageHeader title="Commission invoices" subtitle="Forksy invoices issued to restaurants with each weekly payout" crumbs={[{ label: "Finance", to: "/finance" }, { label: "Invoices" }]} />
+      <PageHeader title="Commission invoices" subtitle="Forky invoices issued to restaurants with each weekly payout" crumbs={[{ label: "Finance", to: "/finance" }, { label: "Invoices" }]} />
       <Card>
         <ListToolbar
           list={list}

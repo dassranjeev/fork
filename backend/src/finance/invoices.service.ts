@@ -32,7 +32,7 @@ export class InvoicesService {
     return t?.ratePct ?? 13;
   }
 
-  /** Commission invoice (with FORKSY's HST) for a restaurant payout. Idempotent per payout. */
+  /** Commission invoice (with FORKY's HST) for a restaurant payout. Idempotent per payout. */
   async createForPayout(payout: Payout, status: Invoice['status'] = 'PAID'): Promise<Invoice | null> {
     const existing = await this.repo.findOne({ where: { payoutId: payout.id } });
     if (existing) return existing;
@@ -87,7 +87,7 @@ export class InvoicesService {
     return {
       ...inv,
       merchant: m ? { id: m.id, businessName: m.businessName, legalName: m.legalName, hstNumber: m.hstNumber } : null,
-      issuer: { name: this.settings.get<string>('general.legalName', 'FORKSY Inc.'), hstNumber: inv.forksyHstNumber },
+      issuer: { name: this.settings.get<string>('general.legalName', 'FORKY Inc.'), hstNumber: inv.forksyHstNumber },
       period: periodLabel(inv.periodStart, inv.periodEnd),
       hstRatePct: inv.commissionAmount + inv.feeAmount > 0 ? r2((inv.hstAmount / (inv.commissionAmount + inv.feeAmount)) * 100) : 0,
     };
@@ -118,7 +118,7 @@ export class InvoicesService {
   }
 
   /** HST reports (spec: collected / by tax class / month). "Customer" HST is what shoppers paid on orders;
-   *  "FORKSY" HST is what FORKSY itself charges restaurants on its commission/fee invoices. */
+   *  "FORKY" HST is what FORKY itself charges restaurants on its commission/fee invoices. */
   async hstReport(from?: string, to?: string) {
     const settled = [OrderStatus.DELIVERED, OrderStatus.COLLECTED];
 

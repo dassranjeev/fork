@@ -18,7 +18,7 @@ export async function backfillDeliveryInstructions(ds: DataSource, opts: { demo:
     { label: 'Office (demo)', method: 'MEET_OUTSIDE', notes: 'Call on arrival, I will meet you at the lobby entrance.', code: null, dLat: 0.0018, dLng: -0.001 },
   ];
   for (let n = 1; n <= 10; n++) {
-    const u = await users.findOne({ where: { email: `customer${n}@demo.forksy.ca` } });
+    const u = await users.findOne({ where: { email: `customer${n}@demo.forky.ca` } });
     if (!u) continue;
     const base = await addrs.findOne({ where: { customerId: u.id }, order: { createdAt: 'ASC' } });
     if (!base || base.lat == null || base.lng == null) continue;

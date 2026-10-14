@@ -35,7 +35,7 @@
   var show = function (id, on) { $(id).classList.toggle('hide', !on); };
 
   // ---------------------------------------------------------------- login
-  $('app').onchange = function () { $('email').value = this.value === 'driver' ? 'driver1@demo.forksy.ca' : 'customer1@demo.forksy.ca'; };
+  $('app').onchange = function () { $('email').value = this.value === 'driver' ? 'driver1@demo.forky.ca' : 'customer1@demo.forky.ca'; };
   $('btnLogin').onclick = async function () {
     try {
       state.app = $('app').value;
@@ -127,7 +127,7 @@
     } else if (s.status === 'WAITING') {
       b = '<div class="banner q">In the queue' + (s.queue ? ': position <b>' + esc(s.queue.position) + '</b>, about ' + esc(Math.max(1, Math.round(s.queue.estimatedWaitSec / 60))) + ' min' : '') + '. Hang on, an agent will join shortly.</div>';
     } else if (s.status === 'ACTIVE') {
-      b = '<div class="banner ok">Chatting with <b>' + esc((s.agent && s.agent.firstName) || 'an agent') + '</b> from FORKSY Support</div>';
+      b = '<div class="banner ok">Chatting with <b>' + esc((s.agent && s.agent.firstName) || 'an agent') + '</b> from FORKY Support</div>';
     } else if (s.status === 'ENDED') {
       b = '<div class="banner">Chat ended' + (s.endedBy ? ' by ' + esc(String(s.endedBy).toLowerCase()) : '') + '. The transcript stays on ticket ' + esc(s.ticketNumber || '') + '.</div>';
     }

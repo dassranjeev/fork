@@ -100,15 +100,15 @@ export class GiftCardsService implements IGiftCardsService {
   async email(card: GiftCard, message?: string) {
     if (!card.recipientEmail) throw new BadRequestException('This gift card has no recipient email');
     const body = [
-      `You have received a FORKSY gift card worth $${card.initialAmount.toFixed(2)}!`,
+      `You have received a FORKY gift card worth $${card.initialAmount.toFixed(2)}!`,
       message ? `\n"${message}"\n` : '',
       `Your code: ${card.code}`,
       card.expiresAt ? `Valid until ${card.expiresAt.toISOString().slice(0, 10)}.` : '',
-      'Redeem it in the FORKSY app under Wallet > Redeem gift card.',
+      'Redeem it in the FORKY app under Wallet > Redeem gift card.',
     ]
       .filter(Boolean)
       .join('\n');
-    await this.notifications.sendEmail(card.recipientEmail, 'Your FORKSY gift card', body);
+    await this.notifications.sendEmail(card.recipientEmail, 'Your FORKY gift card', body);
   }
 
   async void(id: string) {

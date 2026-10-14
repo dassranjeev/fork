@@ -32,7 +32,7 @@ const E = {
   gluten: entry('Gluten free options', ['Do you have gluten free options?', 'gluten free pizza', 'any celiac friendly dishes'], 'We offer a gluten free base on request; ask staff about cross contamination.'),
   wifi: entry('Wi-Fi', ['Do you have wifi?', 'wifi password', 'free internet'], 'Free guest Wi-Fi is available for dine-in guests.'),
   kids: entry('Kids menu', ['Do you have a kids menu?', 'food for children', 'child friendly meals'], 'Yes, we have a kids menu with smaller portions.'),
-  returns: entry('Wrong order', ['My order is wrong what do I do', 'I received the wrong food', 'missing item in my order'], 'Contact FORKSY support from your order page and we will fix it.'),
+  returns: entry('Wrong order', ['My order is wrong what do I do', 'I received the wrong food', 'missing item in my order'], 'Contact FORKY support from your order page and we will fix it.'),
   history: entry('Our story', ['Tell me about the restaurant history', 'how long have you been open as a business', 'who owns the restaurant'], 'Family owned since 1998.'),
   delivEntry: entry('Delivery areas', ['Which areas do you deliver to?', 'do you deliver to Oakville', 'delivery zone'], 'We deliver within 5 km of the restaurant.', { liveData: false }),
   holidays: entry('Holiday hours', ['Are you open on Christmas?', 'holiday opening times', 'open on public holidays'], 'We are closed on Christmas Day and open normal hours on other holidays.', { liveData: true }),

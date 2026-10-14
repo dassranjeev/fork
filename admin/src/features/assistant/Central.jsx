@@ -10,7 +10,7 @@ import { BrandingFields, FaqEditor, clone, faqsInvalid, same } from "./parts";
 const FIELDS = ["enabled", "name", "greeting", "color", "logoUrl", "faqs", "chips"];
 const QUERY_OK = /^[A-Za-z0-9 ,.'-]{1,60}$/;
 
-/** The main-website bot ("central"): look, on/off, FAQs about FORKSY itself and the starter chips. */
+/** The main-website bot ("central"): look, on/off, FAQs about FORKY itself and the starter chips. */
 export default function Central() {
   const { can } = useAuth();
   const canEdit = can("settings", "edit");
@@ -58,7 +58,7 @@ export default function Central() {
 
   return (
     <>
-      <PageHeader title="Central bot" subtitle="The assistant on the FORKSY website: it finds restaurants, then continues as that restaurant's bot" crumbs={[{ label: "Assistant", to: "/assistant" }, { label: "Central bot" }]} actions={<div className="d-flex gap-2 align-items-center"><Badge tone={form.enabled && cur.platformEnabled ? "success" : "neutral"}>{form.enabled && cur.platformEnabled ? "Active" : "Off"}</Badge><Link className="btn btn-primary-600 btn-sm radius-8" to="/assistant/training/central">Train this bot</Link></div>} />
+      <PageHeader title="Central bot" subtitle="The assistant on the FORKY website: it finds restaurants, then continues as that restaurant's bot" crumbs={[{ label: "Assistant", to: "/assistant" }, { label: "Central bot" }]} actions={<div className="d-flex gap-2 align-items-center"><Badge tone={form.enabled && cur.platformEnabled ? "success" : "neutral"}>{form.enabled && cur.platformEnabled ? "Active" : "Off"}</Badge><Link className="btn btn-primary-600 btn-sm radius-8" to="/assistant/training/central">Train this bot</Link></div>} />
       {!cur.platformEnabled && <div className="alert alert-warning radius-8 mb-20">The assistant is switched off for the whole platform (Assistant &gt; Overview).</div>}
       <div className="row g-3 mb-20">
         <div className="col-6 col-md-4"><StatCard label="Website chats (7 days)" value={s.chats7d ?? 0} icon="solar:chat-round-dots-outline" hint={`${s.messages7d ?? 0} messages`} /></div>
@@ -66,8 +66,8 @@ export default function Central() {
       </div>
       <div className="row g-3">
         <div className="col-xl-7">
-          <Card title="Look" subtitle={canEdit ? "Shown on the FORKSY website chat. Changes are audit-logged." : "You need the 'edit settings' permission to change these."} className="mb-20">
-            <Switch label="Central assistant enabled" hint="Off: the chat bubble disappears from the FORKSY website (restaurant pages with their own bot are not affected)." checked={form.enabled} onChange={(v) => set({ enabled: v })} disabled={!canEdit} />
+          <Card title="Look" subtitle={canEdit ? "Shown on the FORKY website chat. Changes are audit-logged." : "You need the 'edit settings' permission to change these."} className="mb-20">
+            <Switch label="Central assistant enabled" hint="Off: the chat bubble disappears from the FORKY website (restaurant pages with their own bot are not affected)." checked={form.enabled} onChange={(v) => set({ enabled: v })} disabled={!canEdit} />
             <BrandingFields form={form} set={set} disabled={!canEdit} nameHint={`${form.name.length}/40, shown in the chat header`} />
           </Card>
           <Card title="Starter chips" subtitle="Quick buttons shown at the start of the chat (up to 6). Leave empty for the built-in defaults." className="mb-20">
@@ -91,7 +91,7 @@ export default function Central() {
               </Button>
             )}
           </Card>
-          <Card title="FAQs about FORKSY" className="mb-20">
+          <Card title="FAQs about FORKY" className="mb-20">
             <FaqEditor faqs={form.faqs} onChange={(faqs) => set({ faqs })} canEdit={canEdit} title="Questions the central bot answers" help="Delivery areas, fees, how ordering works, support contact. Answered when a guest asks something similar, before restaurant search (up to 20)." />
           </Card>
           {canEdit && (

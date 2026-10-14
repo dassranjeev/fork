@@ -188,7 +188,7 @@ export class RatingsService {
     if (await repo.exist({ where: { orderId } })) throw new ConflictException('This order already has a review. You can edit it once within the edit window.');
     const caps = this.caps(o);
     if (dto.restaurantRating === undefined && dto.driverRating === undefined) throw new BadRequestException('Provide a restaurant or driver rating');
-    if (dto.driverRating !== undefined && !caps.rateDriver) throw new BadRequestException('This order was not delivered by a FORKSY driver, so there is no driver to rate');
+    if (dto.driverRating !== undefined && !caps.rateDriver) throw new BadRequestException('This order was not delivered by a FORKY driver, so there is no driver to rate');
     if ((dto.driverTags?.length || dto.driverComment) && dto.driverRating === undefined) throw new BadRequestException('Driver tags and comments need a driver rating');
     if ((dto.restaurantTags?.length || dto.comment) && dto.restaurantRating === undefined) throw new BadRequestException('Restaurant tags and comments need a restaurant rating');
     const c = this.cfg();
@@ -233,7 +233,7 @@ export class RatingsService {
     if (rv.editCount >= 1) throw new BadRequestException('A review can only be edited once');
     if (new Date() > new Date(rv.createdAt.getTime() + c.editHours * 3600_000)) throw new BadRequestException(`The edit window (${c.editHours} hours) has closed`);
     const caps = this.caps(o);
-    if (dto.driverRating !== undefined && !caps.rateDriver) throw new BadRequestException('There is no FORKSY driver to rate on this order');
+    if (dto.driverRating !== undefined && !caps.rateDriver) throw new BadRequestException('There is no FORKY driver to rate on this order');
     const has = (k: keyof EditReviewDto) => dto[k] !== undefined;
     if (!Object.keys(dto).length) throw new BadRequestException('Nothing to change');
     const next = {

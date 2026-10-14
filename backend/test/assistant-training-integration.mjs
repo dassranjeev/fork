@@ -6,7 +6,7 @@
  *
  * Full loop through the public chat endpoint (unknown question -> inbox -> teach -> publish -> answered, also rephrased), draft isolation,
  * rollback, approval flow, permission matrix, cross-restaurant isolation, guardrails, import / export, central bot, nicknames / synonyms,
- * documents, test bench, audit. Needs Postgres (DB_* env, defaults postgres/postgres/forksy) to reset the test scopes. Paces itself
+ * documents, test bench, audit. Needs Postgres (DB_* env, defaults postgres/postgres/forky) to reset the test scopes. Paces itself
  * (chat is limited to 30/min per IP, login to 10/min) and retries transient network errors (the dev API restarts when files change).
  * NEVER run against production.
  */
@@ -77,7 +77,7 @@ async function login(identifier, app) {
   throw new Error('login throttled');
 }
 
-const db = new pg.Client({ host: process.env.DB_HOST || 'localhost', user: process.env.DB_USER || 'postgres', password: process.env.DB_PASSWORD || 'postgres', database: process.env.DB_NAME || 'forksy' });
+const db = new pg.Client({ host: process.env.DB_HOST || 'localhost', user: process.env.DB_USER || 'postgres', password: process.env.DB_PASSWORD || 'postgres', database: process.env.DB_NAME || 'forky' });
 const scopes = [];
 let approvalWasOn = false;
 let admin, owner;
@@ -91,12 +91,12 @@ async function wipe() {
 try {
   await db.connect();
   section('setup');
-  admin = (await login('admin@forksy.ca')).accessToken;
+  admin = (await login('admin@forky.ca')).accessToken;
   const ol = await login(OWNER, 'restaurant');
   owner = ol.accessToken;
   const o1 = await login('owner1@demo-restaurant.ca', 'restaurant');
   const cashier = (await login('cashier1@demo-restaurant.ca', 'restaurant')).accessToken;
-  const cust = (await login('customer1@demo.forksy.ca', 'customer')).accessToken;
+  const cust = (await login('customer1@demo.forky.ca', 'customer')).accessToken;
   const rid = ol.user.restaurantIds[0];
   const rid1 = o1.user.restaurantIds[0];
   const napoliSlug = (await http('GET', `/restaurant/store?restaurantId=${rid1}`, { token: o1.accessToken })).j?.slug;
@@ -293,7 +293,7 @@ try {
   await http('DELETE', `${R}/entries/${r.j.entry.id}`, { token: owner });
   r = await http('POST', `${R}/entries`, { token: owner, body: { title: 'Nut safety', questions: ['are your dishes nut safe'], answer: 'All our food is 100% safe for nut allergies.' } });
   const heldId = r.j?.entry?.id;
-  check('an allergen-safety guarantee is HELD for FORKSY review (saved, flagged, not live)', r.s === 201 && !!r.j.entry.held && r.j.issues.some((i) => i.code === 'hold_claim'), r);
+  check('an allergen-safety guarantee is HELD for FORKY review (saved, flagged, not live)', r.s === 201 && !!r.j.entry.held && r.j.issues.some((i) => i.code === 'hold_claim'), r);
   r = await http('POST', `${R}/entries`, { token: owner, body: { title: 'Cure', questions: ['is your soup healthy'], answer: 'Our soup cures diabetes.' } });
   check('a medical claim is held too', !!r.j?.entry?.held, r);
   const medId = r.j?.entry?.id;
@@ -443,7 +443,7 @@ try {
   const bEntries = (await http('GET', `${R}/entries?restaurantId=${rid1}`, { token: o1.accessToken })).j.data;
   r = await http('PATCH', `${R}/entries/${bEntries[0].id}`, { token: owner, body: { answer: 'hijack' } });
   check('an entry id of another restaurant cannot be edited through my scope (404)', r.s === 404, r);
-  const analyst = await login('analyst@forksy.ca');
+  const analyst = await login('analyst@forky.ca');
   const ap = analyst.user?.permissions ?? {};
   const aview = await http('GET', `${A}/overview`, { token: analyst.accessToken });
   const aedit = await http('POST', `${A}/entries`, { token: analyst.accessToken, body: { title: 't', questions: ['q'], answer: 'a' } });
@@ -452,7 +452,7 @@ try {
   // ============================================================== import / export
   section('import / export');
   const ex = await http('GET', `${R}/export`, { token: owner });
-  check('JSON export of the whole knowledge base', ex.s === 200 && ex.j.format === 'forksy-assistant-kb' && ex.j.entries.length >= 3 && ex.j.aliases.length >= 1 && ex.j.synonyms.length === 1 && ex.j.documents.length === 1 && !JSON.stringify(ex.j).includes('"held"'), Object.keys(ex.j ?? {}));
+  check('JSON export of the whole knowledge base', ex.s === 200 && ex.j.format === 'forky-assistant-kb' && ex.j.entries.length >= 3 && ex.j.aliases.length >= 1 && ex.j.synonyms.length === 1 && ex.j.documents.length === 1 && !JSON.stringify(ex.j).includes('"held"'), Object.keys(ex.j ?? {}));
   const payload = { ...ex.j, entries: [...ex.j.entries.map((e) => ({ ...e })), { title: 'Bad row', questions: ['x'], answer: 'mail me at a@b.com' }, { title: 'New row', questions: ['do you have high chairs'], answer: 'Yes, ask our staff.' }] };
   r = await http('POST', `${R}/import`, { token: owner, body: { data: payload, mode: 'preview' } });
   check('import PREVIEW lists per-row errors and applies nothing', r.s < 300 && r.j.applied === false && r.j.summary.errors === 1 && r.j.report.some((x) => x.status === 'error' && x.issues[0].field === 'answer') && r.j.summary.valid >= 4, r.j?.summary);
@@ -461,7 +461,7 @@ try {
   r = await http('POST', `${R}/import`, { token: owner, body: { data: payload, mode: 'apply' } });
   const after = (await http('GET', `${R}/entries`, { token: owner })).j.meta.total;
   check('apply imports the valid rows (the bad row is skipped)', r.j.applied === true && after === before + r.j.summary.valid, { before, after, s: r.j?.summary });
-  check('a file that is not a FORKSY export is refused (400)', (await http('POST', `${R}/import`, { token: owner, body: { data: { hello: 1 }, mode: 'preview' } })).s === 400);
+  check('a file that is not a FORKY export is refused (400)', (await http('POST', `${R}/import`, { token: owner, body: { data: { hello: 1 }, mode: 'preview' } })).s === 400);
   r = await http('POST', `${R}/import`, { token: owner, body: { data: { ...ex.j, entries: Array.from({ length: 501 }, (_, i) => ({ title: `t${i}`, questions: [`question ${i}`], answer: 'a' })) }, mode: 'preview' } });
   check('more than 500 answers is refused (400)', r.s === 400, r);
   const csv = 'title,questions,answer,tags\nGift cards,do you sell gift cards | gift card,Yes at the counter,shop\nBroken,,no questions,\nHtml,"is it <b>fresh</b>",Fresh daily,\n';
@@ -478,7 +478,7 @@ try {
   section('central bot knowledge base (admin)');
   r = await http('GET', `${C}/overview`, { token: admin });
   check('central overview', r.s === 200 && r.j.scope.central === true, r);
-  r = await http('POST', `${C}/entries`, { token: admin, body: { title: 'Delivery areas', questions: ['which areas do you deliver to', 'where do you deliver'], answer: 'FORKSY delivers across Mississauga and Brampton.' } });
+  r = await http('POST', `${C}/entries`, { token: admin, body: { title: 'Delivery areas', questions: ['which areas do you deliver to', 'where do you deliver'], answer: 'FORKY delivers across Mississauga and Brampton.' } });
   check('staff add an answer to the central bot', r.s === 201, r);
   r = await http('POST', `${C}/versions/publish`, { token: admin, body: { note: 'central' } });
   check('staff publish the central bot', r.s < 300 && r.j.status === 'PUBLISHED', r);

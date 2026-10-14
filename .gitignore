@@ -20,3 +20,6 @@ tools/pg/data/
 # editor / assistant local state
 .claude/
 .DS_Store
+
+# private Caddy snippets (for example the API docs password hash): never commit
+deploy/caddy.d/*.caddy

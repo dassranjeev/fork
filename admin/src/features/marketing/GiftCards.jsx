@@ -68,7 +68,7 @@ export default function GiftCards() {
     <>
       <PageHeader
         title="Gift Cards"
-        subtitle="Issue and manage FORKSY wallet gift cards."
+        subtitle="Issue and manage FORKY wallet gift cards."
         crumbs={[{ label: "Gift cards" }]}
         actions={can("promotions", "create") && <Button icon="solar:gift-outline" onClick={() => setIssuing(true)}>Issue gift cards</Button>}
       />

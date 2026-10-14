@@ -33,9 +33,9 @@ import { seal, unseal } from '../common/secretbox';
 import { ChangePasswordDto, CustomerRegisterDto, DriverRegisterDto, LoginDto, RestaurantApplyDto, SocialLoginDto } from './dto';
 
 /** Used to burn the same CPU time when the account does not exist (no timing-based user enumeration). */
-const DUMMY_HASHES: Record<number, string> = { 10: bcrypt.hashSync('forksy-dummy-password-never-valid', 10), 12: bcrypt.hashSync('forksy-dummy-password-never-valid', 12) };
+const DUMMY_HASHES: Record<number, string> = { 10: bcrypt.hashSync('forky-dummy-password-never-valid', 10), 12: bcrypt.hashSync('forky-dummy-password-never-valid', 12) };
 let lastRounds = 12; // bcrypt cost of the most recently seen real hash: the dummy compare mimics it
-const COMMON_PASSWORDS = new Set(['password','password1','password123','passw0rd','12345678','123456789','1234567890','qwerty123','qwertyuiop','iloveyou1','welcome1','welcome123','admin123','admin@123','letmein123','abc12345','abcd1234','changeme1','forksy123','forksy@123','p@ssw0rd','p@ssword1','test1234','test@1234']);
+const COMMON_PASSWORDS = new Set(['password','password1','password123','passw0rd','12345678','123456789','1234567890','qwerty123','qwertyuiop','iloveyou1','welcome1','welcome123','admin123','admin@123','letmein123','abc12345','abcd1234','changeme1','forky123','forky@123','p@ssw0rd','p@ssword1','test1234','test@1234']);
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 const slugify = (s: string) =>
   s
@@ -256,7 +256,7 @@ export class AuthService {
     const secret = authenticator.generateSecret();
     await this.users.update(userId, { twoFactorSecret: seal(secret), twoFactorEnabled: false });
     const label = user.email ?? user.phone ?? user.id;
-    const otpauthUrl = authenticator.keyuri(label, 'FORKSY', secret);
+    const otpauthUrl = authenticator.keyuri(label, 'FORKY', secret);
     return { secret, otpauthUrl, qrCode: await QRCode.toDataURL(otpauthUrl) };
   }
 
@@ -394,9 +394,9 @@ export class AuthService {
     const code = String(randomInt(100000, 999999));
     const ttl = this.config.get<number>('security.otpTtlMinutes');
     await this.otps.save(this.otps.create({ target: t, purpose, codeHash: sha(`${t}:${code}`), expiresAt: new Date(Date.now() + ttl * 60_000) }));
-    const body = `Your FORKSY verification code is ${code}. It expires in ${ttl} minutes.`;
+    const body = `Your FORKY verification code is ${code}. It expires in ${ttl} minutes.`;
     try {
-      if (this.isEmail(t)) await this.notifications.sendEmail(t, 'Your FORKSY code', body);
+      if (this.isEmail(t)) await this.notifications.sendEmail(t, 'Your FORKY code', body);
       else await this.notifications.sendSms(t, body);
     } catch (e: any) {
       this.logger.warn(`OTP delivery failed: ${e.message}`);

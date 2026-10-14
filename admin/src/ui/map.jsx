@@ -16,7 +16,7 @@ export function pin(color = "#ff6917", glyph = "", size = 30) {
   const key = `${color}|${glyph}|${size}`;
   if (!iconCache[key]) {
     iconCache[key] = L.divIcon({
-      className: "forksy-pin",
+      className: "forky-pin",
       html: `<div style="width:${size}px;height:${size}px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center"><span style="transform:rotate(45deg);color:#fff;font-size:${Math.round(size * 0.45)}px;font-weight:700">${glyph}</span></div>`,
       iconSize: [size, size],
       iconAnchor: [size / 2, size],
@@ -32,7 +32,7 @@ export function dot(color = "#22c55e", size = 16) {
   const key = `dot|${color}|${size}`;
   if (!iconCache[key]) {
     iconCache[key] = L.divIcon({
-      className: "forksy-dot",
+      className: "forky-dot",
       html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 0 0 2px ${color}55, 0 2px 6px rgba(0,0,0,.35)"></div>`,
       iconSize: [size, size],
       iconAnchor: [size / 2, size / 2],

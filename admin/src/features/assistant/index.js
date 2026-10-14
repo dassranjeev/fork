@@ -36,7 +36,7 @@ export const menu = [
     children: [
       { label: "Overview", to: "/assistant", anyPerm: ANY },
       { label: "Restaurant bots", to: "/assistant/restaurants", perm: ["restaurants", "view"] },
-      { label: "Central bot (FORKSY site)", to: "/assistant/central", perm: ["settings", "view"] },
+      { label: "Central bot (FORKY site)", to: "/assistant/central", perm: ["settings", "view"] },
       { label: "Training", to: "/assistant/training", perm: ["restaurants", "view"] },
       { label: "Training coverage", to: "/assistant/training/restaurants", perm: ["restaurants", "view"] },
       { label: "Central bot training", to: "/assistant/training/central", perm: ["settings", "view"] },

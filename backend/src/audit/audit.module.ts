@@ -44,7 +44,7 @@ export class AuditModule implements OnModuleInit {
   async onModuleInit() {
     try {
       await this.ds.query(`
-        CREATE OR REPLACE FUNCTION forksy_audit_immutable() RETURNS trigger AS $$
+        CREATE OR REPLACE FUNCTION forky_audit_immutable() RETURNS trigger AS $$
         BEGIN
           RAISE EXCEPTION 'audit_logs is append-only';
         END; $$ LANGUAGE plpgsql;
@@ -52,7 +52,7 @@ export class AuditModule implements OnModuleInit {
       await this.ds.query(`DROP TRIGGER IF EXISTS audit_logs_immutable ON audit_logs;`);
       await this.ds.query(`
         CREATE TRIGGER audit_logs_immutable BEFORE UPDATE OR DELETE ON audit_logs
-        FOR EACH ROW EXECUTE FUNCTION forksy_audit_immutable();
+        FOR EACH ROW EXECUTE FUNCTION forky_audit_immutable();
       `);
     } catch (e: any) {
       this.logger.warn(`could not install audit immutability trigger: ${e.message}`);

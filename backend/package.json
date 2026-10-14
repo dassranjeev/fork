@@ -1,7 +1,7 @@
 {
-  "name": "forksy-backend",
+  "name": "forky-backend",
   "version": "1.0.0",
-  "description": "FORKSY food delivery platform - core API",
+  "description": "FORKY food delivery platform - core API",
   "private": true,
   "scripts": {
     "build": "nest build",

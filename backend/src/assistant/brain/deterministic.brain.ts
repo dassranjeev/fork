@@ -272,7 +272,7 @@ class RestaurantRun {
 
   private help(): BotResult {
     return this.reply(
-      `I can show the menu and categories, recommend dishes, filter by diet or budget ("vegetarian under $12"), answer questions about hours, delivery and pickup, and build your cart ("add 2 margherita and a pop", "remove the pop", "no onions"). When you are ready, tap Checkout and I will take you to FORKSY to pay.`,
+      `I can show the menu and categories, recommend dishes, filter by diet or budget ("vegetarian under $12"), answer questions about hours, delivery and pickup, and build your cart ("add 2 margherita and a pop", "remove the pop", "no onions"). When you are ready, tap Checkout and I will take you to FORKY to pay.`,
       this.homeChips(),
       { intent: 'help' },
     );
@@ -290,7 +290,7 @@ class RestaurantRun {
   private supportOrder(): BotResult {
     const phone = this.r.phone ? ` or call ${this.r.name} at ${this.r.phone}` : '';
     return this.reply(
-      `I can only help you put together a new order. I can't see or change an order that has already been placed. For help with an existing order, open it in your FORKSY account and use Help${phone}.`,
+      `I can only help you put together a new order. I can't see or change an order that has already been placed. For help with an existing order, open it in your FORKY account and use Help${phone}.`,
       this.homeChips(),
       { intent: 'support' },
     );
@@ -299,7 +299,7 @@ class RestaurantRun {
   private human(): BotResult {
     const phone = this.r.phone ? ` You can also call ${this.r.name} at ${this.r.phone}.` : '';
     const chips = this.kb.faqs.length ? [chip('Common questions', 'faq')] : [];
-    return this.reply(`I'm an automated assistant, so I can't connect you to a person from here. For account or order problems, use Help in your FORKSY account.${phone}`, [...chips, ...this.homeChips()], { intent: 'human' });
+    return this.reply(`I'm an automated assistant, so I can't connect you to a person from here. For account or order problems, use Help in your FORKY account.${phone}`, [...chips, ...this.homeChips()], { intent: 'human' });
   }
 
   // ------------------------------------------------------------------ quick replies (chips)
@@ -839,7 +839,7 @@ ${this.subtotalLine()}`, this.afterAddChips(), { intent: 'option' });
     if (!this.r.orderable) return this.reply(`${this.r.name} is not taking orders right now, so I can't send you to checkout yet.`, [chip('Hours', 'hours'), chip('View cart', 'cart')], { intent: 'checkout' });
     const min = this.r.minimumOrder;
     if (min > 0 && s.subtotal < min) return this.reply(`The minimum order at ${this.r.name} is ${money(min)}. Your cart is ${money(s.subtotal)}, so please add ${money(min - s.subtotal)} more.`, [chip('Menu', 'menu'), chip('Popular', 'popular'), chip('View cart', 'cart')], { intent: 'checkout' });
-    const where = this.c.loggedIn ? 'Your cart is already on your FORKSY account, so you can go straight to checkout there.' : 'Tap "Checkout on FORKSY" to log in or register and pay securely; your items and notes come with you.';
+    const where = this.c.loggedIn ? 'Your cart is already on your FORKY account, so you can go straight to checkout there.' : 'Tap "Checkout on FORKY" to log in or register and pay securely; your items and notes come with you.';
     return this.reply(`Your order is ready: ${s.count} item${s.count > 1 ? 's' : ''}, about ${money(s.subtotal)}. ${where}${this.draft.orderNote ? `\nKitchen note: ${this.draft.orderNote}` : ''}`, [chip('Checkout', 'checkout'), chip('View cart', 'cart'), chip('Menu', 'menu')], { intent: 'checkout' });
   }
 
@@ -1037,16 +1037,16 @@ ${this.subtotalLine()}`, this.afterAddChips(), { intent: 'option' });
 
   private address(): BotResult {
     const r = this.r;
-    return this.reply(`${r.name} is at ${r.address || 'an address shown on its FORKSY page'}.${r.pickupInstructions ? ` Pickup notes: ${r.pickupInstructions}` : ''}`, this.homeChips(), { intent: 'address' });
+    return this.reply(`${r.name} is at ${r.address || 'an address shown on its FORKY page'}.${r.pickupInstructions ? ` Pickup notes: ${r.pickupInstructions}` : ''}`, this.homeChips(), { intent: 'address' });
   }
 
   private contact(): BotResult {
     const r = this.r;
-    return this.reply(r.phone ? `You can call ${r.name} at ${r.phone}.` : `I don't have a phone number for ${r.name}. Please use the FORKSY website for contact details.`, this.homeChips(), { intent: 'contact' });
+    return this.reply(r.phone ? `You can call ${r.name} at ${r.phone}.` : `I don't have a phone number for ${r.name}. Please use the FORKY website for contact details.`, this.homeChips(), { intent: 'contact' });
   }
 
   private payment(): BotResult {
-    return this.reply('Payment, tip, taxes, delivery fees and promo codes are all handled on the FORKSY checkout page, so the final total is shown there before you pay. The totals I show here are estimates from menu prices.', this.cartChipsOrHome(), { intent: 'payment' });
+    return this.reply('Payment, tip, taxes, delivery fees and promo codes are all handled on the FORKY checkout page, so the final total is shown there before you pay. The totals I show here are estimates from menu prices.', this.cartChipsOrHome(), { intent: 'payment' });
   }
 
   private cartChipsOrHome(): BotChip[] {

@@ -348,7 +348,7 @@ export class PromotionsAdminService {
   async restaurantSetActive(user: AuthUser, id: string, active: boolean) {
     const p = await this.ownPromo(user, id);
     if (p.pendingApproval) throw new BadRequestException('This promotion is awaiting approval');
-    if (active && p.rejectionReason) throw new BadRequestException('This promotion was rejected by FORKSY and cannot be activated');
+    if (active && p.rejectionReason) throw new BadRequestException('This promotion was rejected by FORKY and cannot be activated');
     p.active = active;
     await this.repo.save(p);
     return this.withStatus(p);

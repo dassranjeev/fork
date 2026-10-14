@@ -174,7 +174,7 @@ function CancelBox({ until, onCancel, cancelling }) {
       <button type="button" className="sf-btn sf-btn-danger-outline sf-btn-block" onClick={onCancel} disabled={cancelling || secs === 0} data-testid="cancel-order">
         {cancelling ? <Spinner size={16} /> : null} Cancel order{secs != null ? ` (${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")} left)` : ""}
       </button>
-      <p className="sf-small sf-muted mt-2">Your order is held by FORKSY for a moment and is sent to the restaurant when the countdown ends. Until then you can cancel for free. After that it can no longer be cancelled here - please contact support.</p>
+      <p className="sf-small sf-muted mt-2">Your order is held by FORKY for a moment and is sent to the restaurant when the countdown ends. Until then you can cancel for free. After that it can no longer be cancelled here - please contact support.</p>
     </>
   );
 }
@@ -429,7 +429,7 @@ export default function Track() {
           {canCancel ? (
             <CancelBox until={t.cancelUntil} onCancel={cancelOrder} cancelling={cancelling} />
           ) : (
-            <p className="sf-small sf-muted">The cancellation window for this order has closed. Need help? Contact FORKSY support.</p>
+            <p className="sf-small sf-muted">The cancellation window for this order has closed. Need help? Contact FORKY support.</p>
           )}
         </div>
       )}

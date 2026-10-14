@@ -309,7 +309,7 @@ function BankTab() {
                 cols={3}
               />
             ) : (
-              <p className="text-secondary-light mb-0">No bank account on file. Add one so FORKSY can pay you.</p>
+              <p className="text-secondary-light mb-0">No bank account on file. Add one so FORKY can pay you.</p>
             )}
             {b.bank && !b.verified && (
               <div className="d-flex gap-2 mt-20">
