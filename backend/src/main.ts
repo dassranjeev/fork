@@ -1,9 +1,11 @@
 import 'reflect-metadata';
-import { Logger, RequestMethod } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { StrictValidationPipe } from './common/strict-validation.pipe';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SwaggerModule } from '@nestjs/swagger';
+import { API_PREFIX, API_PREFIX_EXCLUDE } from './common/api-prefix';
+import { buildOpenApiConfig, enrichOpenApi } from './common/openapi';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
@@ -133,7 +135,7 @@ async function bootstrap() {
     exposedHeaders: ['Retry-After', 'X-RateLimit-Limit', 'X-RateLimit-Remaining'],
     maxAge: 600,
   });
-  app.setGlobalPrefix('api/v1', { exclude: [{ path: 'uploads/(.*)', method: RequestMethod.GET }, { path: 'assistant/widget.js', method: RequestMethod.GET }, { path: 'assistant/forky-icon.png', method: RequestMethod.GET }] });
+  app.setGlobalPrefix(API_PREFIX, { exclude: API_PREFIX_EXCLUDE });
 
   // ---- request size limits: 100 kb by default; only the menu CSV import may send more ---------------
   const small = config.get<string>('limits.jsonBody')!;
@@ -160,20 +162,13 @@ async function bootstrap() {
 
   // ---- API docs: dev only (SWAGGER_ENABLED=true to force on) -----------------------------------------
   if (config.get<boolean>('security.swaggerEnabled')) {
-    const doc = new DocumentBuilder()
-      .setTitle('FORKY API')
-      .setDescription(
-        'Food delivery platform API.\n\n- `/auth/*` all apps\n- `/admin/*` Admin Console (staff + super admin)\n- `/restaurant/*` Restaurant portal & tablet KDS\n- `/driver/*` Driver app\n- `/customer/*` Customer app & website\n- `/public/*` no auth\n- WebSocket (Socket.IO) on the same port: see `RealtimeService` for rooms & events.',
-      )
-      .setVersion('1.0')
-      .addBearerAuth()
-      .build();
+    const doc = buildOpenApiConfig();
     app.use('/docs', (_req: any, res: any, next: any) => {
       // Swagger UI needs inline scripts/styles; scoped to /docs only
       res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; frame-ancestors 'none'");
       next();
     });
-    SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, doc), { swaggerOptions: { persistAuthorization: true } });
+    SwaggerModule.setup('docs', app, enrichOpenApi(SwaggerModule.createDocument(app, doc)), { swaggerOptions: { persistAuthorization: true } });
     log.warn('Swagger UI is ENABLED at /docs (development only)');
   }
 
