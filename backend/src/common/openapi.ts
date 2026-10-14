@@ -6,7 +6,7 @@ import { DocumentBuilder, OpenAPIObject } from '@nestjs/swagger';
  */
 const DESCRIPTION = `Food delivery marketplace API (customers, restaurants and stores, drivers, staff).
 
-**Base URL.** Paths already contain \`/api/v1\`. Set the server variable \`baseUrl\` to the API host (for example \`https://api.example.ca\`).
+**Base URL.** Choose the server above: the API is at \`https://api.forky.ca\` (the website \`app.forky.ca\` does not answer API calls). The paths already contain \`/api/v1\`.
 
 **Who calls what**
 - \`/auth/*\`: sign-in, tokens and account security, for every app
@@ -31,16 +31,43 @@ Validation failures are \`400\` with \`message: "Validation failed"\` and one te
 **Conventions.** Money is in Canadian dollars (numbers with 2 decimals). Timestamps are ISO 8601 UTC strings. Ids are UUIDs. Lists are paginated with the \`page\` (from 1) and \`limit\` (default 20, usually at most 100) query parameters.
 Response bodies are described where the server returns a typed object; for the rest, the examples in \`docs/api/*.md\` show the shape.`;
 
-export function buildOpenApiConfig() {
-  return new DocumentBuilder()
+/**
+ * Servers listed in the document (the first one is what Swagger UI and most clients select by default). The API is served by api.forky.ca; the website
+ * (app.forky.ca) does not answer API calls. Other hosts can be listed at export time: OPENAPI_SERVERS="https://api.example.ca|Production,http://localhost:4000|Local".
+ */
+const DEFAULT_SERVERS = [
+  { url: 'https://api.forky.ca', description: 'Production (api.forky.ca)' },
+  { url: 'http://localhost:4000', description: 'Local development' },
+];
+
+function serverList(live: boolean) {
+  const fromEnv = (process.env.OPENAPI_SERVERS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => {
+      const [url, ...d] = s.split('|');
+      return { url: url.trim().replace(/\/+$/, ''), description: d.join('|').trim() || undefined };
+    });
+  const list: { url: string; description?: string }[] = (fromEnv.length ? fromEnv : DEFAULT_SERVERS).map((s) => ({ ...s }));
+  // the live /docs page of a running server: "Try it out" must call THIS server, so it comes first (never done for the exported file: it must not depend on the machine)
+  const pub = live ? (process.env.PUBLIC_URL || '').trim().replace(/\/+$/, '') : '';
+  if (pub) {
+    const at = list.findIndex((s) => s.url === pub);
+    const self = at >= 0 ? list.splice(at, 1)[0] : { url: pub };
+    list.unshift({ url: self.url, description: `This server${self.description ? ` (${self.description})` : ''}` });
+  }
+  return list;
+}
+
+export function buildOpenApiConfig(opts: { live?: boolean } = {}) {
+  const b = new DocumentBuilder()
     .setTitle('FORKSY API')
     .setDescription(DESCRIPTION)
     .setVersion('1.0')
-    .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT', description: 'Access token from POST /auth/login (and /auth/2fa/verify when two-factor sign-in is on)' })
-    .addServer('{baseUrl}', 'API host. The paths already include /api/v1', {
-      baseUrl: { default: 'http://localhost:4000', description: 'for example https://api.example.ca or http://localhost:4000' },
-    })
-    .build();
+    .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT', description: 'Access token from POST /auth/login (and /auth/2fa/verify when two-factor sign-in is on)' });
+  for (const s of serverList(!!opts.live)) b.addServer(s.url, s.description);
+  return b.build();
 }
 
 const ERROR_SCHEMA = {

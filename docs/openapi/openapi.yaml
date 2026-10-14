@@ -5756,7 +5756,7 @@ info:
   description: |-
     Food delivery marketplace API (customers, restaurants and stores, drivers, staff).
 
-    **Base URL.** Paths already contain `/api/v1`. Set the server variable `baseUrl` to the API host (for example `https://api.example.ca`).
+    **Base URL.** Choose the server above: the API is at `https://api.forky.ca` (the website `app.forky.ca` does not answer API calls). The paths already contain `/api/v1`.
 
     **Who calls what**
     - `/auth/*`: sign-in, tokens and account security, for every app
@@ -71876,12 +71876,10 @@ paths:
       tags:
         - Public / assistant widget
 servers:
-  - description: API host. The paths already include /api/v1
-    url: '{baseUrl}'
-    variables:
-      baseUrl:
-        default: http://localhost:4000
-        description: for example https://api.example.ca or http://localhost:4000
+  - description: Production (api.forky.ca)
+    url: https://api.forky.ca
+  - description: Local development
+    url: http://localhost:4000
 tags:
   - name: Admin / analytics
   - name: Admin / assistant

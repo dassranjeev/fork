@@ -156,7 +156,7 @@ async function bootstrap() {
 
   // ---- API docs: dev only (SWAGGER_ENABLED=true to force on) -----------------------------------------
   if (config.get<boolean>('security.swaggerEnabled')) {
-    const doc = buildOpenApiConfig();
+    const doc = buildOpenApiConfig({ live: true });
     app.use('/docs', (_req: any, res: any, next: any) => {
       // Swagger UI needs inline scripts/styles; scoped to /docs only
       res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; frame-ancestors 'none'");

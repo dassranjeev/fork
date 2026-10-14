@@ -25,10 +25,14 @@ The running API also serves it behind the docs password at `https://<api-host>/d
   ```ts
   import createClient from "openapi-fetch";
   import type { paths } from "./api";
-  const api = createClient<paths>({ baseUrl: "https://api.example.ca" });   // the paths already contain /api/v1
+  const api = createClient<paths>({ baseUrl: "https://api.forky.ca" });   // the paths already contain /api/v1
   const { data, error } = await api.POST("/api/v1/auth/login", { body: { identifier: "me@example.ca", password: "...", app: "customer" } });
   ```
-* **Full clients and hooks:** `orval`, `openapi-generator`, `Kiota`, `hey-api/openapi-ts` all read this file. The server variable `baseUrl` is the API host.
+* **Full clients and hooks:** `orval`, `openapi-generator`, `Kiota`, `hey-api/openapi-ts` all read this file.
+* **Which host:** the file lists two servers: `https://api.forky.ca` (production, the default) and `http://localhost:4000` (local development). The API is served at
+  **api.forky.ca**; the website `app.forky.ca` is only the website and does not answer API calls. To list other hosts when you export, set
+  `OPENAPI_SERVERS="https://api.example.ca|Production,http://localhost:4000|Local"`. The running server's own `/docs` page always puts itself first (from `PUBLIC_URL`),
+  so "Try it out" there calls the server you are looking at.
 * **Authentication:** `POST /api/v1/auth/login` returns tokens (or `requires2fa` / `requires2faSetup` with a `tempToken`: then `POST /auth/2fa/verify`).
   Send `Authorization: Bearer <accessToken>`; renew with `POST /auth/refresh`. The same text is at the top of the file (`info.description`).
 
