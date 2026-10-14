@@ -300,7 +300,18 @@ export const Events = {
   RESTAURANT_SERVICE_MODE_CHANGED: 'restaurant.service_mode_changed',
   TICKET_CREATED: 'ticket.created',
   PAYOUT_PAID: 'payout.paid',
+  /**
+   * payload: SubjectRegisteredEvent - a driver or business signed up by themselves. Emitted with emitAsync: the VerificationService listener applies the
+   * registration policy (instant activation, manual queue or Certn check) and answers with what the person should be told.
+   */
+  VERIFICATION_SUBJECT_REGISTERED: 'verification.subject_registered',
 } as const;
+
+export interface SubjectRegisteredEvent {
+  audience: 'DRIVER' | 'BUSINESS';
+  /** DriverProfile.id for a driver, Restaurant.id (the first location) for a business */
+  id: string;
+}
 
 export interface OrderStatusEvent {
   order: Order;

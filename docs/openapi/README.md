@@ -5,7 +5,7 @@ allowed values, the error format, and, for most read routes, the shape of the an
 
 | File | What |
 |---|---|
-| [`openapi.json`](openapi.json) | The API description (904 operations, 280 request schemas). Use this one |
+| [`openapi.json`](openapi.json) | The API description (917 operations, 285 request schemas). Use this one |
 | [`openapi.yaml`](openapi.yaml) | The same content as YAML |
 | [`openapi.responses.json`](openapi.responses.json) | Input of the export: response shapes observed on demo data (see below). Not for clients |
 
@@ -38,12 +38,12 @@ The running API also serves it behind the docs password at `https://<api-host>/d
 
 ## What is in it, and what is not
 
-* **Request bodies** (all 323): every field with its type, whether it is required, length / range limits, allowed values (enums) and the validators' rules.
+* **Request bodies** (all 329): every field with its type, whether it is required, length / range limits, allowed values (enums) and the validators' rules.
   Fields that are not in a body are rejected by the API, not ignored, so a generated client must not send extras.
 * **Parameters:** path parameters (required) and query parameters. Query parameters are documented as **optional** unless the API was seen demanding one
   (for example `restaurantId` is needed only for owners with several locations; the date of a slots request is required).
 * **Errors:** every route lists the shared `ErrorResponse` (`{ statusCode, message, code?, details?, path, timestamp }`).
-* **Responses (partly):** the server code does not declare its return types, so response shapes were **observed**: about 290 of the 335 read (GET) routes have a
+* **Responses (partly):** the server code does not declare its return types, so response shapes were **observed**: about 290 of the 339 read (GET) routes have a
   response schema and a short example taken from the seeded demo data. Read them as "what the API returns for demo data": a field that was empty in every demo
   row can be missing or typed loosely (`nullable` is set where a null was seen), and optional fields can be absent. Routes that need a record that does not exist in the
   demo data, external services (address search needs Mapbox) or special accounts are not covered.

@@ -18,7 +18,8 @@ import {
   Review,
   User,
 } from '../database/entities';
-import { DocStatus, OrderStatus, RestaurantDocType, RestaurantRole, RestaurantServiceMode, RestaurantStatus, UserStatus, UserType } from '../common/enums';
+import { DocStatus, OrderStatus, RestaurantDocType, RestaurantRole, RestaurantServiceMode, RestaurantStatus, UserStatus, UserType, VerificationAudience } from '../common/enums';
+import { verificationSummary } from '../verification/verification-policy';
 import { fulfilmentAvailability } from '../common/service-mode';
 import { ActorRef, Events, StatusChangedEvent } from '../common/contracts';
 import { AuthUser } from '../common/auth.types';
@@ -155,7 +156,10 @@ export class RestaurantStoreService {
     ]);
     const open = await this.availability.status(r).catch(() => ({ open: false }));
     const meta = r.meta ?? {};
-    return { ...r, ...this.modeInfo(r), hours, closures, stations, integrations, documents: docs, openStatus: open, printers: meta.printers ?? {}, notificationSettings: meta.notificationSettings ?? {}, kdsSettings: meta.kds ?? {}, tablet: meta.tablet ?? {} };
+    const merchant = await this.merchants.findOne({ where: { id: r.merchantId } });
+    // the verification state belongs to the business (merchant): shown on the restaurant page and in the portal
+    const verification = merchant ? verificationSummary(VerificationAudience.BUSINESS, merchant) : null;
+    return { ...r, ...this.modeInfo(r), hours, closures, stations, integrations, documents: docs, openStatus: open, printers: meta.printers ?? {}, notificationSettings: meta.notificationSettings ?? {}, kdsSettings: meta.kds ?? {}, tablet: meta.tablet ?? {}, verification };
   }
 
   async updateProfile(id: string, dto: UpdateStoreDto & Partial<AdminUpdateRestaurantDto>, req?: any) {

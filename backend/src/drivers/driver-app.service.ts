@@ -13,7 +13,8 @@ import {
   Zone,
 } from '../database/entities';
 import { ActorRef, IDispatchService, IPayoutsService } from '../common/contracts';
-import { ActorType, DriverStatus, OrderStatus, OrderType, PartyType } from '../common/enums';
+import { ActorType, DriverStatus, OrderStatus, OrderType, PartyType, VerificationAudience } from '../common/enums';
+import { verificationSummary } from '../verification/verification-policy';
 import * as bcrypt from 'bcryptjs';
 import { haversineKm } from '../common/geo.util';
 import { OrdersService } from '../orders/orders.service';
@@ -111,6 +112,7 @@ export class DriverAppService {
       ontarioNoticeAcked: p.ontarioPlatformWorkerNoticeAcked,
       insulatedBagConfirmed: p.insulatedBagConfirmed,
       onboarding: checklist,
+      verification: verificationSummary(VerificationAudience.DRIVER, p),
     };
   }
 

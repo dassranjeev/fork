@@ -26,7 +26,6 @@ import { DriverOpsService } from './driver-ops.service';
 import { DriverAppService } from './driver-app.service';
 import { DriverExpiryScheduler } from './driver-scheduler.service';
 import { AdminDriversController } from './admin-drivers.controller';
-import { CertnWebhookController } from './certn-webhook.controller';
 import { DriverProfileController } from './driver-profile.controller';
 import { DriverTripController } from './driver-trip.controller';
 import { DriverEarningsController } from './driver-earnings.controller';
@@ -61,7 +60,8 @@ import { DriverEarningsController } from './driver-earnings.controller';
     ]),
   ],
   providers: [CertnAdapter, MaskedCallAdapter, DriverCoreService, DriversAdminService, DriverOpsService, DriverAppService, DriverExpiryScheduler],
-  controllers: [AdminDriversController, CertnWebhookController, DriverProfileController, DriverTripController, DriverEarningsController],
-  exports: [DriverCoreService, DriversAdminService, DriverOpsService],
+  // the Certn result webhook lives in the VerificationModule (it settles drivers and businesses alike)
+  controllers: [AdminDriversController, DriverProfileController, DriverTripController, DriverEarningsController],
+  exports: [DriverCoreService, DriversAdminService, DriverOpsService, CertnAdapter],
 })
 export class DriversModule {}

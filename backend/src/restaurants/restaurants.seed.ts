@@ -17,7 +17,7 @@ import {
   User,
   Zone,
 } from '../database/entities';
-import { DocStatus, MenuEditStatus, RestaurantDocType, RestaurantRole, RestaurantServiceMode, RestaurantStatus, UserStatus, UserType } from '../common/enums';
+import { DocStatus, MenuEditStatus, RestaurantDocType, RestaurantRole, RestaurantServiceMode, RestaurantStatus, UserStatus, UserType, VerificationMethod, VerificationStatus } from '../common/enums';
 import { SeedOptions } from '../database/seed-types';
 import { slugify } from './restaurants.util';
 import { EXTRA_DEFS, EXTRA_MENUS } from './restaurants.seed-extra';
@@ -156,6 +156,10 @@ async function seedDefs(ds: DataSource, opts: SeedOptions, defs: Def[], menus: R
           bank: { institution: '004', transit: '12345', accountLast4: '6789', holder: brand, verified: true },
           agreementSignedAt: new Date(Date.now() - 90 * 86400_000),
           agreementSignedBy: `Owner ${d.merchant}`,
+          // demo businesses are live, so they went through the manual process (same as the migration's backfill)
+          verificationStatus: VerificationStatus.VERIFIED,
+          verificationMethod: VerificationMethod.MANUAL,
+          verifiedAt: new Date(Date.now() - 60 * 86400_000),
         }),
       );
     }

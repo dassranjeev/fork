@@ -9,7 +9,7 @@ Enums: DriverStatus `APPLIED, DOCS_REVIEW, BACKGROUND_CHECK, TRAINING, APPROVED,
 
 | Method | Path | Perm | Request | Response |
 |---|---|---|---|---|
-| GET | `/` | view | page,limit,search,sortBy,sortDir,status,cityId,zoneId,vehicleType,online(true/false),ratingMin,ratingMax,expiringDays,backgroundCheck | paginated driver rows (id,name,status,isOnline,rating,rates,nextDocExpiry...) |
+| GET | `/` | view | page,limit,search,sortBy,sortDir,status,cityId,zoneId,vehicleType,online(true/false),ratingMin,ratingMax,expiringDays,backgroundCheck,verification (UNVERIFIED, PENDING, NEEDS_REVIEW, VERIFIED, REJECTED) | paginated driver rows (id,name,status,isOnline,rating,rates,nextDocExpiry,verificationStatus,verificationMethod,verifiedAt,verificationDueAt...) |
 | GET | `/summary` | view | cityId | `{byStatus,online,onTrip,docsExpiring30d,openSos}` |
 | GET | `/export` | export | same filters as list | `{csv}` |
 | GET | `/expiring-documents` | view | days(30),type,page,limit | paginated `{id,driverId,driverName,type,status,expiresAt,fileUrl}` |
@@ -39,9 +39,9 @@ Enums: DriverStatus `APPLIED, DOCS_REVIEW, BACKGROUND_CHECK, TRAINING, APPROVED,
 | POST | `/:id/start-review` | edit | - | checklist |
 | PATCH | `/:id/documents/:docId` | approve | status(APPROVED/REJECTED),rejectReason (required on reject),expiresAt (required for licence/insurance/registration) | document |
 | PUT | `/:id/insurance` | edit | coversDelivery,expiresAt,provider?,policyNumber? | insurance |
-| POST | `/:id/background-check/start` | edit | - | `{provider,ref,status}` (Certn, mock without key) |
-| POST | `/:id/background-check/override` | approve | status,note | `{status,driverStatus}` |
-| POST | `/:id/approve` | approve | zoneIds?,insulatedBagConfirmed?,note?,override? | `{status}` (activates if zoneIds) |
+| POST | `/:id/background-check/start` | edit | - | `{provider,ref,status}` (Certn, mock without key). 400 for a driver whose verification is automatic: use `/admin/verification/drivers/:id/start-check` |
+| POST | `/:id/background-check/override` | approve | status,note | `{status,driverStatus}`. 400 for a driver whose verification is automatic |
+| POST | `/:id/approve` | approve | zoneIds?,insulatedBagConfirmed?,note?,override? | `{status}` (activates if zoneIds). Approving IS the manual verification: the driver becomes VERIFIED (MANUAL) |
 | POST | `/:id/activate` | approve | zoneIds[],insulatedBagConfirmed | `{status,zoneIds}`; sends welcome + first-week boost |
 | POST | `/:id/reject` | approve | reason | `{status}` |
 | POST | `/:id/suspend` | approve | reason,respondWithinDays?,evidence? | `{status,respondBy}` |
@@ -51,9 +51,13 @@ Enums: DriverStatus `APPLIED, DOCS_REVIEW, BACKGROUND_CHECK, TRAINING, APPROVED,
 
 Mutations are audit-logged. `DRIVER_STATUS_CHANGED` event emitted on status changes.
 
+## Registration and verification
+
+How a new driver is admitted (instant, manual or automatic), Force verification, the Verification card and Certn are described in [../verification.md](../verification.md). Driver routes: `GET /api/v1/admin/verification/drivers/:id` (drivers:view) and `POST .../verify`, `.../reject`, `.../start-check` (drivers:approve); the policy, Force verification and the account table are Super Admin only (`/api/v1/admin/verification`). `POST /api/v1/auth/driver/register` answers `verification: {mode: INSTANT|MANUAL|AUTOMATIC, accountStatus, status, method, dueAt, verifiedAt, nextStep}` next to the tokens, and `GET /driver/profile` carries `verification` (same fields without mode / accountStatus). A driver admitted instantly or verified by Certn does not need staff-approved documents to go online (the Ontario platform worker notice is still required).
+
 ## Public webhook
 
-| POST | `/public/webhooks/certn` | none | Certn payload | `{ok}` |
+| POST | `/public/webhooks/certn` | shared secret | Certn payload | `{ok}` (settles drivers and businesses; implemented in the verification module) |
 
 ## Driver app `/driver/*` (DRIVER users)
 

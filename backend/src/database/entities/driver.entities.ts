@@ -1,6 +1,6 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne, OneToOne, Relation } from 'typeorm';
 import { BaseEntity, GeoColumn, MoneyColumn, PctColumn } from '../../common/base.entity';
-import { DocStatus, DriverDocType, DriverStatus, OfferStatus, VehicleType } from '../../common/enums';
+import { DocStatus, DriverDocType, DriverStatus, OfferStatus, VehicleType, VerificationMethod, VerificationStatus } from '../../common/enums';
 import { User } from './identity.entities';
 
 @Entity('driver_profiles')
@@ -98,6 +98,29 @@ export class DriverProfile extends BaseEntity {
 
   @Column({ type: 'timestamptz', nullable: true })
   approvedAt: Date | null;
+
+  // ---- verification (docs/verification.md): separate from `status`; an instantly registered driver is ACTIVE but UNVERIFIED ----
+  @Index()
+  @Column({ type: 'enum', enum: VerificationStatus, default: VerificationStatus.PENDING })
+  verificationStatus: VerificationStatus;
+
+  /** How the driver was admitted / verified (null until decided). INSTANT / AUTOMATIC drivers need no staff-approved documents to go online. */
+  @Column({ type: 'enum', enum: VerificationMethod, nullable: true })
+  verificationMethod: VerificationMethod | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  verifiedAt: Date | null;
+
+  /** staff user who verified the driver (null: verified by the Certn check, or not verified) */
+  @Column({ type: 'uuid', nullable: true })
+  verifiedBy: string | null;
+
+  /** Force verification (Super Admin): when the driver was told to verify, and the deadline after which an unverified driver is taken off the road. */
+  @Column({ type: 'timestamptz', nullable: true })
+  verificationForcedAt: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  verificationDueAt: Date | null;
 
   // ---- payout / tax ----
   @Column({ type: 'jsonb', nullable: true })

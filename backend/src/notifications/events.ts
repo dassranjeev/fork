@@ -599,6 +599,48 @@ export const EVENTS: Record<string, EventDef> = {
   'restaurant.applied': { category: 'system', module: Module.RESTAURANTS, audiences: { ADMIN: { channels: PI, push: { title: 'New restaurant application', body: 'A new restaurant applied. Review it in onboarding.' }, url: '/restaurants/onboarding', urgency: 'low' } }, msg: { ADMIN: { title: 'New restaurant application', body: '{{name}} applied to join FORKY.' } } },
   'driver.training_completed': { category: 'system', module: Module.DRIVERS, audiences: { ADMIN: { channels: IA, url: '/driver-training' } } },
   'driver.background_check': { category: 'system', module: Module.DRIVERS, audiences: { ADMIN: { channels: IA, url: '/driver-pipeline' } } },
+  // ------------------------------------------------------------------ registration and verification (docs/verification.md)
+  'verification.required': {
+    category: 'system',
+    pushVars: ['deadline'],
+    audiences: {
+      DRIVER: { channels: PIE, push: { title: 'Verification required', body: 'Please verify your account{{deadline}}. Open the app to see how.' }, url: D_HOME, urgency: 'high' },
+      RESTAURANT: { channels: PIE, push: { title: 'Verification required', body: 'Please verify your business{{deadline}}. Open the portal to see how.' }, url: '/portal', urgency: 'high' },
+    },
+    msg: {
+      DRIVER: { title: 'Verification required', body: 'We need to verify your driver account{{deadline}}. {{steps}}' },
+      RESTAURANT: { title: 'Verification required', body: 'We need to verify your business{{deadline}}. {{steps}}' },
+    },
+  },
+  'verification.verified': {
+    category: 'system',
+    audiences: {
+      DRIVER: { channels: PIE, push: { title: 'You are verified', body: 'Thank you: your account is verified.' }, url: D_HOME },
+      RESTAURANT: { channels: PIE, push: { title: 'You are verified', body: 'Thank you: your business is verified.' }, url: '/portal' },
+    },
+    msg: {
+      DRIVER: { title: 'You are verified', body: 'Your driver account is verified. Thank you!' },
+      RESTAURANT: { title: 'You are verified', body: '{{name}} is verified. Thank you!' },
+    },
+  },
+  'driver.instant_activated': {
+    category: 'system',
+    module: Module.DRIVERS,
+    audiences: { ADMIN: { channels: IA, url: '/drivers' } },
+    msg: { ADMIN: { title: 'New driver, active but unverified', body: '{{name}} signed up and is active straight away (instant registration). Verify them from the driver page or force verification.' } },
+  },
+  'restaurant.instant_activated': {
+    category: 'system',
+    module: Module.RESTAURANTS,
+    audiences: { ADMIN: { channels: IA, url: '/restaurants' } },
+    msg: { ADMIN: { title: 'New restaurant, live but unverified', body: '{{name}} signed up and is live straight away (instant registration). Verify it from the restaurant page or force verification.' } },
+  },
+  'restaurant.background_check': {
+    category: 'system',
+    module: Module.RESTAURANTS,
+    audiences: { ADMIN: { channels: IA, url: '/restaurants/merchants' } },
+    msg: { ADMIN: { title: 'Owner background check {{status}}', body: '{{name}}: the background check of the owner is {{status}}.' } },
+  },
   'menu.access_requested': { category: 'system', module: Module.RESTAURANTS, audiences: { ADMIN: { channels: IA, url: '/restaurants/menu-access' } } },
   'menu.access_decided': {
     category: 'system',

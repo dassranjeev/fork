@@ -85,6 +85,31 @@ export enum DriverStatus {
   REJECTED = 'REJECTED',
 }
 
+/** Has an account (driver or business) been verified? Separate from its lifecycle status. See docs/verification.md. */
+export enum VerificationStatus {
+  /** admitted without verification (instant registration); it may operate */
+  UNVERIFIED = 'UNVERIFIED',
+  /** verification is required and in progress: waiting for staff, or for the Certn check */
+  PENDING = 'PENDING',
+  /** the Certn check came back flagged / failed: a person must decide (never decided automatically) */
+  NEEDS_REVIEW = 'NEEDS_REVIEW',
+  VERIFIED = 'VERIFIED',
+  REJECTED = 'REJECTED',
+}
+
+/** How an account was admitted / verified. */
+export enum VerificationMethod {
+  INSTANT = 'INSTANT',
+  MANUAL = 'MANUAL',
+  AUTOMATIC = 'AUTOMATIC',
+}
+
+/** Who the verification policy applies to: drivers, or businesses (a merchant and its restaurants). */
+export enum VerificationAudience {
+  DRIVER = 'DRIVER',
+  BUSINESS = 'BUSINESS',
+}
+
 export enum VehicleType {
   CAR = 'CAR',
   BIKE = 'BIKE',

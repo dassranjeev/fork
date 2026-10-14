@@ -8939,7 +8939,8 @@
                     },
                     "lastUpdatedAt": {
                       "type": "string",
-                      "format": "date-time"
+                      "format": "date-time",
+                      "nullable": true
                     },
                     "rate": {
                       "type": "number"
@@ -9074,6 +9075,21 @@
                 "vehicleType": {
                   "type": "string"
                 },
+                "verificationDueAt": {
+                  "nullable": true
+                },
+                "verificationMethod": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "verificationStatus": {
+                  "type": "string"
+                },
+                "verifiedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "nullable": true
+                },
                 "zoneIds": {
                   "type": "array",
                   "items": {
@@ -9200,6 +9216,10 @@
                 "trainingCompleted",
                 "userId",
                 "vehicleType",
+                "verificationDueAt",
+                "verificationMethod",
+                "verificationStatus",
+                "verifiedAt",
                 "zoneIds"
               ]
             }
@@ -9236,14 +9256,14 @@
       "example": {
         "data": [
           {
-            "id": "3aba8d1a-57dc-4956-8395-0d082c0c8125",
-            "userId": "5672fc64-383d-4801-a73f-bbe2f6ecb437",
+            "id": "8b647e4c-a303-4ff7-a2f0-cff1bbf12a2d",
+            "userId": "da9cda99-91d7-4a5e-8e0a-57586763a394",
             "name": "Andre Silva",
             "email": "driver28@demo.forksy.ca",
             "phone": "+14165550128",
             "status": "BACKGROUND_CHECK",
             "statusReason": null,
-            "cityId": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
+            "cityId": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
             "zoneIds": [],
             "vehicleType": "CAR",
             "licensePlate": "CMBR 128",
@@ -9255,16 +9275,16 @@
             "lastLocationAt": null,
             "rating": 5,
             "ratingCount": 0,
-            "acceptanceRate": 90,
+            "acceptanceRate": 100,
             "acceptance": {
-              "rate": 90,
+              "rate": 100,
               "accepted": 0,
               "declined": 0,
               "expired": 0,
               "total": 0,
               "windowDays": 14,
-              "since": "2026-09-30T15:56:40.279Z",
-              "lastUpdatedAt": "2026-10-14T15:00:00.061Z"
+              "since": "2026-09-30T18:15:39.921Z",
+              "lastUpdatedAt": null
             },
             "completionRate": 100,
             "onTimeRate": 100,
@@ -9276,21 +9296,25 @@
             "pendingBalance": 0,
             "lifetimeEarnings": 0,
             "approvedAt": null,
-            "createdAt": "2026-10-01T13:29:29.972Z",
-            "nextDocExpiry": "2028-01-04"
+            "verificationStatus": "PENDING",
+            "verificationMethod": null,
+            "verifiedAt": null,
+            "verificationDueAt": null,
+            "createdAt": "2026-10-14T18:11:33.688Z",
+            "nextDocExpiry": "2028-01-17"
           },
           {
-            "id": "9da8112c-7578-46bc-86ca-75ece429973b",
-            "userId": "69bcadf4-fb0c-469b-91b9-0b12065a6937",
+            "id": "d335fe4d-65be-4df5-81e2-90465c4e706d",
+            "userId": "f3ec8dbe-c94c-45a3-8764-1ac583649526",
             "name": "Simran Kaur",
             "email": "driver27@demo.forksy.ca",
             "phone": "+14165550127",
             "status": "APPROVED",
             "statusReason": null,
-            "cityId": "3a81424b-b62f-49c7-949e-efc3d69593c1",
+            "cityId": "533670ef-42c0-4475-accd-077f35234c02",
             "zoneIds": [
-              "b67f0d1a-3b5e-4cd7-94b9-bb7e10c49ad6",
-              "2b12b0fc-e18b-4866-95f1-49aa6efecfb8"
+              "da3ad570-57fe-4e11-a63f-a0c5f917e4eb",
+              "753d55b5-5206-48ae-9ba4-30d407105ca2"
             ],
             "vehicleType": "CAR",
             "licensePlate": "CMBR 127",
@@ -9302,16 +9326,16 @@
             "lastLocationAt": null,
             "rating": 5,
             "ratingCount": 0,
-            "acceptanceRate": 90,
+            "acceptanceRate": 100,
             "acceptance": {
-              "rate": 90,
+              "rate": 100,
               "accepted": 0,
               "declined": 0,
               "expired": 0,
               "total": 0,
               "windowDays": 14,
-              "since": "2026-09-30T15:56:40.279Z",
-              "lastUpdatedAt": "2026-10-14T15:00:00.061Z"
+              "since": "2026-09-30T18:15:39.921Z",
+              "lastUpdatedAt": null
             },
             "completionRate": 100,
             "onTimeRate": 100,
@@ -9322,9 +9346,13 @@
             "insulatedBagConfirmed": true,
             "pendingBalance": 0,
             "lifetimeEarnings": 0,
-            "approvedAt": "2026-08-15T13:29:29.931Z",
-            "createdAt": "2026-10-01T13:29:29.932Z",
-            "nextDocExpiry": "2027-12-25"
+            "approvedAt": "2026-08-28T18:11:33.657Z",
+            "verificationStatus": "VERIFIED",
+            "verificationMethod": "MANUAL",
+            "verifiedAt": "2026-08-28T18:11:33.657Z",
+            "verificationDueAt": null,
+            "createdAt": "2026-10-14T18:11:33.657Z",
+            "nextDocExpiry": "2028-01-07"
           }
         ],
         "meta": {
@@ -10195,8 +10223,7 @@
                 "format": "date-time"
               },
               "lastUpdatedAt": {
-                "type": "string",
-                "format": "date-time"
+                "nullable": true
               }
             },
             "required": [
@@ -10238,6 +10265,18 @@
             "type": "integer"
           },
           "approvedAt": {
+            "nullable": true
+          },
+          "verificationStatus": {
+            "type": "string"
+          },
+          "verificationMethod": {
+            "nullable": true
+          },
+          "verifiedAt": {
+            "nullable": true
+          },
+          "verificationDueAt": {
             "nullable": true
           },
           "createdAt": {
@@ -10648,8 +10687,7 @@
                     "format": "date-time"
                   },
                   "lastUpdatedAt": {
-                    "type": "string",
-                    "format": "date-time"
+                    "nullable": true
                   }
                 },
                 "required": [
@@ -10796,19 +10834,23 @@
           "userId",
           "vehicle",
           "vehicleType",
+          "verificationDueAt",
+          "verificationMethod",
+          "verificationStatus",
+          "verifiedAt",
           "zoneIds",
           "zones"
         ]
       },
       "example": {
-        "id": "3aba8d1a-57dc-4956-8395-0d082c0c8125",
-        "userId": "5672fc64-383d-4801-a73f-bbe2f6ecb437",
+        "id": "8b647e4c-a303-4ff7-a2f0-cff1bbf12a2d",
+        "userId": "da9cda99-91d7-4a5e-8e0a-57586763a394",
         "name": "Andre Silva",
         "email": "driver28@demo.forksy.ca",
         "phone": "+14165550128",
         "status": "BACKGROUND_CHECK",
         "statusReason": null,
-        "cityId": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
+        "cityId": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
         "zoneIds": [],
         "vehicleType": "CAR",
         "licensePlate": "CMBR 128",
@@ -10820,16 +10862,16 @@
         "lastLocationAt": null,
         "rating": 5,
         "ratingCount": 0,
-        "acceptanceRate": 90,
+        "acceptanceRate": 100,
         "acceptance": {
-          "rate": 90,
+          "rate": 100,
           "accepted": 0,
           "declined": 0,
           "expired": 0,
           "total": 0,
           "windowDays": 14,
-          "since": "2026-09-30T15:56:41.900Z",
-          "lastUpdatedAt": "2026-10-14T15:00:00.061Z"
+          "since": "2026-09-30T18:15:42.035Z",
+          "lastUpdatedAt": null
         },
         "completionRate": 100,
         "onTimeRate": 100,
@@ -10841,9 +10883,13 @@
         "pendingBalance": 0,
         "lifetimeEarnings": 0,
         "approvedAt": null,
-        "createdAt": "2026-10-01T13:29:29.972Z",
+        "verificationStatus": "PENDING",
+        "verificationMethod": null,
+        "verifiedAt": null,
+        "verificationDueAt": null,
+        "createdAt": "2026-10-14T18:11:33.688Z",
         "user": {
-          "id": "5672fc64-383d-4801-a73f-bbe2f6ecb437",
+          "id": "da9cda99-91d7-4a5e-8e0a-57586763a394",
           "firstName": "Andre",
           "lastName": "Silva",
           "email": "driver28@demo.forksy.ca",
@@ -10852,7 +10898,7 @@
           "lastLoginAt": null
         },
         "city": {
-          "id": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
+          "id": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
           "name": "Mississauga"
         },
         "vehicle": {
@@ -10864,10 +10910,10 @@
         },
         "documents": [
           {
-            "id": "d62523dd-dff8-48e8-bb8d-0ac162fd82d4",
-            "createdAt": "2026-10-01T13:29:29.994Z",
-            "updatedAt": "2026-10-01T13:29:29.994Z",
-            "driverId": "3aba8d1a-57dc-4956-8395-0d082c0c8125",
+            "id": "746cba21-7fd2-4164-aeb1-ce5e127c9262",
+            "createdAt": "2026-10-14T18:11:33.712Z",
+            "updatedAt": "2026-10-14T18:11:33.712Z",
+            "driverId": "8b647e4c-a303-4ff7-a2f0-cff1bbf12a2d",
             "type": "WORK_ELIGIBILITY",
             "fileUrl": "/uploads/demo/driver28-work_eligibility.jpg",
             "fileName": "work_eligibility.jpg",
@@ -10876,13 +10922,13 @@
             "expiresAt": null,
             "expiryReminderSentAt": null,
             "reviewedById": null,
-            "reviewedAt": "2026-10-01T13:29:29.993Z"
+            "reviewedAt": "2026-10-14T18:11:33.712Z"
           },
           {
-            "id": "c7226887-e4bd-4035-8356-4d553fa3fcbc",
-            "createdAt": "2026-10-01T13:29:29.990Z",
-            "updatedAt": "2026-10-01T13:29:29.990Z",
-            "driverId": "3aba8d1a-57dc-4956-8395-0d082c0c8125",
+            "id": "f48a5062-7282-49c2-9316-522198d2671c",
+            "createdAt": "2026-10-14T18:11:33.708Z",
+            "updatedAt": "2026-10-14T18:11:33.708Z",
+            "driverId": "8b647e4c-a303-4ff7-a2f0-cff1bbf12a2d",
             "type": "PHOTO",
             "fileUrl": "/uploads/demo/driver28-photo.jpg",
             "fileName": "photo.jpg",
@@ -10891,60 +10937,9 @@
             "expiresAt": null,
             "expiryReminderSentAt": null,
             "reviewedById": null,
-            "reviewedAt": "2026-10-01T13:29:29.989Z"
+            "reviewedAt": "2026-10-14T18:11:33.707Z"
           }
-        ],
-        "requiredDocuments": [
-          {
-            "type": "LICENCE",
-            "uploaded": true,
-            "status": "APPROVED",
-            "expiresAt": "2028-01-04",
-            "valid": true,
-            "expired": false,
-            "documentId": "36e13b27-fc9e-413a-a53a-c64450b19e88"
-          },
-          {
-            "type": "VEHICLE_REGISTRATION",
-            "uploaded": true,
-            "status": "APPROVED",
-            "expiresAt": "2028-01-04",
-            "valid": true,
-            "expired": false,
-            "documentId": "440236f2-7804-4cc0-9361-7055d7f9802d"
-          }
-        ],
-        "insurance": null,
-        "backgroundCheck": {
-          "provider": "certn-mock",
-          "status": "IN_PROGRESS",
-          "ref": "mock_seed_28",
-          "history": []
-        },
-        "training": {
-          "modules": [
-            {
-              "moduleId": "41774a3d-c45e-4d28-bf20-beb422ee702a",
-              "title": "Safety and food handling",
-              "attempts": 0,
-              "bestScore": null,
-              "passed": false,
-              "passMark": 80
-            },
-            {
-              "moduleId": "afa3066c-c053-48e6-9cdf-eb0ea06b209a",
-              "title": "Using the driver app",
-              "attempts": 0,
-              "bestScore": null,
-              "passed": false,
-              "passMark": 80
-            }
-          ],
-          "completed": false,
-          "averageScore": null,
-          "passMark": 80,
-          "score": null
-        }
+        ]
       }
     },
     "GET /api/v1/admin/drivers/{id}/offers": {
@@ -23733,14 +23728,13 @@
                   "type": "integer"
                 },
                 "menuEditDecidedAt": {
-                  "type": "string",
-                  "format": "date-time"
+                  "nullable": true
                 },
                 "menuEditDecidedById": {
                   "nullable": true
                 },
                 "menuEditDecisionNote": {
-                  "type": "string"
+                  "nullable": true
                 },
                 "menuEditRequestNote": {
                   "nullable": true
@@ -23758,25 +23752,6 @@
                 "meta": {
                   "type": "object",
                   "properties": {
-                    "assistant": {
-                      "type": "object",
-                      "properties": {
-                        "botKey": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "botKey"
-                      ]
-                    },
-                    "automation": {
-                      "type": "object",
-                      "properties": {},
-                      "required": []
-                    },
-                    "busyManual": {
-                      "type": "boolean"
-                    },
                     "ratingsSeeded": {
                       "type": "boolean"
                     }
@@ -23844,18 +23819,15 @@
                   "type": "number"
                 },
                 "rating30d": {
-                  "type": "integer",
                   "nullable": true
                 },
                 "rating90d": {
-                  "type": "number",
                   "nullable": true
                 },
                 "ratingAlert": {
                   "nullable": true
                 },
                 "ratingAllTime": {
-                  "type": "number",
                   "nullable": true
                 },
                 "ratingCount": {
@@ -23869,130 +23841,7 @@
                 },
                 "ratingStats": {
                   "type": "object",
-                  "properties": {
-                    "all": {
-                      "type": "object",
-                      "properties": {
-                        "avg": {
-                          "type": "integer",
-                          "nullable": true
-                        },
-                        "count": {
-                          "type": "integer"
-                        },
-                        "smoothed": {
-                          "type": "number"
-                        }
-                      },
-                      "required": [
-                        "avg",
-                        "count",
-                        "smoothed"
-                      ]
-                    },
-                    "distribution": {
-                      "type": "object",
-                      "properties": {
-                        "1": {
-                          "type": "integer"
-                        },
-                        "2": {
-                          "type": "integer"
-                        },
-                        "3": {
-                          "type": "integer"
-                        },
-                        "4": {
-                          "type": "integer"
-                        },
-                        "5": {
-                          "type": "integer"
-                        }
-                      },
-                      "required": [
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5"
-                      ]
-                    },
-                    "last30": {
-                      "type": "object",
-                      "properties": {
-                        "avg": {
-                          "type": "integer",
-                          "nullable": true
-                        },
-                        "count": {
-                          "type": "integer"
-                        }
-                      },
-                      "required": [
-                        "avg",
-                        "count"
-                      ]
-                    },
-                    "negativeTags": {
-                      "type": "array",
-                      "items": {}
-                    },
-                    "positiveTags": {
-                      "type": "array",
-                      "items": {
-                        "oneOf": [
-                          {},
-                          {
-                            "type": "object",
-                            "properties": {
-                              "tag": {
-                                "type": "string"
-                              },
-                              "count": {
-                                "type": "integer"
-                              },
-                              "label": {
-                                "type": "string"
-                              }
-                            },
-                            "required": [
-                              "count",
-                              "label",
-                              "tag"
-                            ]
-                          }
-                        ]
-                      }
-                    },
-                    "rolling": {
-                      "type": "object",
-                      "properties": {
-                        "avg": {
-                          "type": "integer",
-                          "nullable": true
-                        },
-                        "count": {
-                          "type": "integer"
-                        },
-                        "days": {
-                          "type": "integer"
-                        },
-                        "smoothed": {
-                          "type": "number"
-                        }
-                      },
-                      "required": [
-                        "avg",
-                        "count",
-                        "days",
-                        "smoothed"
-                      ]
-                    },
-                    "updatedAt": {
-                      "type": "string",
-                      "format": "date-time"
-                    }
-                  },
+                  "properties": {},
                   "required": []
                 },
                 "receiptPrinterEnabled": {
@@ -24014,8 +23863,6 @@
                   "nullable": true
                 },
                 "serviceModeUpdatedAt": {
-                  "type": "string",
-                  "format": "date-time",
                   "nullable": true
                 },
                 "slotMinutes": {
@@ -24039,6 +23886,34 @@
                 "updatedAt": {
                   "type": "string",
                   "format": "date-time"
+                },
+                "verification": {
+                  "type": "object",
+                  "properties": {
+                    "dueAt": {
+                      "nullable": true
+                    },
+                    "method": {
+                      "type": "string"
+                    },
+                    "nextStep": {
+                      "nullable": true
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "verifiedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "dueAt",
+                    "method",
+                    "nextStep",
+                    "status",
+                    "verifiedAt"
+                  ]
                 },
                 "website": {
                   "nullable": true
@@ -24128,6 +24003,7 @@
                 "tabletActivated",
                 "tabletCode",
                 "updatedAt",
+                "verification",
                 "website",
                 "wentLiveAt",
                 "zoneId"
@@ -24166,10 +24042,10 @@
       "example": {
         "data": [
           {
-            "id": "967a688d-a6e5-44e5-bda2-0a27985e999c",
-            "createdAt": "2026-10-01T13:29:29.266Z",
-            "updatedAt": "2026-10-06T21:06:46.870Z",
-            "merchantId": "634757c3-e0ad-428f-9de2-612673768917",
+            "id": "9531f355-395c-4230-9c9a-255ab5b650b3",
+            "createdAt": "2026-10-14T18:11:32.910Z",
+            "updatedAt": "2026-10-14T18:11:32.910Z",
+            "merchantId": "b90a2182-35d8-4885-90b8-c24d8bb8b9aa",
             "name": "Sweet Crumbs Bakery & Cafe",
             "slug": "sweet-crumbs-bakery-cafe",
             "description": "Sweet Crumbs Bakery & Cafe - fresh, made to order in Mississauga.",
@@ -24186,13 +24062,13 @@
             "postalCode": "L5L 5Z5",
             "lat": 43.5537,
             "lng": -79.7092,
-            "cityId": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
-            "zoneId": "bf65d45f-2c3e-4d2b-95d4-2f11e91ba042",
+            "cityId": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
+            "zoneId": "00ae6cf8-4adc-4827-9875-e3a0004ebb0a",
             "priceLevel": 2,
             "hstNumber": null,
             "status": "LIVE",
             "statusReason": null,
-            "wentLiveAt": "2026-08-02T13:29:29.265Z",
+            "wentLiveAt": "2026-08-15T18:11:32.909Z",
             "acceptingOrders": true,
             "pausedUntil": null,
             "serviceMode": "PICKUP_AND_DELIVERY",
@@ -24201,17 +24077,17 @@
             "menuEditStatus": "ALLOWED",
             "menuEditRequestedAt": null,
             "menuEditRequestNote": null,
-            "menuEditDecidedAt": "2026-10-06T21:06:46.869Z",
+            "menuEditDecidedAt": null,
             "menuEditDecidedById": null,
-            "menuEditDecisionNote": "Existing restaurant: access granted when menu permissions were introduced",
+            "menuEditDecisionNote": null,
             "busyExtraPrepMin": 0,
-            "commissionTierId": "6c4c7d55-d458-42c8-bd37-9f98548b9896"
+            "commissionTierId": "2e34ead4-bb5e-47b2-bb3f-a89b51deeb4f"
           },
           {
-            "id": "d2df2d79-8e07-4e1d-bf58-1008273fd0e5",
-            "createdAt": "2026-10-01T13:29:29.046Z",
-            "updatedAt": "2026-10-06T21:06:46.870Z",
-            "merchantId": "96e45602-e6d1-437e-b1d3-bc05b2708874",
+            "id": "821ad70d-fdf5-4987-9cdf-db89471a77e0",
+            "createdAt": "2026-10-14T18:11:32.598Z",
+            "updatedAt": "2026-10-14T18:11:32.598Z",
+            "merchantId": "3b55153c-53e3-44d2-ac39-656ce5224672",
             "name": "Smokehouse Burger Lab",
             "slug": "smokehouse-burger-lab",
             "description": "Smokehouse Burger Lab - fresh, made to order in Mississauga.",
@@ -24228,26 +24104,26 @@
             "postalCode": "L5M 1L7",
             "lat": 43.5789,
             "lng": -79.7116,
-            "cityId": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
-            "zoneId": "60041d44-22fd-44a2-8f38-b9519d52b1f2",
+            "cityId": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
+            "zoneId": "11b1c114-6729-4f68-8a62-904cc794e023",
             "priceLevel": 2,
             "hstNumber": null,
             "status": "LIVE",
             "statusReason": null,
-            "wentLiveAt": "2026-08-02T13:29:29.045Z",
+            "wentLiveAt": "2026-08-15T18:11:32.598Z",
             "acceptingOrders": true,
             "pausedUntil": null,
-            "serviceMode": "PICKUP_ONLY",
-            "serviceModeUpdatedAt": "2026-10-01T17:38:00.363Z",
+            "serviceMode": "PICKUP_AND_DELIVERY",
+            "serviceModeUpdatedAt": null,
             "serviceModeResumeAt": null,
             "menuEditStatus": "ALLOWED",
             "menuEditRequestedAt": null,
             "menuEditRequestNote": null,
-            "menuEditDecidedAt": "2026-10-06T21:06:46.869Z",
+            "menuEditDecidedAt": null,
             "menuEditDecidedById": null,
-            "menuEditDecisionNote": "Existing restaurant: access granted when menu permissions were introduced",
+            "menuEditDecisionNote": null,
             "busyExtraPrepMin": 0,
-            "commissionTierId": "9d7bbca2-bfbf-453d-8cfa-c4c22821d735"
+            "commissionTierId": "733a994f-2410-4d5c-8f8f-0b15d3279bed"
           }
         ],
         "meta": {
@@ -24371,6 +24247,15 @@
                 "agreementSignedBy": {
                   "type": "string"
                 },
+                "backgroundCheckProvider": {
+                  "nullable": true
+                },
+                "backgroundCheckRef": {
+                  "nullable": true
+                },
+                "backgroundCheckStatus": {
+                  "type": "string"
+                },
                 "bank": {
                   "type": "object",
                   "properties": {
@@ -24425,6 +24310,11 @@
                 "legalName": {
                   "type": "string"
                 },
+                "meta": {
+                  "type": "object",
+                  "properties": {},
+                  "required": []
+                },
                 "payoutHold": {
                   "type": "boolean"
                 },
@@ -24443,11 +24333,33 @@
                 "updatedAt": {
                   "type": "string",
                   "format": "date-time"
+                },
+                "verificationDueAt": {
+                  "nullable": true
+                },
+                "verificationForcedAt": {
+                  "nullable": true
+                },
+                "verificationMethod": {
+                  "type": "string"
+                },
+                "verificationStatus": {
+                  "type": "string"
+                },
+                "verifiedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "verifiedBy": {
+                  "nullable": true
                 }
               },
               "required": [
                 "agreementSignedAt",
                 "agreementSignedBy",
+                "backgroundCheckProvider",
+                "backgroundCheckRef",
+                "backgroundCheckStatus",
                 "bank",
                 "bankVerification",
                 "businessName",
@@ -24457,12 +24369,19 @@
                 "hstNumber",
                 "id",
                 "legalName",
+                "meta",
                 "payoutHold",
                 "payoutHoldReason",
                 "stripeAccountId",
                 "stripeAccountInfo",
                 "stripeAccountStatus",
-                "updatedAt"
+                "updatedAt",
+                "verificationDueAt",
+                "verificationForcedAt",
+                "verificationMethod",
+                "verificationStatus",
+                "verifiedAt",
+                "verifiedBy"
               ]
             }
           },
@@ -24498,9 +24417,9 @@
       "example": {
         "data": [
           {
-            "id": "634757c3-e0ad-428f-9de2-612673768917",
-            "createdAt": "2026-10-01T13:29:29.253Z",
-            "updatedAt": "2026-10-01T13:29:29.253Z",
+            "id": "b90a2182-35d8-4885-90b8-c24d8bb8b9aa",
+            "createdAt": "2026-10-14T18:11:32.889Z",
+            "updatedAt": "2026-10-14T18:11:32.889Z",
             "businessName": "Sweet Crumbs Bakery & Cafe Ltd.",
             "legalName": "Sweet Crumbs Bakery & Cafe Ltd.",
             "hstNumber": "810028886RT0001",
@@ -24516,16 +24435,26 @@
               "institution": "004",
               "accountLast4": "6789"
             },
-            "agreementSignedAt": "2026-07-03T13:29:29.252Z",
+            "agreementSignedAt": "2026-07-16T18:11:32.889Z",
             "agreementSignedBy": "Owner 26",
             "payoutHold": false,
             "payoutHoldReason": null,
-            "bankVerification": null
+            "bankVerification": null,
+            "verificationStatus": "VERIFIED",
+            "verificationMethod": "MANUAL",
+            "verifiedAt": "2026-08-15T18:11:32.889Z",
+            "verifiedBy": null,
+            "verificationForcedAt": null,
+            "verificationDueAt": null,
+            "backgroundCheckProvider": null,
+            "backgroundCheckStatus": "NOT_STARTED",
+            "backgroundCheckRef": null,
+            "meta": {}
           },
           {
-            "id": "96e45602-e6d1-437e-b1d3-bc05b2708874",
-            "createdAt": "2026-10-01T13:29:29.028Z",
-            "updatedAt": "2026-10-01T13:29:29.028Z",
+            "id": "3b55153c-53e3-44d2-ac39-656ce5224672",
+            "createdAt": "2026-10-14T18:11:32.578Z",
+            "updatedAt": "2026-10-14T18:11:32.578Z",
             "businessName": "Smokehouse Burger Lab Ltd.",
             "legalName": "Smokehouse Burger Lab Ltd.",
             "hstNumber": "810027775RT0001",
@@ -24541,11 +24470,21 @@
               "institution": "004",
               "accountLast4": "6789"
             },
-            "agreementSignedAt": "2026-07-03T13:29:29.027Z",
+            "agreementSignedAt": "2026-07-16T18:11:32.578Z",
             "agreementSignedBy": "Owner 25",
             "payoutHold": false,
             "payoutHoldReason": null,
-            "bankVerification": null
+            "bankVerification": null,
+            "verificationStatus": "VERIFIED",
+            "verificationMethod": "MANUAL",
+            "verifiedAt": "2026-08-15T18:11:32.578Z",
+            "verifiedBy": null,
+            "verificationForcedAt": null,
+            "verificationDueAt": null,
+            "backgroundCheckProvider": null,
+            "backgroundCheckStatus": "NOT_STARTED",
+            "backgroundCheckRef": null,
+            "meta": {}
           }
         ],
         "meta": {
@@ -24641,6 +24580,39 @@
           "bankVerification": {
             "nullable": true
           },
+          "verificationStatus": {
+            "type": "string"
+          },
+          "verificationMethod": {
+            "type": "string"
+          },
+          "verifiedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "verifiedBy": {
+            "nullable": true
+          },
+          "verificationForcedAt": {
+            "nullable": true
+          },
+          "verificationDueAt": {
+            "nullable": true
+          },
+          "backgroundCheckProvider": {
+            "nullable": true
+          },
+          "backgroundCheckStatus": {
+            "type": "string"
+          },
+          "backgroundCheckRef": {
+            "nullable": true
+          },
+          "meta": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
           "locations": {
             "type": "array",
             "items": {
@@ -24672,6 +24644,9 @@
         "required": [
           "agreementSignedAt",
           "agreementSignedBy",
+          "backgroundCheckProvider",
+          "backgroundCheckRef",
+          "backgroundCheckStatus",
           "bank",
           "bankVerification",
           "businessName",
@@ -24682,18 +24657,25 @@
           "id",
           "legalName",
           "locations",
+          "meta",
           "payoutHold",
           "payoutHoldReason",
           "stripeAccountId",
           "stripeAccountInfo",
           "stripeAccountStatus",
-          "updatedAt"
+          "updatedAt",
+          "verificationDueAt",
+          "verificationForcedAt",
+          "verificationMethod",
+          "verificationStatus",
+          "verifiedAt",
+          "verifiedBy"
         ]
       },
       "example": {
-        "id": "634757c3-e0ad-428f-9de2-612673768917",
-        "createdAt": "2026-10-01T13:29:29.253Z",
-        "updatedAt": "2026-10-01T13:29:29.253Z",
+        "id": "b90a2182-35d8-4885-90b8-c24d8bb8b9aa",
+        "createdAt": "2026-10-14T18:11:32.889Z",
+        "updatedAt": "2026-10-14T18:11:32.889Z",
         "businessName": "Sweet Crumbs Bakery & Cafe Ltd.",
         "legalName": "Sweet Crumbs Bakery & Cafe Ltd.",
         "hstNumber": "810028886RT0001",
@@ -24709,14 +24691,24 @@
           "institution": "004",
           "accountLast4": "6789"
         },
-        "agreementSignedAt": "2026-07-03T13:29:29.252Z",
+        "agreementSignedAt": "2026-07-16T18:11:32.889Z",
         "agreementSignedBy": "Owner 26",
         "payoutHold": false,
         "payoutHoldReason": null,
         "bankVerification": null,
+        "verificationStatus": "VERIFIED",
+        "verificationMethod": "MANUAL",
+        "verifiedAt": "2026-08-15T18:11:32.889Z",
+        "verifiedBy": null,
+        "verificationForcedAt": null,
+        "verificationDueAt": null,
+        "backgroundCheckProvider": null,
+        "backgroundCheckStatus": "NOT_STARTED",
+        "backgroundCheckRef": null,
+        "meta": {},
         "locations": [
           {
-            "id": "967a688d-a6e5-44e5-bda2-0a27985e999c",
+            "id": "9531f355-395c-4230-9c9a-255ab5b650b3",
             "name": "Sweet Crumbs Bakery & Cafe",
             "city": "Mississauga",
             "status": "LIVE"
@@ -25202,8 +25194,7 @@
             "type": "string"
           },
           "serviceModeUpdatedAt": {
-            "type": "string",
-            "format": "date-time"
+            "nullable": true
           },
           "serviceModeResumeAt": {
             "nullable": true
@@ -25212,22 +25203,19 @@
             "type": "string"
           },
           "menuEditRequestedAt": {
-            "type": "string",
-            "format": "date-time"
+            "nullable": true
           },
           "menuEditRequestNote": {
-            "type": "string"
+            "nullable": true
           },
           "menuEditDecidedAt": {
-            "type": "string",
-            "format": "date-time"
+            "nullable": true
           },
           "menuEditDecidedById": {
-            "type": "string",
-            "format": "uuid"
+            "nullable": true
           },
           "menuEditDecisionNote": {
-            "type": "string"
+            "nullable": true
           },
           "busyExtraPrepMin": {
             "type": "integer"
@@ -25525,33 +25513,6 @@
           "meta": {
             "type": "object",
             "properties": {
-              "kds": {
-                "type": "object",
-                "properties": {
-                  "soundOn": {
-                    "type": "boolean"
-                  },
-                  "largeFont": {
-                    "type": "boolean"
-                  },
-                  "autoLoadPrep": {
-                    "type": "boolean"
-                  },
-                  "capacityTickets": {
-                    "type": "integer"
-                  },
-                  "recentPickedUpMinutes": {
-                    "type": "integer"
-                  }
-                },
-                "required": [
-                  "autoLoadPrep",
-                  "capacityTickets",
-                  "largeFont",
-                  "recentPickedUpMinutes",
-                  "soundOn"
-                ]
-              },
               "assistant": {
                 "type": "object",
                 "properties": {
@@ -25565,43 +25526,10 @@
               },
               "ratingsSeeded": {
                 "type": "boolean"
-              },
-              "notificationSettings": {
-                "type": "object",
-                "properties": {
-                  "volume": {
-                    "type": "integer"
-                  },
-                  "newOrderSound": {
-                    "type": "boolean"
-                  },
-                  "repeatSeconds": {
-                    "type": "integer"
-                  },
-                  "smsOnNewOrder": {
-                    "type": "boolean"
-                  },
-                  "lowStockAlerts": {
-                    "type": "boolean"
-                  },
-                  "emailOnNewOrder": {
-                    "type": "boolean"
-                  }
-                },
-                "required": [
-                  "emailOnNewOrder",
-                  "lowStockAlerts",
-                  "newOrderSound",
-                  "repeatSeconds",
-                  "smsOnNewOrder",
-                  "volume"
-                ]
               }
             },
             "required": [
               "assistant",
-              "kds",
-              "notificationSettings",
               "ratingsSeeded"
             ]
           },
@@ -25794,66 +25722,46 @@
           },
           "notificationSettings": {
             "type": "object",
-            "properties": {
-              "volume": {
-                "type": "integer"
-              },
-              "newOrderSound": {
-                "type": "boolean"
-              },
-              "repeatSeconds": {
-                "type": "integer"
-              },
-              "smsOnNewOrder": {
-                "type": "boolean"
-              },
-              "lowStockAlerts": {
-                "type": "boolean"
-              },
-              "emailOnNewOrder": {
-                "type": "boolean"
-              }
-            },
-            "required": [
-              "emailOnNewOrder",
-              "lowStockAlerts",
-              "newOrderSound",
-              "repeatSeconds",
-              "smsOnNewOrder",
-              "volume"
-            ]
+            "properties": {},
+            "required": []
           },
           "kdsSettings": {
             "type": "object",
-            "properties": {
-              "soundOn": {
-                "type": "boolean"
-              },
-              "largeFont": {
-                "type": "boolean"
-              },
-              "autoLoadPrep": {
-                "type": "boolean"
-              },
-              "capacityTickets": {
-                "type": "integer"
-              },
-              "recentPickedUpMinutes": {
-                "type": "integer"
-              }
-            },
-            "required": [
-              "autoLoadPrep",
-              "capacityTickets",
-              "largeFont",
-              "recentPickedUpMinutes",
-              "soundOn"
-            ]
+            "properties": {},
+            "required": []
           },
           "tablet": {
             "type": "object",
             "properties": {},
             "required": []
+          },
+          "verification": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "dueAt": {
+                "nullable": true
+              },
+              "verifiedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "nextStep": {
+                "nullable": true
+              }
+            },
+            "required": [
+              "dueAt",
+              "method",
+              "nextStep",
+              "status",
+              "verifiedAt"
+            ]
           }
         },
         "required": [
@@ -25947,6 +25855,7 @@
           "tabletActivated",
           "tabletCode",
           "updatedAt",
+          "verification",
           "website",
           "wentLiveAt",
           "zone",
@@ -25954,10 +25863,10 @@
         ]
       },
       "example": {
-        "id": "01b3fa44-8ddc-4a42-b4cd-f52d38f57da5",
-        "createdAt": "2026-09-30T18:37:51.491Z",
-        "updatedAt": "2026-10-09T14:22:42.495Z",
-        "merchantId": "81ee83c1-a111-4c84-8232-ec4b91158ab9",
+        "id": "d3184744-e62b-4755-af0a-92a566893ca9",
+        "createdAt": "2026-10-14T18:11:22.658Z",
+        "updatedAt": "2026-10-14T18:11:22.658Z",
+        "merchantId": "56550b29-16c7-4e1a-8157-f5e4a8532238",
         "name": "Napoli Wood Fired Pizza - Port Credit",
         "slug": "napoli-wood-fired-pizza-port-credit",
         "description": "Napoli Wood Fired Pizza - Port Credit - fresh, made to order in Mississauga.",
@@ -25974,13 +25883,13 @@
         "postalCode": "L5G 1A1",
         "lat": 43.5616,
         "lng": -79.5857,
-        "cityId": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
-        "zoneId": "f606a4c5-b625-4450-82c2-3564edbb35c5",
+        "cityId": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
+        "zoneId": "8099934e-ae44-4e20-8969-f0923d44e9ca",
         "zone": {
-          "id": "f606a4c5-b625-4450-82c2-3564edbb35c5",
-          "createdAt": "2026-09-30T18:37:50.749Z",
-          "updatedAt": "2026-10-01T23:16:27.339Z",
-          "cityId": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
+          "id": "8099934e-ae44-4e20-8969-f0923d44e9ca",
+          "createdAt": "2026-10-14T18:11:21.822Z",
+          "updatedAt": "2026-10-14T18:11:21.822Z",
+          "cityId": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
           "name": "Port Credit",
           "active": true,
           "polygon": [
@@ -26008,9 +25917,9 @@
         },
         "cuisines": [
           {
-            "id": "7632dc49-f47a-4e94-b46d-7bb508cbefd4",
-            "createdAt": "2026-09-30T18:37:50.807Z",
-            "updatedAt": "2026-09-30T18:37:50.807Z",
+            "id": "fcff5777-8ca6-4b8b-9c14-27cfc873949e",
+            "createdAt": "2026-10-14T18:11:21.907Z",
+            "updatedAt": "2026-10-14T18:11:21.907Z",
             "name": "Pizza",
             "slug": "pizza",
             "iconUrl": null,
@@ -26018,9 +25927,9 @@
             "active": true
           },
           {
-            "id": "c9cfa0fc-3a89-46d3-9925-ee6ec102a980",
-            "createdAt": "2026-09-30T18:37:50.839Z",
-            "updatedAt": "2026-09-30T18:37:50.839Z",
+            "id": "21c36352-9857-4ec5-a384-4b1844eaf8cf",
+            "createdAt": "2026-10-14T18:11:21.942Z",
+            "updatedAt": "2026-10-14T18:11:21.942Z",
             "name": "Italian",
             "slug": "italian",
             "iconUrl": null,
@@ -26032,18 +25941,18 @@
         "hstNumber": null,
         "status": "LIVE",
         "statusReason": null,
-        "wentLiveAt": "2026-08-01T18:37:51.490Z",
+        "wentLiveAt": "2026-08-15T18:11:22.658Z",
         "acceptingOrders": true,
         "pausedUntil": null,
         "serviceMode": "PICKUP_AND_DELIVERY",
-        "serviceModeUpdatedAt": "2026-10-01T13:32:07.239Z",
+        "serviceModeUpdatedAt": null,
         "serviceModeResumeAt": null,
         "menuEditStatus": "ALLOWED",
-        "menuEditRequestedAt": "2026-10-06T21:13:01.051Z",
-        "menuEditRequestNote": "We changed our lunch menu",
-        "menuEditDecidedAt": "2026-10-06T21:13:01.409Z",
-        "menuEditDecidedById": "d21204a4-bd46-4984-95cf-3783590baf07",
-        "menuEditDecisionNote": "Approved"
+        "menuEditRequestedAt": null,
+        "menuEditRequestNote": null,
+        "menuEditDecidedAt": null,
+        "menuEditDecidedById": null,
+        "menuEditDecisionNote": null
       }
     },
     "GET /api/v1/admin/restaurants/{id}/assistant": {
@@ -33310,6 +33219,890 @@
         "ratePct": 13,
         "active": true,
         "isDefault": true
+      }
+    },
+    "GET /api/v1/admin/verification": {
+      "as": "admin",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "certn": {
+            "type": "object",
+            "properties": {
+              "configured": {
+                "type": "boolean"
+              },
+              "mock": {
+                "type": "boolean"
+              },
+              "webhookSecret": {
+                "type": "boolean"
+              },
+              "webhookUrl": {
+                "type": "string"
+              },
+              "ready": {
+                "type": "boolean"
+              },
+              "provider": {
+                "type": "string"
+              },
+              "reason": {
+                "nullable": true
+              }
+            },
+            "required": [
+              "configured",
+              "mock",
+              "provider",
+              "ready",
+              "reason",
+              "webhookSecret",
+              "webhookUrl"
+            ]
+          },
+          "drivers": {
+            "type": "object",
+            "properties": {
+              "policy": {
+                "type": "object",
+                "properties": {
+                  "instant": {
+                    "type": "boolean"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "mode": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "modes": {
+                    "type": "object",
+                    "properties": {
+                      "INSTANT": {
+                        "type": "string"
+                      },
+                      "MANUAL": {
+                        "type": "string"
+                      },
+                      "AUTOMATIC": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "AUTOMATIC",
+                      "INSTANT",
+                      "MANUAL"
+                    ]
+                  }
+                },
+                "required": [
+                  "description",
+                  "instant",
+                  "method",
+                  "mode",
+                  "modes"
+                ]
+              },
+              "counts": {
+                "type": "object",
+                "properties": {
+                  "UNVERIFIED": {
+                    "type": "integer"
+                  },
+                  "PENDING": {
+                    "type": "integer"
+                  },
+                  "NEEDS_REVIEW": {
+                    "type": "integer"
+                  },
+                  "VERIFIED": {
+                    "type": "integer"
+                  },
+                  "REJECTED": {
+                    "type": "integer"
+                  },
+                  "total": {
+                    "type": "integer"
+                  },
+                  "operatingUnverified": {
+                    "type": "integer"
+                  },
+                  "withDeadline": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "NEEDS_REVIEW",
+                  "PENDING",
+                  "REJECTED",
+                  "UNVERIFIED",
+                  "VERIFIED",
+                  "operatingUnverified",
+                  "total",
+                  "withDeadline"
+                ]
+              }
+            },
+            "required": [
+              "counts",
+              "policy"
+            ]
+          },
+          "businesses": {
+            "type": "object",
+            "properties": {
+              "policy": {
+                "type": "object",
+                "properties": {
+                  "instant": {
+                    "type": "boolean"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "mode": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "modes": {
+                    "type": "object",
+                    "properties": {
+                      "INSTANT": {
+                        "type": "string"
+                      },
+                      "MANUAL": {
+                        "type": "string"
+                      },
+                      "AUTOMATIC": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "AUTOMATIC",
+                      "INSTANT",
+                      "MANUAL"
+                    ]
+                  }
+                },
+                "required": [
+                  "description",
+                  "instant",
+                  "method",
+                  "mode",
+                  "modes"
+                ]
+              },
+              "counts": {
+                "type": "object",
+                "properties": {
+                  "UNVERIFIED": {
+                    "type": "integer"
+                  },
+                  "PENDING": {
+                    "type": "integer"
+                  },
+                  "NEEDS_REVIEW": {
+                    "type": "integer"
+                  },
+                  "VERIFIED": {
+                    "type": "integer"
+                  },
+                  "REJECTED": {
+                    "type": "integer"
+                  },
+                  "total": {
+                    "type": "integer"
+                  },
+                  "operatingUnverified": {
+                    "type": "integer"
+                  },
+                  "withDeadline": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "NEEDS_REVIEW",
+                  "PENDING",
+                  "REJECTED",
+                  "UNVERIFIED",
+                  "VERIFIED",
+                  "operatingUnverified",
+                  "total",
+                  "withDeadline"
+                ]
+              }
+            },
+            "required": [
+              "counts",
+              "policy"
+            ]
+          }
+        },
+        "required": [
+          "businesses",
+          "certn",
+          "drivers"
+        ]
+      },
+      "example": {
+        "certn": {
+          "configured": false,
+          "mock": true,
+          "webhookSecret": "<redacted>",
+          "webhookUrl": "http://localhost:4200/api/v1/public/webhooks/certn",
+          "ready": true,
+          "provider": "certn-mock",
+          "reason": null
+        },
+        "drivers": {
+          "policy": {
+            "instant": false,
+            "method": "MANUAL",
+            "mode": "MANUAL",
+            "description": "A new driver waits for staff to review their documents and background check, then approve and activate them (SOP-02).",
+            "modes": {
+              "INSTANT": "A new driver is active the moment they sign up and can go online straight away. They are recorded as unverified until you force verification.",
+              "MANUAL": "A new driver waits for staff to review their documents and background check, then approve and activate them (SOP-02).",
+              "AUTOMATIC": "A new driver is sent a Certn identity and criminal-record check and is activated automatically when it comes back clear. A flagged or failed result goes to s..."
+            }
+          },
+          "counts": {
+            "UNVERIFIED": 0,
+            "PENDING": 5,
+            "NEEDS_REVIEW": 0,
+            "VERIFIED": 22,
+            "REJECTED": 1,
+            "total": 28,
+            "operatingUnverified": 0,
+            "withDeadline": 0
+          }
+        },
+        "businesses": {
+          "policy": {
+            "instant": false,
+            "method": "MANUAL",
+            "mode": "MANUAL",
+            "description": "A new business waits for staff to review its documents, menu and a test order, then go live (SOP-01).",
+            "modes": {
+              "INSTANT": "A new business is live the moment it applies and can use the portal and receive orders straight away. It is recorded as unverified until you force verification.",
+              "MANUAL": "A new business waits for staff to review its documents, menu and a test order, then go live (SOP-01).",
+              "AUTOMATIC": "A new business is sent a Certn identity and criminal-record check and is activated automatically when it comes back clear. A flagged or failed result goes to..."
+            }
+          },
+          "counts": {
+            "UNVERIFIED": 0,
+            "PENDING": 0,
+            "NEEDS_REVIEW": 0,
+            "VERIFIED": 26,
+            "REJECTED": 0,
+            "total": 26,
+            "operatingUnverified": 0,
+            "withDeadline": 0
+          }
+        }
+      }
+    },
+    "GET /api/v1/admin/verification/businesses/{id}": {
+      "as": "admin",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "audience": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string",
+                "format": "email"
+              }
+            },
+            "required": [
+              "email",
+              "name"
+            ]
+          },
+          "restaurants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "acceptingOrders": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "acceptingOrders",
+                "id",
+                "name",
+                "status"
+              ]
+            }
+          },
+          "accountStatus": {
+            "type": "string"
+          },
+          "operating": {
+            "type": "boolean"
+          },
+          "verification": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "dueAt": {
+                "nullable": true
+              },
+              "verifiedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "nextStep": {
+                "nullable": true
+              },
+              "effectiveMethod": {
+                "type": "string"
+              },
+              "verifiedBy": {
+                "nullable": true
+              },
+              "forcedAt": {
+                "nullable": true
+              },
+              "fallback": {
+                "nullable": true
+              },
+              "certnError": {
+                "nullable": true
+              },
+              "certnAttempts": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "certnAttempts",
+              "certnError",
+              "dueAt",
+              "effectiveMethod",
+              "fallback",
+              "forcedAt",
+              "method",
+              "nextStep",
+              "status",
+              "verifiedAt",
+              "verifiedBy"
+            ]
+          },
+          "backgroundCheck": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "nullable": true
+              },
+              "status": {
+                "type": "string"
+              },
+              "ref": {
+                "nullable": true
+              }
+            },
+            "required": [
+              "provider",
+              "ref",
+              "status"
+            ]
+          },
+          "gates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "done": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "done",
+                "key",
+                "label"
+              ]
+            }
+          },
+          "canVerify": {
+            "type": "boolean"
+          },
+          "canStartCheck": {
+            "type": "boolean"
+          },
+          "canReject": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accountStatus",
+          "audience",
+          "backgroundCheck",
+          "canReject",
+          "canStartCheck",
+          "canVerify",
+          "email",
+          "gates",
+          "id",
+          "name",
+          "operating",
+          "owner",
+          "phone",
+          "restaurants",
+          "verification"
+        ]
+      },
+      "example": {
+        "audience": "BUSINESS",
+        "id": "b90a2182-35d8-4885-90b8-c24d8bb8b9aa",
+        "name": "Sweet Crumbs Bakery & Cafe Ltd.",
+        "email": "owner26@demo-restaurant.ca",
+        "phone": "+14165551026",
+        "owner": {
+          "name": "Olivia Owner26",
+          "email": "owner26@demo-restaurant.ca"
+        },
+        "restaurants": [
+          {
+            "id": "9531f355-395c-4230-9c9a-255ab5b650b3",
+            "name": "Sweet Crumbs Bakery & Cafe",
+            "status": "LIVE",
+            "acceptingOrders": true
+          }
+        ],
+        "accountStatus": "LIVE",
+        "operating": true,
+        "verification": {
+          "status": "VERIFIED",
+          "method": "MANUAL",
+          "dueAt": null,
+          "verifiedAt": "2026-08-15T18:11:32.889Z",
+          "nextStep": null,
+          "effectiveMethod": "MANUAL",
+          "verifiedBy": null,
+          "forcedAt": null,
+          "fallback": null,
+          "certnError": null,
+          "certnAttempts": 0
+        },
+        "backgroundCheck": {
+          "provider": null,
+          "status": "NOT_STARTED",
+          "ref": null
+        },
+        "gates": [
+          {
+            "key": "documents_approved:9531f355-395c-4230-9c9a-255ab5b650b3",
+            "label": "Sweet Crumbs Bakery & Cafe: required documents approved",
+            "done": true
+          }
+        ],
+        "canVerify": false,
+        "canStartCheck": false,
+        "canReject": false
+      }
+    },
+    "GET /api/v1/admin/verification/drivers/{id}": {
+      "as": "admin",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "audience": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "accountStatus": {
+            "type": "string"
+          },
+          "isOnline": {
+            "type": "boolean"
+          },
+          "onTrip": {
+            "type": "boolean"
+          },
+          "verification": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "method": {
+                "nullable": true
+              },
+              "dueAt": {
+                "nullable": true
+              },
+              "verifiedAt": {
+                "nullable": true
+              },
+              "nextStep": {
+                "type": "string"
+              },
+              "effectiveMethod": {
+                "type": "string"
+              },
+              "verifiedBy": {
+                "nullable": true
+              },
+              "forcedAt": {
+                "nullable": true
+              },
+              "fallback": {
+                "nullable": true
+              },
+              "certnError": {
+                "nullable": true
+              },
+              "certnAttempts": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "certnAttempts",
+              "certnError",
+              "dueAt",
+              "effectiveMethod",
+              "fallback",
+              "forcedAt",
+              "method",
+              "nextStep",
+              "status",
+              "verifiedAt",
+              "verifiedBy"
+            ]
+          },
+          "backgroundCheck": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "ref": {
+                "type": "string"
+              },
+              "history": {
+                "type": "array",
+                "items": {}
+              }
+            },
+            "required": [
+              "history",
+              "provider",
+              "ref",
+              "status"
+            ]
+          },
+          "gates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "detail": {
+                  "type": "string"
+                },
+                "done": {
+                  "type": "boolean"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "done",
+                "key",
+                "label"
+              ]
+            }
+          },
+          "canVerify": {
+            "type": "boolean"
+          },
+          "canStartCheck": {
+            "type": "boolean"
+          },
+          "canReject": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accountStatus",
+          "audience",
+          "backgroundCheck",
+          "canReject",
+          "canStartCheck",
+          "canVerify",
+          "email",
+          "gates",
+          "id",
+          "isOnline",
+          "name",
+          "onTrip",
+          "phone",
+          "verification"
+        ]
+      },
+      "example": {
+        "audience": "DRIVER",
+        "id": "8b647e4c-a303-4ff7-a2f0-cff1bbf12a2d",
+        "name": "Andre Silva",
+        "email": "driver28@demo.forksy.ca",
+        "phone": "+14165550128",
+        "accountStatus": "BACKGROUND_CHECK",
+        "isOnline": false,
+        "onTrip": false,
+        "verification": {
+          "status": "PENDING",
+          "method": null,
+          "dueAt": null,
+          "verifiedAt": null,
+          "nextStep": "Our team is reviewing your application. Upload any documents we ask for.",
+          "effectiveMethod": "MANUAL",
+          "verifiedBy": null,
+          "forcedAt": null,
+          "fallback": null,
+          "certnError": null,
+          "certnAttempts": 0
+        },
+        "backgroundCheck": {
+          "provider": "certn-mock",
+          "status": "IN_PROGRESS",
+          "ref": "mock_seed_28",
+          "history": []
+        },
+        "gates": [
+          {
+            "key": "documents_approved",
+            "label": "Required documents approved",
+            "done": true
+          },
+          {
+            "key": "insurance_confirmed",
+            "label": "Insurance covers delivery use (expiry recorded)",
+            "done": false
+          }
+        ],
+        "canVerify": true,
+        "canStartCheck": false,
+        "canReject": true
+      }
+    },
+    "GET /api/v1/admin/verification/subjects": {
+      "as": "admin",
+      "requiredQuery": [
+        "audience"
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "accountStatus": {
+                  "type": "string"
+                },
+                "audience": {
+                  "type": "string"
+                },
+                "backgroundCheckStatus": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "email": {
+                  "type": "string",
+                  "format": "email"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "operating": {
+                  "type": "boolean"
+                },
+                "phone": {
+                  "type": "string"
+                },
+                "verificationDueAt": {
+                  "nullable": true
+                },
+                "verificationForcedAt": {
+                  "nullable": true
+                },
+                "verificationMethod": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "verificationStatus": {
+                  "type": "string"
+                },
+                "verifiedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "accountStatus",
+                "audience",
+                "backgroundCheckStatus",
+                "createdAt",
+                "email",
+                "id",
+                "name",
+                "operating",
+                "phone",
+                "verificationDueAt",
+                "verificationForcedAt",
+                "verificationMethod",
+                "verificationStatus",
+                "verifiedAt"
+              ]
+            }
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "page": {
+                "type": "integer"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "total": {
+                "type": "integer"
+              },
+              "totalPages": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "limit",
+              "page",
+              "total",
+              "totalPages"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "example": {
+        "data": [
+          {
+            "id": "8b647e4c-a303-4ff7-a2f0-cff1bbf12a2d",
+            "audience": "DRIVER",
+            "name": "Andre Silva",
+            "email": "driver28@demo.forksy.ca",
+            "phone": "+14165550128",
+            "accountStatus": "BACKGROUND_CHECK",
+            "operating": false,
+            "verificationStatus": "PENDING",
+            "verificationMethod": null,
+            "verifiedAt": null,
+            "verificationForcedAt": null,
+            "verificationDueAt": null,
+            "backgroundCheckStatus": "IN_PROGRESS",
+            "createdAt": "2026-10-14T18:11:33.688Z"
+          },
+          {
+            "id": "d335fe4d-65be-4df5-81e2-90465c4e706d",
+            "audience": "DRIVER",
+            "name": "Simran Kaur",
+            "email": "driver27@demo.forksy.ca",
+            "phone": "+14165550127",
+            "accountStatus": "APPROVED",
+            "operating": false,
+            "verificationStatus": "VERIFIED",
+            "verificationMethod": "MANUAL",
+            "verifiedAt": "2026-08-28T18:11:33.657Z",
+            "verificationForcedAt": null,
+            "verificationDueAt": null,
+            "backgroundCheckStatus": "CLEAR",
+            "createdAt": "2026-10-14T18:11:33.657Z"
+          }
+        ],
+        "meta": {
+          "page": 1,
+          "limit": 20,
+          "total": 28,
+          "totalPages": 2
+        }
       }
     },
     "GET /api/v1/admin/zones": {
@@ -40853,13 +41646,13 @@
             "type": "integer"
           },
           "acceptanceRate": {
-            "type": "integer"
+            "type": "number"
           },
           "acceptance": {
             "type": "object",
             "properties": {
               "rate": {
-                "type": "integer"
+                "type": "number"
               },
               "accepted": {
                 "type": "integer"
@@ -40976,6 +41769,34 @@
               "statusReason",
               "steps"
             ]
+          },
+          "verification": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "dueAt": {
+                "nullable": true
+              },
+              "verifiedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "nextStep": {
+                "nullable": true
+              }
+            },
+            "required": [
+              "dueAt",
+              "method",
+              "nextStep",
+              "status",
+              "verifiedAt"
+            ]
           }
         },
         "required": [
@@ -41004,11 +41825,12 @@
           "statusReason",
           "totalTrips",
           "vehicle",
+          "verification",
           "zoneIds"
         ]
       },
       "example": {
-        "id": "bf5e7c20-ca7b-465f-a17d-9c428e49985c",
+        "id": "aebd1e26-56d2-455a-b9eb-dc943e5bf4de",
         "firstName": "Liam",
         "lastName": "Tremblay",
         "email": "driver1@demo.forksy.ca",
@@ -41017,10 +41839,10 @@
         "avatarUrl": null,
         "status": "ACTIVE",
         "statusReason": null,
-        "cityId": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
+        "cityId": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
         "zoneIds": [
-          "9d02033a-6ed9-495b-ac14-901c88e7f91b",
-          "bf65d45f-2c3e-4d2b-95d4-2f11e91ba042"
+          "11f4c8a9-32b2-4f8d-a899-967421e2a9a8",
+          "00ae6cf8-4adc-4827-9875-e3a0004ebb0a"
         ],
         "vehicle": {
           "type": "CAR",
@@ -41031,19 +41853,19 @@
         },
         "isOnline": true,
         "onTrip": true,
-        "activeZoneId": "9d02033a-6ed9-495b-ac14-901c88e7f91b",
-        "rating": 4.859,
-        "ratingCount": 61,
-        "acceptanceRate": 92,
+        "activeZoneId": "11f4c8a9-32b2-4f8d-a899-967421e2a9a8",
+        "rating": 4.812,
+        "ratingCount": 59,
+        "acceptanceRate": 94.44,
         "acceptance": {
-          "rate": 92,
-          "accepted": 1,
+          "rate": 94.44,
+          "accepted": 17,
           "declined": 0,
-          "expired": 0,
-          "total": 1,
+          "expired": 1,
+          "total": 18,
           "windowDays": 14,
-          "since": "2026-09-30T15:56:41.176Z",
-          "lastUpdatedAt": "2026-10-14T15:00:00.061Z"
+          "since": "2026-09-30T18:15:41.135Z",
+          "lastUpdatedAt": "2026-10-14T18:11:34.254Z"
         },
         "completionRate": 100,
         "onTimeRate": 100,
@@ -41072,6 +41894,13 @@
           "driverActions": [],
           "percent": 100,
           "complete": true
+        },
+        "verification": {
+          "status": "VERIFIED",
+          "method": "MANUAL",
+          "dueAt": null,
+          "verifiedAt": "2026-09-13T18:11:26.091Z",
+          "nextStep": null
         }
       }
     },
@@ -56747,8 +57576,7 @@
             "type": "string"
           },
           "serviceModeUpdatedAt": {
-            "type": "string",
-            "format": "date-time"
+            "nullable": true
           },
           "serviceModeResumeAt": {
             "nullable": true
@@ -56757,22 +57585,19 @@
             "type": "string"
           },
           "menuEditRequestedAt": {
-            "type": "string",
-            "format": "date-time"
+            "nullable": true
           },
           "menuEditRequestNote": {
-            "type": "string"
+            "nullable": true
           },
           "menuEditDecidedAt": {
-            "type": "string",
-            "format": "date-time"
+            "nullable": true
           },
           "menuEditDecidedById": {
-            "type": "string",
-            "format": "uuid"
+            "nullable": true
           },
           "menuEditDecisionNote": {
-            "type": "string"
+            "nullable": true
           },
           "busyExtraPrepMin": {
             "type": "integer"
@@ -57070,33 +57895,6 @@
           "meta": {
             "type": "object",
             "properties": {
-              "kds": {
-                "type": "object",
-                "properties": {
-                  "soundOn": {
-                    "type": "boolean"
-                  },
-                  "largeFont": {
-                    "type": "boolean"
-                  },
-                  "autoLoadPrep": {
-                    "type": "boolean"
-                  },
-                  "capacityTickets": {
-                    "type": "integer"
-                  },
-                  "recentPickedUpMinutes": {
-                    "type": "integer"
-                  }
-                },
-                "required": [
-                  "autoLoadPrep",
-                  "capacityTickets",
-                  "largeFont",
-                  "recentPickedUpMinutes",
-                  "soundOn"
-                ]
-              },
               "assistant": {
                 "type": "object",
                 "properties": {
@@ -57110,43 +57908,10 @@
               },
               "ratingsSeeded": {
                 "type": "boolean"
-              },
-              "notificationSettings": {
-                "type": "object",
-                "properties": {
-                  "volume": {
-                    "type": "integer"
-                  },
-                  "newOrderSound": {
-                    "type": "boolean"
-                  },
-                  "repeatSeconds": {
-                    "type": "integer"
-                  },
-                  "smsOnNewOrder": {
-                    "type": "boolean"
-                  },
-                  "lowStockAlerts": {
-                    "type": "boolean"
-                  },
-                  "emailOnNewOrder": {
-                    "type": "boolean"
-                  }
-                },
-                "required": [
-                  "emailOnNewOrder",
-                  "lowStockAlerts",
-                  "newOrderSound",
-                  "repeatSeconds",
-                  "smsOnNewOrder",
-                  "volume"
-                ]
               }
             },
             "required": [
               "assistant",
-              "kds",
-              "notificationSettings",
               "ratingsSeeded"
             ]
           },
@@ -57339,66 +58104,46 @@
           },
           "notificationSettings": {
             "type": "object",
-            "properties": {
-              "volume": {
-                "type": "integer"
-              },
-              "newOrderSound": {
-                "type": "boolean"
-              },
-              "repeatSeconds": {
-                "type": "integer"
-              },
-              "smsOnNewOrder": {
-                "type": "boolean"
-              },
-              "lowStockAlerts": {
-                "type": "boolean"
-              },
-              "emailOnNewOrder": {
-                "type": "boolean"
-              }
-            },
-            "required": [
-              "emailOnNewOrder",
-              "lowStockAlerts",
-              "newOrderSound",
-              "repeatSeconds",
-              "smsOnNewOrder",
-              "volume"
-            ]
+            "properties": {},
+            "required": []
           },
           "kdsSettings": {
             "type": "object",
-            "properties": {
-              "soundOn": {
-                "type": "boolean"
-              },
-              "largeFont": {
-                "type": "boolean"
-              },
-              "autoLoadPrep": {
-                "type": "boolean"
-              },
-              "capacityTickets": {
-                "type": "integer"
-              },
-              "recentPickedUpMinutes": {
-                "type": "integer"
-              }
-            },
-            "required": [
-              "autoLoadPrep",
-              "capacityTickets",
-              "largeFont",
-              "recentPickedUpMinutes",
-              "soundOn"
-            ]
+            "properties": {},
+            "required": []
           },
           "tablet": {
             "type": "object",
             "properties": {},
             "required": []
+          },
+          "verification": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "dueAt": {
+                "nullable": true
+              },
+              "verifiedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "nextStep": {
+                "nullable": true
+              }
+            },
+            "required": [
+              "dueAt",
+              "method",
+              "nextStep",
+              "status",
+              "verifiedAt"
+            ]
           }
         },
         "required": [
@@ -57492,6 +58237,7 @@
           "tabletActivated",
           "tabletCode",
           "updatedAt",
+          "verification",
           "website",
           "wentLiveAt",
           "zone",
@@ -57499,10 +58245,10 @@
         ]
       },
       "example": {
-        "id": "01b3fa44-8ddc-4a42-b4cd-f52d38f57da5",
-        "createdAt": "2026-09-30T18:37:51.491Z",
-        "updatedAt": "2026-10-09T14:22:42.495Z",
-        "merchantId": "81ee83c1-a111-4c84-8232-ec4b91158ab9",
+        "id": "d3184744-e62b-4755-af0a-92a566893ca9",
+        "createdAt": "2026-10-14T18:11:22.658Z",
+        "updatedAt": "2026-10-14T18:11:22.658Z",
+        "merchantId": "56550b29-16c7-4e1a-8157-f5e4a8532238",
         "name": "Napoli Wood Fired Pizza - Port Credit",
         "slug": "napoli-wood-fired-pizza-port-credit",
         "description": "Napoli Wood Fired Pizza - Port Credit - fresh, made to order in Mississauga.",
@@ -57519,13 +58265,13 @@
         "postalCode": "L5G 1A1",
         "lat": 43.5616,
         "lng": -79.5857,
-        "cityId": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
-        "zoneId": "f606a4c5-b625-4450-82c2-3564edbb35c5",
+        "cityId": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
+        "zoneId": "8099934e-ae44-4e20-8969-f0923d44e9ca",
         "zone": {
-          "id": "f606a4c5-b625-4450-82c2-3564edbb35c5",
-          "createdAt": "2026-09-30T18:37:50.749Z",
-          "updatedAt": "2026-10-01T23:16:27.339Z",
-          "cityId": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
+          "id": "8099934e-ae44-4e20-8969-f0923d44e9ca",
+          "createdAt": "2026-10-14T18:11:21.822Z",
+          "updatedAt": "2026-10-14T18:11:21.822Z",
+          "cityId": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
           "name": "Port Credit",
           "active": true,
           "polygon": [
@@ -57553,9 +58299,9 @@
         },
         "cuisines": [
           {
-            "id": "7632dc49-f47a-4e94-b46d-7bb508cbefd4",
-            "createdAt": "2026-09-30T18:37:50.807Z",
-            "updatedAt": "2026-09-30T18:37:50.807Z",
+            "id": "fcff5777-8ca6-4b8b-9c14-27cfc873949e",
+            "createdAt": "2026-10-14T18:11:21.907Z",
+            "updatedAt": "2026-10-14T18:11:21.907Z",
             "name": "Pizza",
             "slug": "pizza",
             "iconUrl": null,
@@ -57563,9 +58309,9 @@
             "active": true
           },
           {
-            "id": "c9cfa0fc-3a89-46d3-9925-ee6ec102a980",
-            "createdAt": "2026-09-30T18:37:50.839Z",
-            "updatedAt": "2026-09-30T18:37:50.839Z",
+            "id": "21c36352-9857-4ec5-a384-4b1844eaf8cf",
+            "createdAt": "2026-10-14T18:11:21.942Z",
+            "updatedAt": "2026-10-14T18:11:21.942Z",
             "name": "Italian",
             "slug": "italian",
             "iconUrl": null,
@@ -57577,18 +58323,18 @@
         "hstNumber": null,
         "status": "LIVE",
         "statusReason": null,
-        "wentLiveAt": "2026-08-01T18:37:51.490Z",
+        "wentLiveAt": "2026-08-15T18:11:22.658Z",
         "acceptingOrders": true,
         "pausedUntil": null,
         "serviceMode": "PICKUP_AND_DELIVERY",
-        "serviceModeUpdatedAt": "2026-10-01T13:32:07.239Z",
+        "serviceModeUpdatedAt": null,
         "serviceModeResumeAt": null,
         "menuEditStatus": "ALLOWED",
-        "menuEditRequestedAt": "2026-10-06T21:13:01.051Z",
-        "menuEditRequestNote": "We changed our lunch menu",
-        "menuEditDecidedAt": "2026-10-06T21:13:01.409Z",
-        "menuEditDecidedById": "d21204a4-bd46-4984-95cf-3783590baf07",
-        "menuEditDecisionNote": "Approved"
+        "menuEditRequestedAt": null,
+        "menuEditRequestNote": null,
+        "menuEditDecidedAt": null,
+        "menuEditDecidedById": null,
+        "menuEditDecisionNote": null
       }
     },
     "GET /api/v1/restaurant/store/closures": {

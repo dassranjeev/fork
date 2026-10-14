@@ -19,7 +19,8 @@ import {
   City,
 } from '../database/entities';
 import { ActorRef } from '../common/contracts';
-import { ActorType, DocStatus, DriverDocType, DriverStatus, PartyType, UserStatus, UserType, OrderStatus } from '../common/enums';
+import { ActorType, DocStatus, DriverDocType, DriverStatus, PartyType, UserStatus, UserType, OrderStatus, VerificationMethod, VerificationStatus } from '../common/enums';
+import { withoutRestore } from '../verification/verification-policy';
 import { paginateQb, like } from '../common/pagination';
 import { AuthUser } from '../common/auth.types';
 import { DriverCoreService, PRE_ACTIVE } from './driver-core.service';
@@ -74,6 +75,7 @@ export class DriversAdminService {
     if (q.ratingMin !== undefined) qb.andWhere('d.rating >= :rmin', { rmin: q.ratingMin });
     if (q.ratingMax !== undefined) qb.andWhere('d.rating <= :rmax', { rmax: q.ratingMax });
     if (q.backgroundCheck) qb.andWhere('d.backgroundCheckStatus = :bg', { bg: q.backgroundCheck });
+    if (q.verification) qb.andWhere('d.verificationStatus = :vs', { vs: q.verification });
     if (q.expiringDays !== undefined) {
       qb.andWhere(
         `EXISTS (SELECT 1 FROM driver_documents dd WHERE dd."driverId" = d.id AND dd.status IN ('APPROVED','EXPIRED') AND dd."expiresAt" IS NOT NULL AND dd."expiresAt" <= (CURRENT_DATE + :ed::int))`,
@@ -129,6 +131,10 @@ export class DriversAdminService {
       pendingBalance: d.pendingBalance,
       lifetimeEarnings: d.lifetimeEarnings,
       approvedAt: d.approvedAt,
+      verificationStatus: d.verificationStatus,
+      verificationMethod: d.verificationMethod,
+      verifiedAt: d.verifiedAt,
+      verificationDueAt: d.verificationDueAt,
       createdAt: d.createdAt,
       ...extra,
     };
@@ -412,11 +418,12 @@ export class DriversAdminService {
       throw new BadRequestException(`Cannot start a background check while driver is ${d.status}`);
     }
     if (d.backgroundCheckStatus === 'IN_PROGRESS') throw new BadRequestException('A background check is already in progress');
+    this.assertNotAutomatic(d);
     const docs = await this.core.requiredDocState(id);
     const unapproved = docs.filter((x) => !x.valid).map((x) => x.type);
     if (unapproved.length) throw new BadRequestException(`Documents must be approved first: ${unapproved.join(', ')}`);
     const res = await this.certn.start(
-      { driverId: d.id, firstName: d.user.firstName, lastName: d.user.lastName, email: d.user.email, phone: d.user.phone },
+      { subjectId: d.id, kind: 'DRIVER', firstName: d.user.firstName, lastName: d.user.lastName, email: d.user.email, phone: d.user.phone },
       (r) => void this.applyBackgroundResult(r).catch((e) => this.logger.error(e.message)),
     );
     d.backgroundCheckProvider = res.provider;
@@ -428,24 +435,38 @@ export class DriversAdminService {
     return { provider: res.provider, ref: res.ref, status: d.backgroundCheckStatus };
   }
 
-  /** Called by the Certn webhook and by the mock provider. Idempotent. */
-  async applyBackgroundResult(r: BackgroundCheckResult): Promise<boolean> {
+  /** A driver whose verification is run by the automatic (Certn) method is handled by the Verification service, not by the manual SOP-02 buttons. */
+  private assertNotAutomatic(d: DriverProfile) {
+    if (d.verificationMethod === VerificationMethod.AUTOMATIC && [VerificationStatus.PENDING, VerificationStatus.NEEDS_REVIEW].includes(d.verificationStatus)) {
+      throw new BadRequestException('This driver is verified automatically (Certn): use the Verification card (start check, verify or reject) instead');
+    }
+  }
+
+  /**
+   * Called by the Certn webhook and by the mock provider. Idempotent.
+   * `advance: false` records the result without moving the driver on to TRAINING (the automatic method decides what happens next);
+   * `quietWhenClear` does not tell staff about a clear result (automatic verification activates the driver by itself: only flagged or failed results need a person).
+   */
+  async applyBackgroundResult(r: BackgroundCheckResult, opts: { advance?: boolean; quietWhenClear?: boolean } = {}): Promise<boolean> {
     const d = await this.core.profiles.findOne({ where: { backgroundCheckRef: r.ref }, relations: ['user'] });
     if (!d) return false;
     if (r.status === 'IN_PROGRESS' || d.backgroundCheckStatus === r.status) return true;
     d.backgroundCheckStatus = r.status;
     d.meta = { ...d.meta, backgroundCheckHistory: [...(d.meta?.backgroundCheckHistory ?? []), { at: new Date().toISOString(), event: 'RESULT', status: r.status, ref: r.ref, reportUrl: r.reportUrl ?? null }] };
-    if (r.status === 'CLEAR' && d.status === DriverStatus.BACKGROUND_CHECK) {
+    if (r.status === 'CLEAR' && d.status === DriverStatus.BACKGROUND_CHECK && opts.advance !== false) {
       await this.core.changeStatus(d, DriverStatus.TRAINING, { type: ActorType.SYSTEM }, 'Background check clear');
     } else {
       await this.core.profiles.save(d);
     }
-    await this.core.opsNotify('driver.background_check', `Background check ${r.status}`, `${this.core.driverName(d)}: background check result is ${r.status}.`, { driverId: d.id, status: r.status });
+    if (!(opts.quietWhenClear && r.status === 'CLEAR')) {
+      await this.core.opsNotify('driver.background_check', `Background check ${r.status}`, `${this.core.driverName(d)}: background check result is ${r.status}.`, { driverId: d.id, status: r.status });
+    }
     return true;
   }
 
   async overrideBackground(id: string, dto: BackgroundOverrideDto, admin: AuthUser) {
     const d = await this.core.getProfile(id);
+    this.assertNotAutomatic(d);
     d.backgroundCheckStatus = dto.status;
     d.meta = { ...d.meta, backgroundCheckHistory: [...(d.meta?.backgroundCheckHistory ?? []), { at: new Date().toISOString(), event: 'OVERRIDE', status: dto.status, by: admin.id, note: dto.note }] };
     if (dto.status === 'CLEAR' && d.status === DriverStatus.BACKGROUND_CHECK) await this.core.changeStatus(d, DriverStatus.TRAINING, this.actor(admin), 'Background check cleared manually');
@@ -466,7 +487,17 @@ export class DriversAdminService {
       const missing = cl.steps.filter((s) => gates.includes(s.key) && !s.done).map((s) => s.key);
       if (missing.length) throw new BadRequestException({ message: 'Onboarding checklist incomplete', missing } as any);
     }
-    await this.core.changeStatus(d, DriverStatus.APPROVED, this.actor(admin), dto.note ?? null, { approvedAt: new Date() });
+    // approving a driver by hand IS the manual verification (docs/verification.md)
+    const now = new Date();
+    await this.core.changeStatus(d, DriverStatus.APPROVED, this.actor(admin), dto.note ?? null, {
+      approvedAt: now,
+      verificationStatus: VerificationStatus.VERIFIED,
+      verificationMethod: VerificationMethod.MANUAL,
+      verifiedAt: now,
+      verifiedBy: admin.id,
+      verificationDueAt: null,
+      meta: withoutRestore(d.meta),
+    });
     await this.core.notifyDriver(d, 'account.approved', { name: d.user.firstName });
     if (dto.zoneIds?.length) return this.activate(id, { zoneIds: dto.zoneIds, insulatedBagConfirmed: dto.insulatedBagConfirmed ?? d.insulatedBagConfirmed }, admin);
     return { status: d.status };
@@ -487,7 +518,7 @@ export class DriversAdminService {
     const d = await this.core.getProfile(id);
     if (!PRE_ACTIVE.includes(d.status)) throw new BadRequestException(`Driver is ${d.status}; use deactivate`);
     const reason = this.core.requireReason(dto.reason);
-    await this.core.changeStatus(d, DriverStatus.REJECTED, this.actor(admin), reason);
+    await this.core.changeStatus(d, DriverStatus.REJECTED, this.actor(admin), reason, { verificationStatus: VerificationStatus.REJECTED, verificationDueAt: null, meta: withoutRestore(d.meta) });
     await this.core.notifyDriver(d, 'account.rejected', { reason });
     return { status: d.status };
   }
@@ -524,9 +555,11 @@ export class DriversAdminService {
   async reinstate(id: string, reason: string | undefined, admin: AuthUser) {
     const d = await this.core.getProfile(id);
     if (![DriverStatus.SUSPENDED, DriverStatus.DEACTIVATED].includes(d.status)) throw new BadRequestException(`Driver is ${d.status}`);
-    const docs = await this.core.requiredDocState(id);
-    const bad = docs.filter((x) => !x.valid).map((x) => x.type);
-    if (bad.length) throw new BadRequestException(`Required documents not valid: ${bad.join(', ')}`);
+    if (this.core.docsRequired(d)) {
+      const docs = await this.core.requiredDocState(id);
+      const bad = docs.filter((x) => !x.valid).map((x) => x.type);
+      if (bad.length) throw new BadRequestException(`Required documents not valid: ${bad.join(', ')}`);
+    }
     if (!d.zoneIds.length) throw new BadRequestException('No zones assigned - assign zones first');
     await this.core.changeStatus(d, DriverStatus.ACTIVE, this.actor(admin), reason ?? null);
     d.meta = { ...d.meta, notices: [...(d.meta?.notices ?? []), { at: new Date().toISOString(), kind: 'REINSTATED', reason: reason ?? null, by: admin.id }] };

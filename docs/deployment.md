@@ -51,6 +51,12 @@ Stripe **live** keys.
 
 Health check: `https://<API_DOMAIN>/api/v1/health` returns 200.
 
+**Optional: automatic verification of drivers and businesses (Certn).** In `backend/.env.production` set `CERTN_API_KEY` and
+`CERTN_WEBHOOK_SECRET` (a long random string; the same value goes into the Certn webhook settings), recreate the API
+(`docker compose --env-file deploy/.env --profile proxy up -d`) and enter `https://<API_DOMAIN>/api/v1/public/webhooks/certn` as the callback
+URL in the Certn dashboard. **System > Verification** then shows *Certn connected* and the Automatic method can be chosen. Until then only instant
+registration and manual verification are available. Details: [verification.md](verification.md#certn-setup).
+
 ## Database schema and migrations
 
 Production never auto-creates tables: `DB_SYNC=true` is refused. The schema lives in `backend/src/database/migrations/` (the baseline is

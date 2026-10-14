@@ -32,7 +32,7 @@ class AppVersionDto {
 }
 
 /** Settings that change the security posture or move money: only a Super Admin may write them (a staff role with settings:edit may not). */
-const PRIVILEGED_KEY = /^(security\.|payments\.|integrations\.|customers\.walletAdjustApprovalThreshold|support\..*[Ll]imit|finance\.|payouts\.)/;
+const PRIVILEGED_KEY = /^(security\.|payments\.|integrations\.|verification\.|customers\.walletAdjustApprovalThreshold|support\..*[Ll]imit|finance\.|payouts\.)/;
 
 /** The new value must have the same JSON type as the current one (a threshold cannot become the string "unlimited"). */
 function sameKind(oldV: any, newV: any): boolean {
@@ -71,6 +71,7 @@ class SettingsController {
       const row = await this.repo.findOne({ where: { key } });
       if (!row) continue;
       if (row.group === 'integrations') throw new BadRequestException('Integration keys are edited on System > Integrations');
+      if (row.group === 'verification') throw new BadRequestException('Registration and verification settings are edited on System > Verification (Super Admin only)');
       if (row.isSecret && (value === '********' || value === undefined)) continue;
       if (!isSuper && (row.isSecret || PRIVILEGED_KEY.test(key))) {
         await this.audit.logReq(req, 'security.settings_denied', 'settings', undefined, undefined, { key });
