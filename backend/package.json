@@ -11,6 +11,8 @@
     "seed": "ts-node -r tsconfig-paths/register src/database/seed.ts",
     "seed:ratings": "ts-node -r tsconfig-paths/register src/database/seed-ratings.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "openapi:export": "nest build -p tsconfig.openapi.json && node dist-openapi/tools/export-openapi.js",
+    "openapi:observe": "node scripts/openapi-observe.mjs",
     "typeorm": "typeorm-ts-node-commonjs -d src/database/data-source.ts",
     "migration:generate": "npm run typeorm -- migration:generate --pretty",
     "migration:run": "npm run typeorm -- migration:run -t all",

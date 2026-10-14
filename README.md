@@ -130,6 +130,7 @@ Customers 31 to 50 and restaurants 13 to 26 include Brampton data. These are dev
 ## API documentation
 
 - Interactive: http://localhost:4000/docs (Swagger UI)
+- **OpenAPI file for frontend developers** (every route, request fields, error format, observed response shapes; generated from the code): [`docs/openapi/`](docs/openapi) - [`openapi.json`](docs/openapi/openapi.json), [`openapi.yaml`](docs/openapi/openapi.yaml)
 - Written references per module in [`docs/api/`](docs/api): analytics, customers, dispatch, drivers, finance, live-chat, marketing, platform, restaurants, support
 - Complete workflow (diagrams, who does what, what is automatic): [`docs/workflow.html`](docs/workflow.html) (open in a browser)
 - Branding (logo, icons, colour, wordmark font, app-store icon sets): [`docs/branding.md`](docs/branding.md)

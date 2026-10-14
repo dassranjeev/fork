@@ -64,6 +64,14 @@ jobs:
         run: npm run migration:run
       - name: Entities and migrations must agree
         run: npm run migration:check
+      - name: OpenAPI file (docs/openapi) must be up to date
+        run: |
+          npm run openapi:export
+          if [ -n "$(git status --porcelain -- ../docs/openapi)" ]; then
+            git --no-pager diff --stat -- ../docs/openapi
+            echo "docs/openapi is stale: run  cd backend && npm run openapi:export  and commit the result"
+            exit 1
+          fi
 
   admin:
     runs-on: ubuntu-latest
