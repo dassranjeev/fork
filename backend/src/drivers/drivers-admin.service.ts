@@ -444,9 +444,10 @@ export class DriversAdminService {
 
   /**
    * Called by the Certn webhook and by the mock provider. Idempotent.
-   * `advance: false` records the result without moving the driver on to TRAINING (the automatic method decides what happens next).
+   * `advance: false` records the result without moving the driver on to TRAINING (the automatic method decides what happens next);
+   * `quietWhenClear` does not tell staff about a clear result (automatic verification activates the driver by itself: only flagged or failed results need a person).
    */
-  async applyBackgroundResult(r: BackgroundCheckResult, opts: { advance?: boolean } = {}): Promise<boolean> {
+  async applyBackgroundResult(r: BackgroundCheckResult, opts: { advance?: boolean; quietWhenClear?: boolean } = {}): Promise<boolean> {
     const d = await this.core.profiles.findOne({ where: { backgroundCheckRef: r.ref }, relations: ['user'] });
     if (!d) return false;
     if (r.status === 'IN_PROGRESS' || d.backgroundCheckStatus === r.status) return true;
@@ -457,7 +458,9 @@ export class DriversAdminService {
     } else {
       await this.core.profiles.save(d);
     }
-    await this.core.opsNotify('driver.background_check', `Background check ${r.status}`, `${this.core.driverName(d)}: background check result is ${r.status}.`, { driverId: d.id, status: r.status });
+    if (!(opts.quietWhenClear && r.status === 'CLEAR')) {
+      await this.core.opsNotify('driver.background_check', `Background check ${r.status}`, `${this.core.driverName(d)}: background check result is ${r.status}.`, { driverId: d.id, status: r.status });
+    }
     return true;
   }
 

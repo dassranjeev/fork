@@ -167,7 +167,7 @@ export class DriverVerification implements AudienceHandler {
     // the manual SOP-02 pipeline (staff started the check, CLEAR moves the driver on to training) is unchanged
     if (!automatic) return this.admin.applyBackgroundResult(r);
     if (r.status === 'IN_PROGRESS' || p.backgroundCheckStatus === r.status) return true;
-    await this.admin.applyBackgroundResult(r, { advance: false });
+    await this.admin.applyBackgroundResult(r, { advance: false, quietWhenClear: true });
     const fresh = await this.core.getProfile(p.id);
     if (r.status === 'CLEAR') {
       await this.complete(fresh, VerificationMethod.AUTOMATIC, null, 'Certn check clear');

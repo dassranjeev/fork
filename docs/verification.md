@@ -47,6 +47,8 @@ Staff can also use the one-click **Verify** on the Verification card (see [Staff
 | clear | Verified (`VERIFIED` / `AUTOMATIC`) and activated at once: zones of the city, welcome message. No staff step, no documents needed. |
 | flagged (`consider`) or failed | `NEEDS_REVIEW`. The driver stays where they are, staff are told, and a person decides (verify anyway as Super Admin, start the check again, or reject). **Nobody is rejected automatically.** |
 
+Staff are told about flagged and failed results only: a clear result activates the driver by itself and does not bother anyone.
+
 If Certn cannot be reached at sign-up the sign-up still succeeds. The check is retried every minute (5 attempts); after that the driver goes to
 `NEEDS_REVIEW` and staff are told. If Certn is not usable at all at that moment (the key was removed after Automatic was chosen) the sign-up goes to the manual queue
 and the Verification card says why.
@@ -201,5 +203,5 @@ VERIFICATION_E2E_SCRATCH=1 API=http://localhost:4100/api/v1 DB_NAME=forksy_ver A
 
 The end-to-end script drives the real API and the real database: access control, instant / manual / automatic sign-up for drivers and businesses,
 Force verification with and without a deadline, the sweeper, trips and orders in progress, override and restore, the Certn webhook, reminders and
-retries, the driver app checklist (169 checks). Real Certn has never been called: the adapter talks to the built-in mock until `CERTN_API_KEY` is set, so the first real check
+retries, the driver app checklist (171 checks). Real Certn has never been called: the adapter talks to the built-in mock until `CERTN_API_KEY` is set, so the first real check
 should be made with a test driver (and a Certn sandbox key) before relying on automatic verification.

@@ -90,6 +90,7 @@ await db.connect();
 const sql = async (text, params) => (await db.query(text, params)).rows;
 
 const RUN = Date.now().toString(36);
+const STARTED = new Date(Date.now() - 2000); // rows of earlier runs (the scratch database is reused) must not count
 let seq = 0;
 const uniq = () => `${RUN}${++seq}`;
 const phone = () => `+1647${String(Math.floor(1000000 + Math.random() * 8999999))}`;
@@ -457,6 +458,8 @@ try {
     check('automatic: the Certn check is NOT optional (it is the verification, and it is done), the staff-checked items are', autoOpt === 'documents_approved,documents_uploaded,insulated_bag,insurance_confirmed,training' && clAuto.steps.find((s) => s.key === 'background_check')?.done === true && !clAuto.steps.find((s) => s.key === 'background_check')?.optional, short(autoOpt));
     const note = (await sql(`select count(*)::int n from notifications where "userId" = $1 and event in ('verification.verified','driver.welcome') and channel = 'IN_APP'`, [dA1.userId]))[0];
     check('the driver got the welcome and the verified messages', note.n === 2, short(note));
+    const quiet = (await sql(`select count(*)::int n from notifications where event = 'driver.background_check' and body like $1 and "createdAt" > $2`, ['%E2Eauto-clear%', STARTED]))[0];
+    check('a clear automatic result does not bother staff (the driver is activated by itself)', quiet.n === 0, short(quiet));
 
     // a flagged result: a person decides
     const flagged = await waitFor(async () => (await driverRow(dA2.profileId)).verificationStatus === 'NEEDS_REVIEW', 12000);
@@ -520,6 +523,9 @@ try {
     const m2 = await merchantRow(rA2.merchantId);
     const r2 = await restaurantRow(rA2.restaurantId);
     check('a flagged owner check leaves the business waiting for a person (restaurant stays APPLIED)', m2.verificationStatus === 'NEEDS_REVIEW' && m2.backgroundCheckStatus === 'CONSIDER' && r2.status === 'APPLIED', short({ m: m2.verificationStatus, r: r2.status }));
+    const quietB = (await sql(`select count(*)::int n from notifications where event = 'restaurant.background_check' and body like $1`, [`%E2E Business auto-clear ${RUN}%`]))[0];
+    const loudB = (await sql(`select count(*)::int n from notifications where event = 'restaurant.background_check' and body like $1`, [`%E2E Business auto-flag ${RUN}%`]))[0];
+    check('staff hear about the flagged owner check but not about the clear one', quietB.n === 0 && loudB.n >= 1, short({ quietB, loudB }));
     const card = (await api('GET', `/admin/verification/businesses/${rA2.merchantId}`, success)).j;
     check('the business card lists the owner and the checklist (only the Certn item for the automatic method)', card?.owner?.email?.includes('+consider') && card?.gates?.length === 1 && card.gates[0].key === 'background_check' && card.restaurants?.length === 1, short(card));
     const staffNo = await api('POST', `/admin/verification/businesses/${rA2.merchantId}/verify`, success, {});

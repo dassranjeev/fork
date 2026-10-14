@@ -221,9 +221,10 @@ export class BusinessVerification implements AudienceHandler {
     if (r.status === 'IN_PROGRESS' || m.backgroundCheckStatus === r.status) return true;
     m.backgroundCheckStatus = r.status;
     await this.merchants.save(m);
-    await this.notifications.notifyOps('restaurant.background_check', { name: m.businessName, status: r.status }, { merchantId: m.id }).catch(() => undefined);
-    await this.audit.log({ actor: null, action: 'verification.check_result', entity: 'merchant', entityId: m.id, after: { status: r.status, ref: r.ref } });
     const automatic = m.verificationMethod === VerificationMethod.AUTOMATIC && [VerificationStatus.PENDING, VerificationStatus.NEEDS_REVIEW].includes(m.verificationStatus);
+    // automatic verification takes the business live by itself: only a flagged or failed result needs a person
+    if (!(automatic && r.status === 'CLEAR')) await this.notifications.notifyOps('restaurant.background_check', { name: m.businessName, status: r.status }, { merchantId: m.id }).catch(() => undefined);
+    await this.audit.log({ actor: null, action: 'verification.check_result', entity: 'merchant', entityId: m.id, after: { status: r.status, ref: r.ref } });
     if (!automatic) return true;
     if (r.status === 'CLEAR') {
       await this.complete(m, VerificationMethod.AUTOMATIC, null, 'Certn check clear');
