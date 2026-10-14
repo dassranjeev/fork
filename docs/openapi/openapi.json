@@ -8019,7 +8019,7 @@
   },
   "info": {
     "contact": {},
-    "description": "Food delivery marketplace API (customers, restaurants and stores, drivers, staff).\n\n**Base URL.** Paths already contain `/api/v1`. Set the server variable `baseUrl` to the API host (for example `https://api.example.ca`).\n\n**Who calls what**\n- `/auth/*`: sign-in, tokens and account security, for every app\n- `/admin/*`: Admin Console (staff and Super Admin; staff only see what their role allows). `/admin/system/*` is Super Admin only\n- `/restaurant/*`: Restaurant Portal and kitchen tablet\n- `/driver/*`: driver app\n- `/customer/*`: customer app and website\n- `/public/*`, `/health`, `/ready`: no sign-in\n- `/orders/:id/tracking` and `/orders/:id/messages`: shared by everyone involved in an order\n- Realtime: Socket.IO on the same host (not described by OpenAPI): `docs/ARCHITECTURE.md` and the module guides list the rooms and events\n\n**Signing in.** `POST /auth/login` with `{ identifier, password, app }` (`app`: `admin`, `restaurant`, `driver` or `customer`; `identifier` is an email or phone number).\nThe answer is either `{ accessToken, refreshToken, expiresIn, user }`, or `{ requires2fa: true, tempToken }` when two-factor sign-in is on\n(then `POST /auth/2fa/verify` with `{ tempToken, code }`), or `{ requires2faSetup: true, tempToken }` the first time an account that must use 2FA signs in.\nSend the access token as `Authorization: Bearer <accessToken>`. It is short lived: renew it with `POST /auth/refresh` and the refresh token.\nLogin is limited to about 10 attempts per minute per address.\n\n**Errors.** Every failure has the same JSON body, `ErrorResponse`: `{ statusCode, message, code?, details?, path, timestamp }`.\nValidation failures are `400` with `message: \"Validation failed\"` and one text per problem in `details`. Fields that are not part of a request are rejected (`400`), not ignored.\n`401` not signed in or token expired, `403` signed in but not allowed, `404` not found, `409` conflict, `429` too many requests (see the `x-ratelimit-*` and `Retry-After` headers).\n\n**Conventions.** Money is in Canadian dollars (numbers with 2 decimals). Timestamps are ISO 8601 UTC strings. Ids are UUIDs. Lists are paginated with the `page` (from 1) and `limit` (default 20, usually at most 100) query parameters.\nResponse bodies are described where the server returns a typed object; for the rest, the examples in `docs/api/*.md` show the shape.",
+    "description": "Food delivery marketplace API (customers, restaurants and stores, drivers, staff).\n\n**Base URL.** Choose the server above: the API is at `https://api.forky.ca` (the website `app.forky.ca` does not answer API calls). The paths already contain `/api/v1`.\n\n**Who calls what**\n- `/auth/*`: sign-in, tokens and account security, for every app\n- `/admin/*`: Admin Console (staff and Super Admin; staff only see what their role allows). `/admin/system/*` is Super Admin only\n- `/restaurant/*`: Restaurant Portal and kitchen tablet\n- `/driver/*`: driver app\n- `/customer/*`: customer app and website\n- `/public/*`, `/health`, `/ready`: no sign-in\n- `/orders/:id/tracking` and `/orders/:id/messages`: shared by everyone involved in an order\n- Realtime: Socket.IO on the same host (not described by OpenAPI): `docs/ARCHITECTURE.md` and the module guides list the rooms and events\n\n**Signing in.** `POST /auth/login` with `{ identifier, password, app }` (`app`: `admin`, `restaurant`, `driver` or `customer`; `identifier` is an email or phone number).\nThe answer is either `{ accessToken, refreshToken, expiresIn, user }`, or `{ requires2fa: true, tempToken }` when two-factor sign-in is on\n(then `POST /auth/2fa/verify` with `{ tempToken, code }`), or `{ requires2faSetup: true, tempToken }` the first time an account that must use 2FA signs in.\nSend the access token as `Authorization: Bearer <accessToken>`. It is short lived: renew it with `POST /auth/refresh` and the refresh token.\nLogin is limited to about 10 attempts per minute per address.\n\n**Errors.** Every failure has the same JSON body, `ErrorResponse`: `{ statusCode, message, code?, details?, path, timestamp }`.\nValidation failures are `400` with `message: \"Validation failed\"` and one text per problem in `details`. Fields that are not part of a request are rejected (`400`), not ignored.\n`401` not signed in or token expired, `403` signed in but not allowed, `404` not found, `409` conflict, `429` too many requests (see the `x-ratelimit-*` and `Retry-After` headers).\n\n**Conventions.** Money is in Canadian dollars (numbers with 2 decimals). Timestamps are ISO 8601 UTC strings. Ids are UUIDs. Lists are paginated with the `page` (from 1) and `limit` (default 20, usually at most 100) query parameters.\nResponse bodies are described where the server returns a typed object; for the rest, the examples in `docs/api/*.md` show the shape.",
     "title": "FORKSY API",
     "version": "1.0"
   },
@@ -105417,14 +105417,12 @@
   },
   "servers": [
     {
-      "description": "API host. The paths already include /api/v1",
-      "url": "{baseUrl}",
-      "variables": {
-        "baseUrl": {
-          "default": "http://localhost:4000",
-          "description": "for example https://api.example.ca or http://localhost:4000"
-        }
-      }
+      "description": "Production (api.forky.ca)",
+      "url": "https://api.forky.ca"
+    },
+    {
+      "description": "Local development",
+      "url": "http://localhost:4000"
     }
   ],
   "tags": [
