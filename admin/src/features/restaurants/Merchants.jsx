@@ -4,7 +4,8 @@ import { http } from "../../lib/api";
 import { useFetch, useForm, usePagedList, useSubmit } from "../../lib/hooks";
 import { useAuth } from "../../lib/auth";
 import { fmtDate } from "../../lib/format";
-import { BoolBadge, Button, Card, DataTable, FormModal, FormRow, ListToolbar, Modal, PageHeader, StatusBadge, TextInput, Loading } from "../../ui";
+import { BoolBadge, Button, Card, DataTable, FilterSelect, FormModal, FormRow, ListToolbar, Modal, PageHeader, StatusBadge, TextInput, Loading } from "../../ui";
+import { STATUS_OPTIONS, VerificationCell } from "../verification/shared";
 
 const EMPTY = { businessName: "", legalName: "", hstNumber: "", contactEmail: "", contactPhone: "" };
 
@@ -57,7 +58,7 @@ function MerchantDetail({ id, onClose }) {
 
 export default function Merchants() {
   const { can } = useAuth();
-  const list = usePagedList("/admin/restaurants/merchants", {});
+  const list = usePagedList("/admin/restaurants/merchants", { filters: { verification: "" } });
   const [open, setOpen] = useState(false);
   const [viewing, setViewing] = useState(null);
   const form = useForm(EMPTY);
@@ -79,6 +80,7 @@ export default function Merchants() {
     { key: "businessName", title: "Business", render: (m) => <span className="fw-semibold">{m.businessName}</span> },
     { key: "hstNumber", title: "HST #" },
     { key: "contactEmail", title: "Contact", render: (m) => (<div>{m.contactEmail || "—"}<div className="text-secondary-light text-xs">{m.contactPhone}</div></div>) },
+    { key: "verificationStatus", title: "Verification", render: (m) => <VerificationCell status={m.verificationStatus} dueAt={m.verificationDueAt} /> },
     { key: "agreement", title: "Agreement", render: (m) => <BoolBadge value={!!m.agreementSignedAt} yes="Signed" no="Unsigned" /> },
     { key: "bank", title: "Bank verified", render: (m) => <BoolBadge value={!!m.bank?.verified} /> },
     { key: "payoutHold", title: "Payout hold", render: (m) => (m.payoutHold ? <StatusBadge status="ON_HOLD" /> : "—") },
@@ -92,6 +94,7 @@ export default function Merchants() {
         <ListToolbar
           list={list}
           placeholder="Search merchants…"
+          filters={<FilterSelect value={list.filters.verification} onChange={(v) => list.setFilter("verification", v)} options={STATUS_OPTIONS} placeholder="Verification: any" />}
           actions={can("restaurants", "create") && <Button onClick={() => setOpen(true)}>+ New merchant</Button>}
         />
         <DataTable columns={columns} {...list.tableProps} error={list.error} onRetry={list.reload} onRowClick={(m) => setViewing(m.id)} emptyTitle="No merchants found" />

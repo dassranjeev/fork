@@ -11,6 +11,8 @@ import { http } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { RestaurantActions, PRE_LIVE } from "./shared";
 import PayoutAccountBadge from "../finance/PayoutAccountBadge";
+import VerificationCard from "../verification/VerificationCard";
+import { VerificationBadge } from "../verification/shared";
 import { CommissionTab, DocumentsTab, HoursTab, LocationTab, MembersTab, MenuTab, OverviewTab, PerformanceTab, ReviewsTab } from "./DetailTabs";
 
 const adminHttp = { get: (u) => http.get(u), patch: (u, b) => http.patch(u, b) };
@@ -35,6 +37,7 @@ export default function RestaurantDetail() {
   const tabs = [
     { key: "overview", label: "Overview", content: (
         <>
+          {r.merchantId && <VerificationCard audience="BUSINESS" id={r.merchantId} onChanged={reload} className="mb-24" />}
           {r.merchantId && can("finance", "view") && <div className="mb-16 d-flex align-items-center gap-2 flex-wrap"><span className="text-sm text-secondary-light">Payout account (Stripe Connect):</span><PayoutAccountBadge partyType="RESTAURANT" partyId={r.merchantId} /></div>}
           <OverviewTab r={r} reload={reload} />
           <OrderAutomationCard api={adminHttp} path={`/admin/restaurants/${r.id}/automation`} canEdit={can("restaurants", "edit")} className="mt-24" />
@@ -65,6 +68,7 @@ export default function RestaurantDetail() {
         title={
           <span className="d-inline-flex align-items-center gap-3 flex-wrap">
             <Avatar name={r.name} src={r.logoUrl} size={40} /> {r.name} <StatusBadge status={r.status} />
+            {r.verification && <VerificationBadge status={r.verification.status} />}
             {r.status === "LIVE" && <ServiceModeBadge mode={r.serviceMode} />}
             {r.menuEditStatus === "REQUESTED" && <MenuAccessBadge status="REQUESTED" />}
             {r.openStatus && r.status === "LIVE" && <Badge tone={r.openStatus.open ? "info" : "neutral"}>{r.openStatus.open ? "Open now" : "Closed now"}</Badge>}

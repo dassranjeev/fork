@@ -38,6 +38,17 @@
   })();
   var pinValue = function () { return boxes.map(function (b) { return b.value; }).join(''); };
 
+  // ---- verification: until the driver is verified the app tells them what to do next (the sentence comes from the API)
+  async function loadVerification() {
+    try {
+      var p = await api('GET', '/driver/profile');
+      var v = p && p.verification;
+      var text = v && v.status !== 'VERIFIED' && v.nextStep ? v.nextStep : '';
+      $('verify').textContent = text;
+      show('verify', !!text);
+    } catch (e) { show('verify', false); /* the hint is optional */ }
+  }
+
   // ---- login / trip
   $('btnLogin').onclick = async function () {
     try {
@@ -45,6 +56,7 @@
       state.token = r.accessToken; state.refresh = r.refreshToken; $('who').textContent = 'Logged in as ' + ((r.user && (r.user.firstName || r.user.email)) || $('email').value);
       show('btnOnline', true); show('btnLogout', true); show('btnLogin', false);
       if (window.FkNotify) window.FkNotify.start(r.user || {}).catch(function () { /* notifications are optional */ });
+      loadVerification();
       await loadTrip();
     } catch (e) { $('who').textContent = e.message; }
   };
@@ -62,7 +74,7 @@
     try { if (window.FkNotify) await window.FkNotify.stop(); } catch (e) { /* ignore */ }
     try { if (state.refresh) await api('POST', '/auth/logout', { refreshToken: state.refresh }); } catch (e) { /* the token may already be expired */ }
     state.token = null; state.refresh = null; state.trip = null;
-    show('tripCard', false); show('deliverCard', false); show('btnOnline', false); show('btnLogout', false); show('btnLogin', true);
+    show('tripCard', false); show('deliverCard', false); show('btnOnline', false); show('btnLogout', false); show('btnLogin', true); show('verify', false);
     $('btnOnline').textContent = 'Go online'; $('btnOnline').classList.remove('on'); this.disabled = false;
     $('who').textContent = 'Logged out.';
   };

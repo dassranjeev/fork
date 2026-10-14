@@ -5,6 +5,7 @@ import { fmtTime, money, titleCase } from "../../lib/format";
 import { Async, PortalPage, useAction, useApi, usePortalFetch, useRealtimeReload } from "./shared";
 import { usePortal } from "./context";
 import ServiceModeControl from "./ServiceMode";
+import VerificationNotice from "./VerificationNotice";
 
 function StoreControls({ data, reload }) {
   const api = useApi();
@@ -82,6 +83,7 @@ export default function Dashboard() {
   const { role, isManager } = usePortal();
   return (
     <PortalPage title="Dashboard" subtitle={undefined}>
+      {isManager && <VerificationNotice />}
       <Async state={state}>
         {(d) => (
           <>

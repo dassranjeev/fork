@@ -129,6 +129,18 @@ On the **Verification card** (driver page, restaurant page, or the table on Syst
 
 The old SOP-02 buttons "start background check" and "override" refuse a driver whose verification is automatic and point to the card.
 
+## Screens
+
+| Where | Who | What |
+|---|---|---|
+| **System > Verification** (`/verification`) | Super Admin only (no menu entry for anyone else, "Access denied" if opened) | The Certn status banner (connected / development mock / not ready, with the webhook address to copy), one policy card per audience (instant registration switch, method, confirmations), the counts per state, one **Force verification** panel per audience (method, deadline, reason, then a typed confirmation and a result summary) and the table of accounts with search, filter, Review, Force and Start Certn check. "Run checks now" runs the sweeper. |
+| **Verification card** on the driver page and on the restaurant page (Overview) | Everyone with view; the buttons need *approve* | State, the Certn check and its history, the checklist, Verify, Verify anyway (Super Admin, with a note), Start Certn check, Reject. On a restaurant it applies to the whole business and lists its locations. |
+| Verification column and filter | Drivers list, restaurants list, merchants list; chips on the two pipelines | Who is unverified, pending, flagged or past a deadline. |
+| **Restaurant sign-up page** | The public | Tells the owner what happens next: live at once, watch your email for the Certn link, or upload your documents. |
+| **Portal** (dashboard and Store settings) | Owners and managers | A banner with the next step and the deadline until the business is verified, with an **Upload documents** button when staff are reviewing it. |
+| **Portal > Store settings > Documents** | Owners and managers | Upload each required document (PDF or image, up to 10 MB), see whether it is waiting, approved (with its expiry) or rejected (with the reason) and upload a new copy. Staff approve them on the restaurant page. Manual verification of a business, and a manual Force verification, need these documents. |
+| Driver app (`GET /driver/profile`, `verification.nextStep`) | Drivers | The same next-step sentence. Documents for drivers are uploaded in the driver app (`POST /driver/documents`); the demo page `driver-demo.html` shows the sentence after login. |
+
 ## Certn setup
 
 Automatic verification needs Certn on the server (`backend/.env.production`; see also [integrations.md](integrations.md)):

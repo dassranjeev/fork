@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import { errorMessage, http } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { useForm } from "../../lib/hooks";
-import { Select, TextArea, TextInput, MultiCheck, Switch, NumberInput } from "../../ui";
+import { Select, TextArea, TextInput, MultiCheck, Switch } from "../../ui";
 import { AuthFrame } from "./SignIn";
 
 /** Public restaurant application (SOP-01 step 1). Creates owner login + merchant + location (status APPLIED). */
@@ -28,10 +28,26 @@ export default function RestaurantApply() {
       const v = f.values;
       const body = { ...v, lat: v.lat === "" ? undefined : v.lat, lng: v.lng === "" ? undefined : v.lng };
       const res = await http.post("/auth/restaurant/apply", body);
+      // how the platform admitted the new business: INSTANT (live at once), AUTOMATIC (Certn check, activated when it clears) or MANUAL (staff review)
+      const mode = res.verification?.mode;
       if (res.accessToken) {
         await acceptSession(res);
-        toast.success("Application received! Upload your documents to continue.");
-        navigate("/portal/onboarding");
+        if (mode === "INSTANT") {
+          toast.success("Welcome! Your restaurant is live.");
+          navigate("/portal");
+        } else if (mode === "AUTOMATIC") {
+          toast.info("Application received. Watch your email for the Certn link to verify your identity: your restaurant goes live as soon as the check clears.", { autoClose: 10000 });
+          navigate("/portal/onboarding");
+        } else {
+          toast.success("Application received! Upload your documents to continue.");
+          navigate("/portal/onboarding");
+        }
+      } else if (mode === "INSTANT") {
+        toast.success("Welcome! Your restaurant is live. Sign in to open your portal.");
+        navigate("/sign-in");
+      } else if (mode === "AUTOMATIC") {
+        toast.info("Application received. Watch your email for the Certn link to verify your identity, then sign in.", { autoClose: 10000 });
+        navigate("/sign-in");
       } else {
         toast.success("Application received. Sign in to complete onboarding.");
         navigate("/sign-in");

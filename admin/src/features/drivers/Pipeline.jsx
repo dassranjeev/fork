@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Avatar, ErrorState, Loading, PageHeader, StatusBadge } from "../../ui";
 import { useFetch } from "../../lib/hooks";
 import { fmtDate, timeAgo, titleCase } from "../../lib/format";
+import { VerificationChips } from "../verification/shared";
 
 const STAGES = [
   { key: "APPLIED", hint: "New sign-ups" },
@@ -48,6 +49,7 @@ function Column({ stage }) {
                   {stage.key === "BACKGROUND_CHECK" && <StatusBadge status={d.backgroundCheckStatus} />}
                   {stage.key === "TRAINING" && <StatusBadge status={d.trainingCompleted ? "Training done" : "Training pending"} tone={d.trainingCompleted ? "success" : "warning"} />}
                   {d.nextDocExpiry && <span className="text-xs text-secondary-light">Doc expiry {fmtDate(d.nextDocExpiry)}</span>}
+                  <VerificationChips status={d.verificationStatus} method={d.verificationMethod} dueAt={d.verificationDueAt} />
                 </div>
               </div>
             </Link>
