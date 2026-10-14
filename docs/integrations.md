@@ -8,7 +8,7 @@ One page, one card per integration. Everything is also available from the API (`
 |---|---|
 | **Stripe** | secret key, publishable key, webhook signing secret, Stripe Connect on/off, currency (CAD), platform country (CA) |
 | **Mapbox** | server access token, optional public token, search country (`ca`), bounding box (Greater Toronto Area), default proximity (Mississauga) |
-| **Read-only status cards** | Google Maps, Twilio, SendGrid, Firebase Cloud Messaging, Certn: configured / incomplete / not configured (from the existing settings or environment) |
+| **Read-only status cards** | Google Maps, Twilio, SendGrid, Firebase Cloud Messaging, Certn: configured / incomplete / not configured (from the existing settings or environment). Certn runs the background checks behind automatic verification: variables and webhook in [verification.md](verification.md#certn-setup) |
 
 * A banner shows the mode: **red "LIVE keys"**, **amber "TEST mode"**, amber "TEST payment (no Stripe keys configured)" when the development mock is on, grey "not configured".
   Mixing a test secret key with a live publishable key (or the reverse) raises a warning.

@@ -4,7 +4,9 @@ import { createHash } from 'crypto';
 export type BgStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'CLEAR' | 'CONSIDER' | 'FAILED';
 
 export interface BackgroundCheckSubject {
-  driverId: string;
+  /** DriverProfile.id for a driver, Merchant.id for a business (its owner is the person checked) */
+  subjectId: string;
+  kind?: 'DRIVER' | 'BUSINESS';
   firstName: string;
   lastName: string;
   email: string | null;
@@ -39,7 +41,7 @@ export function mapCertnStatus(raw?: string | null): BgStatus {
 /**
  * Certn adapter (https://certn.co). Real HTTP when CERTN_API_KEY is set (CERTN_API_URL overrides the base URL);
  * otherwise a mock provider that returns CLEAR after CERTN_MOCK_DELAY_MS (default 4 s).
- * The mock returns CONSIDER when the driver email contains "+consider" (handy for testing).
+ * The mock returns CONSIDER when the subject's email contains "+consider" and FAILED when it contains "+fail" (handy for testing).
  */
 @Injectable()
 export class CertnAdapter implements BackgroundCheckProvider {
@@ -67,7 +69,7 @@ export class CertnAdapter implements BackgroundCheckProvider {
         phone_number: s.phone,
         request_criminal_record_check: true,
         request_identity_verification: true,
-        tag: s.driverId,
+        tag: s.subjectId,
         webhook_url: process.env.CERTN_WEBHOOK_URL,
       }),
     });
@@ -81,11 +83,12 @@ export class CertnAdapter implements BackgroundCheckProvider {
 
   private mockStart(s: BackgroundCheckSubject, onResult: (r: BackgroundCheckResult) => void): BackgroundCheckResult {
     const ref = `mock_${createHash('sha1')
-      .update(s.driverId + Date.now())
+      .update(s.subjectId + Date.now())
       .digest('hex')
       .slice(0, 12)}`;
     const delay = parseInt(process.env.CERTN_MOCK_DELAY_MS ?? '4000', 10);
-    const status: BgStatus = (s.email ?? '').includes('+consider') ? 'CONSIDER' : 'CLEAR';
+    const email = s.email ?? '';
+    const status: BgStatus = email.includes('+consider') ? 'CONSIDER' : email.includes('+fail') ? 'FAILED' : 'CLEAR';
     const t = setTimeout(() => {
       try {
         onResult({ ref, status, provider: 'certn-mock' });

@@ -23,7 +23,9 @@ import {
   User,
 } from '../database/entities';
 import { AuthUser, JwtPayload } from '../common/auth.types';
-import { DriverStatus, RestaurantRole, RestaurantStatus, UserStatus, UserType } from '../common/enums';
+import { DriverStatus, RestaurantRole, RestaurantStatus, UserStatus, UserType, VerificationMethod } from '../common/enums';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Events, SubjectRegisteredEvent } from '../common/contracts';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -70,6 +72,7 @@ export class AuthService {
     private notifications: NotificationsService,
     private strategy: JwtStrategy,
     private protect: LoginProtection,
+    private events: EventEmitter2,
     @InjectDataSource() private ds: DataSource,
     @InjectRepository(User) private users: Repository<User>,
     @InjectRepository(RefreshToken) private refreshTokens: Repository<RefreshToken>,
@@ -593,7 +596,7 @@ export class AuthService {
     if (await this.users.findOne({ where: { phone } })) throw new ConflictException('Phone already registered');
     const city = await this.ds.getRepository(City).findOne({ where: { id: dto.cityId } });
     if (!city) throw new BadRequestException('Unknown city');
-    const user = await this.ds.transaction(async (em) => {
+    const { user, profileId } = await this.ds.transaction(async (em) => {
       const u = await em.save(
         em.create(User, {
           type: UserType.DRIVER,
@@ -607,7 +610,7 @@ export class AuthService {
           passwordHash: await this.hash(dto.password),
         }),
       );
-      await em.save(
+      const profile = await em.save(
         em.create(DriverProfile, {
           userId: u.id,
           cityId: dto.cityId,
@@ -619,11 +622,29 @@ export class AuthService {
           licensePlate: dto.licensePlate ?? null,
         }),
       );
-      return u;
+      return { user: u, profileId: profile.id };
     });
     await this.audit.log({ actor: { id: user.id, email, type: UserType.DRIVER }, action: 'driver.apply', entity: 'user', entityId: user.id, ip: ctx.ip });
-    this.notifications.notifyOps('driver.applied', { name: `${dto.firstName} ${dto.lastName}` }, { userId: user.id }).catch(() => undefined);
-    return this.completeLogin(user, ctx);
+    // the Super Admin's registration policy decides what happens next: active at once (instant), the staff queue (manual) or the Certn check (automatic)
+    const verification = await this.requestVerification('DRIVER', profileId);
+    this.notifications.notifyOps(verification?.mode === VerificationMethod.INSTANT ? 'driver.instant_activated' : 'driver.applied', { name: `${dto.firstName} ${dto.lastName}` }, { userId: user.id }).catch(() => undefined);
+    return { ...(await this.completeLogin(user, ctx)), verification };
+  }
+
+  /**
+   * Hands a new driver / business to the verification flow and returns what the app should tell the person (null when the flow is
+   * unavailable: the account then simply waits in the manual queue). Goes through an event so that the auth layer does not depend on
+   * the drivers and restaurants modules.
+   */
+  private async requestVerification(audience: 'DRIVER' | 'BUSINESS', id: string) {
+    try {
+      const answers: any[] = await this.events.emitAsync(Events.VERIFICATION_SUBJECT_REGISTERED, { audience, id } as SubjectRegisteredEvent);
+      const r = answers.find((a) => a && typeof a === 'object' && a.mode);
+      return r ? { mode: r.mode as VerificationMethod, accountStatus: r.accountStatus as string, ...r.verification } : null;
+    } catch (e: any) {
+      this.logger.error(`verification of the new ${audience} ${id} failed: ${e.message}`);
+      return null;
+    }
   }
 
   // ------------------------------------------------------------------ restaurant application (PDF 4.2 step 1)
@@ -678,10 +699,12 @@ export class AuthService {
       return { user, merchant, restaurant };
     });
     await this.audit.log({ actor: { id: result.user.id, email, type: UserType.RESTAURANT }, action: 'restaurant.apply', entity: 'restaurant', entityId: result.restaurant.id, ip: ctx.ip });
-    this.notifications.notifyOps('restaurant.applied', { name: dto.restaurantName }, { restaurantId: result.restaurant.id }).catch(() => undefined);
+    // the Super Admin's registration policy decides what happens next: live at once (instant), the staff queue (manual) or the Certn check (automatic)
+    const verification = await this.requestVerification('BUSINESS', result.restaurant.id);
+    this.notifications.notifyOps(verification?.mode === VerificationMethod.INSTANT ? 'restaurant.instant_activated' : 'restaurant.applied', { name: dto.restaurantName }, { restaurantId: result.restaurant.id }).catch(() => undefined);
     // owners must enrol in 2FA when enforced, so route through login rules
-    if (await this.needs2fa(result.user)) return { requires2faSetup: true, tempToken: this.accessToken(result.user, { pending2fa: true }), restaurantId: result.restaurant.id };
-    return { ...(await this.completeLogin(result.user, ctx)), restaurantId: result.restaurant.id };
+    if (await this.needs2fa(result.user)) return { requires2faSetup: true, tempToken: this.accessToken(result.user, { pending2fa: true }), restaurantId: result.restaurant.id, verification };
+    return { ...(await this.completeLogin(result.user, ctx)), restaurantId: result.restaurant.id, verification };
   }
 
   // ------------------------------------------------------------------ misc

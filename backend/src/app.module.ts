@@ -44,6 +44,7 @@ import { AssistantModule } from './assistant/assistant.module';
 import { PaymentsModule } from './payments/payments.module';
 import { MIGRATIONS_GLOB, MIGRATIONS_TABLE } from './database/migrations.config';
 import { SystemHealthModule } from './system-health/system-health.module';
+import { VerificationModule } from './verification/verification.module';
 
 @Module({
   imports: [
@@ -110,6 +111,7 @@ import { SystemHealthModule } from './system-health/system-health.module';
     AssistantModule,
     PaymentsModule,
     SystemHealthModule,
+    VerificationModule,
   ],
   providers: [
     // order matters: authenticate -> account type -> staff permission -> restaurant role

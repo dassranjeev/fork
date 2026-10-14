@@ -10,18 +10,22 @@ Realtime events emitted (see `src/realtime/realtime.module.ts`): `restaurant.sta
 
 | Method & path | Permission | Body / query | Response |
 |---|---|---|---|
-| GET `/merchants` | restaurants:view | `PageQueryDto` + `hasLocations` | `{data:Merchant[], meta}` |
+| GET `/merchants` | restaurants:view | `PageQueryDto` + `hasLocations` + `verification` (UNVERIFIED, PENDING, NEEDS_REVIEW, VERIFIED, REJECTED) | `{data:Merchant[], meta}` (a merchant carries `verificationStatus`, `verificationMethod`, `verifiedAt`, `verifiedBy`, `verificationForcedAt`, `verificationDueAt` and its owner's Certn check) |
 | GET `/merchants/:id` | restaurants:view | - | `Merchant & {locations:[{id,name,status,city}]}` |
 | POST `/merchants` | restaurants:create | `MerchantDto` | `Merchant` |
 | PATCH `/merchants/:id` | restaurants:edit | `UpdateMerchantDto` | `Merchant` |
+
+## Registration and verification of businesses
+
+How a new application is admitted (instant, manual or automatic), Force verification, the Verification card and Certn are described in [../verification.md](../verification.md). The business verification routes are `/api/v1/admin/verification/businesses/:merchantId` (GET the card; POST `verify`, `reject`, `start-check`: restaurants:view / approve) and the Super Admin routes under `/api/v1/admin/verification`. `POST /api/v1/auth/restaurant/apply` now also answers `verification: {mode: INSTANT|MANUAL|AUTOMATIC, accountStatus, status, method, dueAt, verifiedAt, nextStep}`. A staff go-live (`POST /:id/go-live`) marks the business verified (MANUAL); rejecting its last location rejects the business.
 
 ## Admin - restaurants (`/api/v1/admin/restaurants`)
 
 | Method & path | Permission | Body / query | Response |
 |---|---|---|---|
-| GET `/` | restaurants:view | `RestaurantsQuery` (search, status, city, cityId, zoneId, cuisineId/cuisine, merchantId, minRating, maxRating, commissionTierId, hasExpiringDocs, expiringDays) | `{data:Restaurant[], meta}` |
+| GET `/` | restaurants:view | `RestaurantsQuery` (search, status, city, cityId, zoneId, cuisineId/cuisine, merchantId, minRating, maxRating, commissionTierId, hasExpiringDocs, expiringDays, `verification`) | `{data:Restaurant[], meta}`; every row carries `verification: {status, method, dueAt, verifiedAt, nextStep}` (the state of its business) |
 | POST `/` | restaurants:create | `CreateRestaurantDto` (name + either `merchantId` or `merchant:MerchantDto`, optional `owner:OwnerDto` to create the OWNER login, address/lat/lng/cuisineIds/commissionTierId) | `{restaurant, temporaryPassword?}` |
-| GET `/:id` | restaurants:view | - | full restaurant view (profile, hours, closures, stations, integrations, documents, openStatus) |
+| GET `/:id` | restaurants:view | - | full restaurant view (profile, hours, closures, stations, integrations, documents, openStatus, `verification`) |
 | PATCH `/:id` | restaurants:edit | `AdminUpdateRestaurantDto` (profile fields + slug/province/hstNumber/isFeatured/isNew/payoutSchedule/reliabilityScore/kdsEnabled/merchantId) | restaurant view |
 | GET `/:id/stats` | restaurants:view | `?from&to&days` | orders/completed/rejected/cancelled/acceptanceRate/cancellationRate/prepAccuracy/avgPrepMinutes/errorRate/sales/avgOrderValue/avgRating/reliabilityScore |
 | GET `/:id/menu` | restaurants:view | - | menu tree (see Portal - menu) |
@@ -92,7 +96,7 @@ Requires `restaurants:approve`. Issues a short-lived (1 h) access token, **no re
 
 | Method & path | Role | Body | Response |
 |---|---|---|---|
-| GET `/` | any | - | full store view (profile, hours, closures, stations, integrations, documents, printers, notificationSettings, kdsSettings, tablet) |
+| GET `/` | any | - | full store view (profile, hours, closures, stations, integrations, documents, printers, notificationSettings, kdsSettings, tablet, `verification: {status, method, dueAt, verifiedAt, nextStep}`) |
 | PATCH `/` | OWNER, LOCATION_MANAGER | `UpdateStoreDto` | store view |
 | PATCH `/fulfilment` | OWNER, LOCATION_MANAGER | `FulfilmentDto` (delivery/ownDelivery/pickup/scheduled/dineIn toggles, prep times, radius, minimum order, slots, autoRejectSeconds) | store view |
 | GET `/hours` | any | - | `RestaurantHours[]` |

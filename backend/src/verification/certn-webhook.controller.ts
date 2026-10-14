@@ -2,11 +2,11 @@ import { Body, Controller, ForbiddenException, Headers, Logger, Post, Req, Unaut
 import { Throttle } from '@nestjs/throttler';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { Public } from '../common/decorators';
-import { CertnAdapter } from './adapters/certn.adapter';
-import { DriversAdminService } from './drivers-admin.service';
+import { CertnAdapter } from '../drivers/adapters/certn.adapter';
+import { VerificationService } from './verification.service';
 
 /**
- * Certn calls this when a background check result is ready (SOP-02 step 2).
+ * Certn calls this when a background check result is ready (SOP-02 step 2, and the automatic verification of drivers and businesses).
  * Authenticated with a shared secret (CERTN_WEBHOOK_SECRET): either an HMAC-SHA256 of the raw JSON body in
  * `X-Certn-Signature` (hex) or the secret itself in `X-Webhook-Secret`. Without the secret configured the endpoint
  * is closed in production (a forged "CLEAR" would otherwise approve a driver's background check).
@@ -18,7 +18,7 @@ export class CertnWebhookController {
 
   constructor(
     private certn: CertnAdapter,
-    private drivers: DriversAdminService,
+    private verification: VerificationService,
   ) {}
 
   private authentic(raw: Buffer | undefined, sig?: string, plain?: string): boolean {
@@ -46,7 +46,7 @@ export class CertnWebhookController {
       this.logger.warn('Unrecognised Certn webhook payload');
       return { ok: false };
     }
-    const applied = await this.drivers.applyBackgroundResult(result);
+    const applied = await this.verification.applyCertnResult(result);
     return { ok: applied };
   }
 }

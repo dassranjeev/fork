@@ -154,6 +154,7 @@ Channels: in-app / push / e-mail / sms. Urgency: `high` (new orders, offers, arr
 | `document.uploaded` | system | ADMIN | x |  |  |  | normal | `/driver-pipeline` |
 | `driver.applied` | system | ADMIN | x | x |  |  | low | `/driver-pipeline` |
 | `driver.background_check` | system | ADMIN | x |  |  |  | normal | `/driver-pipeline` |
+| `driver.instant_activated` | system | ADMIN | x |  |  |  | normal | `/drivers` |
 | `driver.training_completed` | system | ADMIN | x |  |  |  | normal | `/driver-training` |
 | `driver.welcome` | system | DRIVER | x | x |  |  | normal | `/driver-demo.html` |
 | `incident.opened` | system | ADMIN | x | x |  |  | high, sticky | `/incidents` |
@@ -173,10 +174,16 @@ Channels: in-app / push / e-mail / sms. Urgency: `high` (new orders, offers, arr
 | `otp.code` | system | ADMIN | x |  |  |  | normal |  |
 | `promo.pending` | system | ADMIN | x |  |  |  | normal | `/promotions` |
 | `restaurant.applied` | system | ADMIN | x | x |  |  | low | `/restaurants/onboarding` |
+| `restaurant.background_check` | system | ADMIN | x |  |  |  | normal | `/restaurants/merchants` |
 | `restaurant.document_rejected` | system | RESTAURANT | x | x |  |  | high | `/portal/store` |
 | `restaurant.document_uploaded` | system | ADMIN | x |  |  |  | normal | `/restaurants/onboarding` |
+| `restaurant.instant_activated` | system | ADMIN | x |  |  |  | normal | `/restaurants` |
 | `store.paused` | system | RESTAURANT | x | x |  |  | high | `/portal/store` |
 | `store.resumed` | system | RESTAURANT | x | x |  |  | normal | `/portal/store` |
+| `verification.required` | system | DRIVER | x | x | x |  | high | `/driver-demo.html` |
+| `verification.required` | system | RESTAURANT | x | x | x |  | high | `/portal` |
+| `verification.verified` | system | DRIVER | x | x | x |  | normal | `/driver-demo.html` |
+| `verification.verified` | system | RESTAURANT | x | x | x |  | normal | `/portal` |
 
 `critical` = bypasses quiet hours; `sticky` = `requireInteraction` (the notification stays until dismissed). Variables of the copy are listed in the template editor (`GET /admin/notification-templates/events`).
 
@@ -286,6 +293,7 @@ Only these variables may be interpolated into a push text and only these data ke
 | `otp.code` | (never pushed) |  |
 | `store.paused` | `mode`, `resumeAt` |  |
 | `store.resumed` | `mode` |  |
+| `verification.required` | `deadline` |  |
 
 ## 3. Preferences
 

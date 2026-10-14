@@ -123,6 +123,8 @@ Customers 31 to 50 and restaurants 13 to 26 include Brampton data. These are dev
 
 **System Health (Super Admin only).** **System > System Health** shows, live (every 2 s over a websocket): server CPU, RAM, swap, disk and load, request rate, response time and errors, database health, dependency checks (Stripe, TLS certificate, migrations, proxy headers) and a load-balancing review across every API instance: traffic share per instance with a verdict, a live balance test, and Drain / Resume for an instance. Staff cannot see it, even with every permission. Instances report through one small shared table, so it keeps working behind a load balancer. The app is supported as one API instance today; the page lists what must be solved before a second one (see `docs/system-health.md`).
 
+**Registration and verification (Super Admin only).** **System > Verification** decides, separately for drivers and for businesses, how new sign-ups are admitted: **instant registration** (active or live at once, recorded as unverified), **manual verification** (staff review: SOP-01 / SOP-02) or **automatic verification** (a Certn identity and criminal-record check; a clear result activates the account, a flagged one always waits for a person). **Force verification** puts the accounts that were admitted without verification through the enabled method, with a deadline; at the deadline an account that is still unverified is taken off the road until it is verified. Out of the box nothing changes (manual). Details: `docs/verification.md`.
+
 **Menu editing is admin-controlled.** A restaurant can add, update and remove its own menu items only while an administrator has allowed it (per restaurant, switchable at any time on the restaurant's Menu tab). Without permission the menu is read-only, but the restaurant can still mark items out of stock (86), and can request access from the portal; staff see the waiting requests on the Restaurants list. New restaurants start locked.
 
 **Admin walkthrough of restaurant panels.** From **Restaurants > Open a restaurant panel** (or the restaurant list and detail pages), an admin with edit permission can open any restaurant's portal as its owner for up to 2 hours without a password. A banner shows while viewing, every start is audit-logged, and the session cannot change the owner's password or 2FA.
@@ -134,7 +136,7 @@ Customers 31 to 50 and restaurants 13 to 26 include Brampton data. These are dev
 - Written references per module in [`docs/api/`](docs/api): analytics, customers, dispatch, drivers, finance, live-chat, marketing, platform, restaurants, support
 - Complete workflow (diagrams, who does what, what is automatic): [`docs/workflow.html`](docs/workflow.html) (open in a browser)
 - Branding (logo, icons, colour, wordmark font, app-store icon sets): [`docs/branding.md`](docs/branding.md)
-- Feature guides: [`docs/proof-of-delivery.md`](docs/proof-of-delivery.md), [`docs/ratings.md`](docs/ratings.md), [`docs/system-health.md`](docs/system-health.md)
+- Feature guides: [`docs/proof-of-delivery.md`](docs/proof-of-delivery.md), [`docs/ratings.md`](docs/ratings.md), [`docs/system-health.md`](docs/system-health.md), [`docs/verification.md`](docs/verification.md)
 - Deployment guide (Docker, migrations, first Super Admin, backups, updates): [`docs/deployment.md`](docs/deployment.md)
 - Design contract and module ownership: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 

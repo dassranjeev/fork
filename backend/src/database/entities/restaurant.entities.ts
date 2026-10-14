@@ -1,6 +1,6 @@
 import { Column, Entity, Index, JoinColumn, ManyToMany, ManyToOne, JoinTable, Relation } from 'typeorm';
 import { BaseEntity, GeoColumn, MoneyColumn, PctColumn } from '../../common/base.entity';
-import { DayPart, DocStatus, MenuEditStatus, RestaurantDocType, RestaurantRole, RestaurantServiceMode, RestaurantStatus } from '../../common/enums';
+import { DayPart, DocStatus, MenuEditStatus, RestaurantDocType, RestaurantRole, RestaurantServiceMode, RestaurantStatus, VerificationMethod, VerificationStatus } from '../../common/enums';
 import { User } from './identity.entities';
 import { City, CommissionTier, Zone } from './geo.entities';
 
@@ -71,6 +71,43 @@ export class Merchant extends BaseEntity {
   /** Micro-deposit bank verification state (FinanceModule, SOP-01 step 5). */
   @Column({ type: 'jsonb', nullable: true })
   bankVerification: { status: 'PENDING' | 'VERIFIED' | 'FAILED'; amounts?: number[]; initiatedAt?: string; verifiedAt?: string; attempts?: number } | null;
+
+  // ---- verification of the business (docs/verification.md): separate from the lifecycle `status` of its restaurants ----
+  @Index()
+  @Column({ type: 'enum', enum: VerificationStatus, default: VerificationStatus.PENDING })
+  verificationStatus: VerificationStatus;
+
+  /** How the business was admitted / verified (null until decided). */
+  @Column({ type: 'enum', enum: VerificationMethod, nullable: true })
+  verificationMethod: VerificationMethod | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  verifiedAt: Date | null;
+
+  /** staff user who verified the business (null: verified by the Certn check, or not verified) */
+  @Column({ type: 'uuid', nullable: true })
+  verifiedBy: string | null;
+
+  /** Force verification (Super Admin): when the business was told to verify, and the deadline after which an unverified business goes off-line. */
+  @Column({ type: 'timestamptz', nullable: true })
+  verificationForcedAt: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  verificationDueAt: Date | null;
+
+  /** Certn check of the business OWNER (identity + criminal record): same states as DriverProfile.backgroundCheckStatus. */
+  @Column({ type: 'varchar', nullable: true })
+  backgroundCheckProvider: string | null;
+
+  @Column({ type: 'varchar', default: 'NOT_STARTED' })
+  backgroundCheckStatus: 'NOT_STARTED' | 'IN_PROGRESS' | 'CLEAR' | 'CONSIDER' | 'FAILED';
+
+  @Column({ type: 'varchar', nullable: true })
+  backgroundCheckRef: string | null;
+
+  /** Verification bookkeeping (meta.verification: Certn retries, reminders, who forced it); see VerificationMeta. */
+  @Column({ type: 'jsonb', default: {} })
+  meta: Record<string, any>;
 }
 
 /** A single restaurant location (what customers see). */

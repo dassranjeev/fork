@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { DataSource, In, LessThanOrEqual, Repository } from 'typeorm';
+import { DataSource, In, LessThanOrEqual, Not, Repository } from 'typeorm';
 import {
   CommissionTier,
   Cuisine,
@@ -13,7 +13,8 @@ import {
   User,
   Zone,
 } from '../database/entities';
-import { DocStatus, RestaurantDocType, RestaurantRole, RestaurantStatus, UserStatus, UserType } from '../common/enums';
+import { DocStatus, RestaurantDocType, RestaurantRole, RestaurantStatus, UserStatus, UserType, VerificationAudience, VerificationMethod, VerificationStatus } from '../common/enums';
+import { verificationSummary, withoutRestore } from '../verification/verification-policy';
 import { AuthUser } from '../common/auth.types';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
@@ -69,6 +70,7 @@ export class RestaurantAdminService {
     if (q.search) qb.andWhere('(m.businessName ILIKE :s OR m.contactEmail ILIKE :s OR m.legalName ILIKE :s)', { s: like(q.search) });
     if (q.hasLocations === 'true') qb.andWhere('EXISTS (SELECT 1 FROM restaurants r WHERE r."merchantId" = m.id)');
     if (q.hasLocations === 'false') qb.andWhere('NOT EXISTS (SELECT 1 FROM restaurants r WHERE r."merchantId" = m.id)');
+    if (q.verification) qb.andWhere('m.verificationStatus = :vs', { vs: q.verification });
     return paginateQb(qb, q, { sortable: { businessName: 'm.businessName', createdAt: 'm.createdAt' }, defaultSort: ['m.createdAt', 'DESC'] });
   }
 
@@ -127,10 +129,18 @@ export class RestaurantAdminService {
         { days },
       );
     }
-    return paginateQb(qb, q, {
+    if (q.verification) {
+      qb.andWhere('EXISTS (SELECT 1 FROM merchants vm WHERE vm.id = r."merchantId" AND vm."verificationStatus" = :vs)', { vs: q.verification });
+    }
+    const res = await paginateQb(qb, q, {
       sortable: { name: 'r.name', createdAt: 'r.createdAt', rating: 'r.rating', status: 'r.status' },
       defaultSort: ['r.createdAt', 'DESC'],
     });
+    // the verification state belongs to the business (merchant); show it on every location row
+    const ids = [...new Set(res.data.map((r) => r.merchantId))];
+    const owners = ids.length ? await this.merchants.find({ where: { id: In(ids) } }) : [];
+    const byId = new Map(owners.map((m) => [m.id, m]));
+    return { ...res, data: res.data.map((r) => ({ ...r, verification: byId.has(r.merchantId) ? verificationSummary(VerificationAudience.BUSINESS, byId.get(r.merchantId)!) : null })) };
   }
 
   async create(dto: CreateRestaurantDto, actor: AuthUser, req?: any) {
@@ -362,7 +372,27 @@ export class RestaurantAdminService {
       if (!items) throw new BadRequestException('Menu has no active items');
       if (!r.meta?.testOrder?.completed) throw new BadRequestException('Complete a test order before going live');
     }
-    return this.store.changeStatus(r, RestaurantStatus.LIVE, { reason: dto.reason ?? null, req, action: 'go_live', notifyEvent: 'account.approved', acceptingOrders: true });
+    const live = await this.store.changeStatus(r, RestaurantStatus.LIVE, { reason: dto.reason ?? null, req, action: 'go_live', notifyEvent: 'account.approved', acceptingOrders: true });
+    await this.verifiedByStaff(live, req);
+    return live;
+  }
+
+  /** A staff go-live IS the manual verification of the business (docs/verification.md); it also ends any "verification required" block. */
+  private async verifiedByStaff(r: Restaurant, req: any) {
+    const m = await this.merchants.findOne({ where: { id: r.merchantId } });
+    if (m && m.verificationStatus !== VerificationStatus.VERIFIED) {
+      m.verificationStatus = VerificationStatus.VERIFIED;
+      m.verificationMethod = VerificationMethod.MANUAL;
+      m.verifiedAt = new Date();
+      m.verifiedBy = req?.user?.id ?? null;
+      m.verificationDueAt = null;
+      m.meta = withoutRestore(m.meta);
+      await this.merchants.save(m);
+    }
+    if (r.meta?.verification?.restoreStatus) {
+      r.meta = withoutRestore(r.meta);
+      await this.restaurants.save(r);
+    }
   }
 
   // ------------------------------------------------------------------ lifecycle: pause / suspend / reactivate / reject
@@ -387,7 +417,13 @@ export class RestaurantAdminService {
   async reject(id: string, dto: ReasonDto, req: any) {
     const r = await this.store.get(id);
     if (r.status === RestaurantStatus.LIVE) throw new BadRequestException('Use suspend for a restaurant that already went live');
-    return this.store.changeStatus(r, RestaurantStatus.REJECTED, { reason: dto.reason, req, action: 'reject', acceptingOrders: false, notifyEvent: 'account.rejected' });
+    const rejected = await this.store.changeStatus(r, RestaurantStatus.REJECTED, { reason: dto.reason, req, action: 'reject', acceptingOrders: false, notifyEvent: 'account.rejected' });
+    // the business is rejected when none of its locations is left (a business that was verified before stays verified)
+    const remaining = await this.restaurants.count({ where: { merchantId: r.merchantId, status: Not(RestaurantStatus.REJECTED) } });
+    if (!remaining) {
+      await this.merchants.update({ id: r.merchantId, verificationStatus: Not(VerificationStatus.VERIFIED) }, { verificationStatus: VerificationStatus.REJECTED, verificationDueAt: null });
+    }
+    return rejected;
   }
 
   async bulk(dto: BulkDto, req: any) {

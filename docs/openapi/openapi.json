@@ -653,6 +653,23 @@
         ],
         "type": "object"
       },
+      "AudiencePolicyDto": {
+        "properties": {
+          "instant": {
+            "description": "Instant registration: a new account is active at once, with no verification step (recorded as unverified).",
+            "type": "boolean"
+          },
+          "method": {
+            "description": "MANUAL = staff review (documents, SOP-01 / SOP-02). AUTOMATIC = Certn identity and criminal-record check.",
+            "enum": [
+              "MANUAL",
+              "AUTOMATIC"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "AutomationDto": {
         "properties": {
           "autoAccept": {
@@ -2949,6 +2966,52 @@
         ],
         "type": "object"
       },
+      "ForceVerificationDto": {
+        "properties": {
+          "all": {
+            "description": "every unverified account of the audience",
+            "type": "boolean"
+          },
+          "audience": {
+            "enum": [
+              "DRIVER",
+              "BUSINESS"
+            ],
+            "type": "string"
+          },
+          "graceDays": {
+            "description": "days the accounts keep working while they verify; 0 (default) = they are taken off the road at once until verified",
+            "maximum": 90,
+            "minimum": 0,
+            "type": "number"
+          },
+          "ids": {
+            "description": "driver profile ids (drivers) or merchant ids (businesses)",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "method": {
+            "description": "default: the verification method of the policy",
+            "enum": [
+              "MANUAL",
+              "AUTOMATIC"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "type": "string"
+          }
+        },
+        "required": [
+          "audience"
+        ],
+        "type": "object"
+      },
       "ForgotPasswordDto": {
         "properties": {
           "identifier": {
@@ -4981,6 +5044,19 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "RejectVerificationDto": {
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
         "type": "object"
       },
       "RemoveItemDto": {
@@ -7313,6 +7389,17 @@
         },
         "type": "object"
       },
+      "UpdatePolicyDto": {
+        "properties": {
+          "businesses": {
+            "$ref": "#/components/schemas/AudiencePolicyDto"
+          },
+          "drivers": {
+            "$ref": "#/components/schemas/AudiencePolicyDto"
+          }
+        },
+        "type": "object"
+      },
       "UpdateProfileDto": {
         "properties": {
           "avatarUrl": {
@@ -7959,6 +8046,19 @@
           "type",
           "fileUrl"
         ],
+        "type": "object"
+      },
+      "VerifyDto": {
+        "properties": {
+          "note": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "override": {
+            "description": "Super Admin only: verify even though the checklist is incomplete (a note is then required).",
+            "type": "boolean"
+          }
+        },
         "type": "object"
       },
       "VoidInvoiceDto": {
@@ -24532,6 +24632,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "verification state: UNVERIFIED, PENDING, NEEDS_REVIEW, VERIFIED or REJECTED (docs/verification.md)",
+            "in": "query",
+            "name": "verification",
+            "required": false,
+            "schema": {
+              "enum": [
+                "UNVERIFIED",
+                "PENDING",
+                "NEEDS_REVIEW",
+                "VERIFIED",
+                "REJECTED"
+              ],
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -24545,22 +24661,22 @@
                         "accepted": 0,
                         "declined": 0,
                         "expired": 0,
-                        "lastUpdatedAt": "2026-10-14T15:00:00.061Z",
-                        "rate": 90,
-                        "since": "2026-09-30T15:56:40.279Z",
+                        "lastUpdatedAt": null,
+                        "rate": 100,
+                        "since": "2026-09-30T18:15:39.921Z",
                         "total": 0,
                         "windowDays": 14
                       },
-                      "acceptanceRate": 90,
+                      "acceptanceRate": 100,
                       "activeZoneId": null,
                       "approvedAt": null,
                       "backgroundCheckStatus": "IN_PROGRESS",
                       "cancellations": 0,
-                      "cityId": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
+                      "cityId": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
                       "completionRate": 100,
-                      "createdAt": "2026-10-01T13:29:29.972Z",
+                      "createdAt": "2026-10-14T18:11:33.688Z",
                       "email": "driver28@demo.forksy.ca",
-                      "id": "3aba8d1a-57dc-4956-8395-0d082c0c8125",
+                      "id": "8b647e4c-a303-4ff7-a2f0-cff1bbf12a2d",
                       "insulatedBagConfirmed": false,
                       "isOnline": false,
                       "lastLocationAt": null,
@@ -24569,7 +24685,7 @@
                       "lifetimeEarnings": 0,
                       "lng": null,
                       "name": "Andre Silva",
-                      "nextDocExpiry": "2028-01-04",
+                      "nextDocExpiry": "2028-01-17",
                       "onTimeRate": 100,
                       "onTrip": false,
                       "pendingBalance": 0,
@@ -24580,8 +24696,12 @@
                       "statusReason": null,
                       "totalTrips": 0,
                       "trainingCompleted": false,
-                      "userId": "5672fc64-383d-4801-a73f-bbe2f6ecb437",
+                      "userId": "da9cda99-91d7-4a5e-8e0a-57586763a394",
                       "vehicleType": "CAR",
+                      "verificationDueAt": null,
+                      "verificationMethod": null,
+                      "verificationStatus": "PENDING",
+                      "verifiedAt": null,
                       "zoneIds": []
                     },
                     {
@@ -24589,22 +24709,22 @@
                         "accepted": 0,
                         "declined": 0,
                         "expired": 0,
-                        "lastUpdatedAt": "2026-10-14T15:00:00.061Z",
-                        "rate": 90,
-                        "since": "2026-09-30T15:56:40.279Z",
+                        "lastUpdatedAt": null,
+                        "rate": 100,
+                        "since": "2026-09-30T18:15:39.921Z",
                         "total": 0,
                         "windowDays": 14
                       },
-                      "acceptanceRate": 90,
+                      "acceptanceRate": 100,
                       "activeZoneId": null,
-                      "approvedAt": "2026-08-15T13:29:29.931Z",
+                      "approvedAt": "2026-08-28T18:11:33.657Z",
                       "backgroundCheckStatus": "CLEAR",
                       "cancellations": 0,
-                      "cityId": "3a81424b-b62f-49c7-949e-efc3d69593c1",
+                      "cityId": "533670ef-42c0-4475-accd-077f35234c02",
                       "completionRate": 100,
-                      "createdAt": "2026-10-01T13:29:29.932Z",
+                      "createdAt": "2026-10-14T18:11:33.657Z",
                       "email": "driver27@demo.forksy.ca",
-                      "id": "9da8112c-7578-46bc-86ca-75ece429973b",
+                      "id": "d335fe4d-65be-4df5-81e2-90465c4e706d",
                       "insulatedBagConfirmed": true,
                       "isOnline": false,
                       "lastLocationAt": null,
@@ -24613,7 +24733,7 @@
                       "lifetimeEarnings": 0,
                       "lng": null,
                       "name": "Simran Kaur",
-                      "nextDocExpiry": "2027-12-25",
+                      "nextDocExpiry": "2028-01-07",
                       "onTimeRate": 100,
                       "onTrip": false,
                       "pendingBalance": 0,
@@ -24624,11 +24744,15 @@
                       "statusReason": null,
                       "totalTrips": 0,
                       "trainingCompleted": true,
-                      "userId": "69bcadf4-fb0c-469b-91b9-0b12065a6937",
+                      "userId": "f3ec8dbe-c94c-45a3-8764-1ac583649526",
                       "vehicleType": "CAR",
+                      "verificationDueAt": null,
+                      "verificationMethod": "MANUAL",
+                      "verificationStatus": "VERIFIED",
+                      "verifiedAt": "2026-08-28T18:11:33.657Z",
                       "zoneIds": [
-                        "b67f0d1a-3b5e-4cd7-94b9-bb7e10c49ad6",
-                        "2b12b0fc-e18b-4866-95f1-49aa6efecfb8"
+                        "da3ad570-57fe-4e11-a63f-a0c5f917e4eb",
+                        "753d55b5-5206-48ae-9ba4-30d407105ca2"
                       ]
                     }
                   ],
@@ -24657,6 +24781,7 @@
                               },
                               "lastUpdatedAt": {
                                 "format": "date-time",
+                                "nullable": true,
                                 "type": "string"
                               },
                               "rate": {
@@ -24793,6 +24918,21 @@
                           "vehicleType": {
                             "type": "string"
                           },
+                          "verificationDueAt": {
+                            "nullable": true
+                          },
+                          "verificationMethod": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "verificationStatus": {
+                            "type": "string"
+                          },
+                          "verifiedAt": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "zoneIds": {
                             "items": {
                               "oneOf": [
@@ -24919,6 +25059,10 @@
                           "trainingCompleted",
                           "userId",
                           "vehicleType",
+                          "verificationDueAt",
+                          "verificationMethod",
+                          "verificationStatus",
+                          "verifiedAt",
                           "zoneIds"
                         ],
                         "type": "object"
@@ -25469,6 +25613,22 @@
             "name": "backgroundCheck",
             "required": false,
             "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "verification state: UNVERIFIED, PENDING, NEEDS_REVIEW, VERIFIED or REJECTED (docs/verification.md)",
+            "in": "query",
+            "name": "verification",
+            "required": false,
+            "schema": {
+              "enum": [
+                "UNVERIFIED",
+                "PENDING",
+                "NEEDS_REVIEW",
+                "VERIFIED",
+                "REJECTED"
+              ],
               "type": "string"
             }
           }
@@ -27006,66 +27166,59 @@
                     "accepted": 0,
                     "declined": 0,
                     "expired": 0,
-                    "lastUpdatedAt": "2026-10-14T15:00:00.061Z",
-                    "rate": 90,
-                    "since": "2026-09-30T15:56:41.900Z",
+                    "lastUpdatedAt": null,
+                    "rate": 100,
+                    "since": "2026-09-30T18:15:42.035Z",
                     "total": 0,
                     "windowDays": 14
                   },
-                  "acceptanceRate": 90,
+                  "acceptanceRate": 100,
                   "activeZoneId": null,
                   "approvedAt": null,
-                  "backgroundCheck": {
-                    "history": [],
-                    "provider": "certn-mock",
-                    "ref": "mock_seed_28",
-                    "status": "IN_PROGRESS"
-                  },
                   "backgroundCheckStatus": "IN_PROGRESS",
                   "cancellations": 0,
                   "city": {
-                    "id": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
+                    "id": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
                     "name": "Mississauga"
                   },
-                  "cityId": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
+                  "cityId": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
                   "completionRate": 100,
-                  "createdAt": "2026-10-01T13:29:29.972Z",
+                  "createdAt": "2026-10-14T18:11:33.688Z",
                   "documents": [
                     {
-                      "createdAt": "2026-10-01T13:29:29.994Z",
-                      "driverId": "3aba8d1a-57dc-4956-8395-0d082c0c8125",
+                      "createdAt": "2026-10-14T18:11:33.712Z",
+                      "driverId": "8b647e4c-a303-4ff7-a2f0-cff1bbf12a2d",
                       "expiresAt": null,
                       "expiryReminderSentAt": null,
                       "fileName": "work_eligibility.jpg",
                       "fileUrl": "/uploads/demo/driver28-work_eligibility.jpg",
-                      "id": "d62523dd-dff8-48e8-bb8d-0ac162fd82d4",
+                      "id": "746cba21-7fd2-4164-aeb1-ce5e127c9262",
                       "rejectReason": null,
-                      "reviewedAt": "2026-10-01T13:29:29.993Z",
+                      "reviewedAt": "2026-10-14T18:11:33.712Z",
                       "reviewedById": null,
                       "status": "APPROVED",
                       "type": "WORK_ELIGIBILITY",
-                      "updatedAt": "2026-10-01T13:29:29.994Z"
+                      "updatedAt": "2026-10-14T18:11:33.712Z"
                     },
                     {
-                      "createdAt": "2026-10-01T13:29:29.990Z",
-                      "driverId": "3aba8d1a-57dc-4956-8395-0d082c0c8125",
+                      "createdAt": "2026-10-14T18:11:33.708Z",
+                      "driverId": "8b647e4c-a303-4ff7-a2f0-cff1bbf12a2d",
                       "expiresAt": null,
                       "expiryReminderSentAt": null,
                       "fileName": "photo.jpg",
                       "fileUrl": "/uploads/demo/driver28-photo.jpg",
-                      "id": "c7226887-e4bd-4035-8356-4d553fa3fcbc",
+                      "id": "f48a5062-7282-49c2-9316-522198d2671c",
                       "rejectReason": null,
-                      "reviewedAt": "2026-10-01T13:29:29.989Z",
+                      "reviewedAt": "2026-10-14T18:11:33.707Z",
                       "reviewedById": null,
                       "status": "APPROVED",
                       "type": "PHOTO",
-                      "updatedAt": "2026-10-01T13:29:29.990Z"
+                      "updatedAt": "2026-10-14T18:11:33.708Z"
                     }
                   ],
                   "email": "driver28@demo.forksy.ca",
-                  "id": "3aba8d1a-57dc-4956-8395-0d082c0c8125",
+                  "id": "8b647e4c-a303-4ff7-a2f0-cff1bbf12a2d",
                   "insulatedBagConfirmed": false,
-                  "insurance": null,
                   "isOnline": false,
                   "lastLocationAt": null,
                   "lat": null,
@@ -27079,64 +27232,20 @@
                   "phone": "+14165550128",
                   "rating": 5,
                   "ratingCount": 0,
-                  "requiredDocuments": [
-                    {
-                      "documentId": "36e13b27-fc9e-413a-a53a-c64450b19e88",
-                      "expired": false,
-                      "expiresAt": "2028-01-04",
-                      "status": "APPROVED",
-                      "type": "LICENCE",
-                      "uploaded": true,
-                      "valid": true
-                    },
-                    {
-                      "documentId": "440236f2-7804-4cc0-9361-7055d7f9802d",
-                      "expired": false,
-                      "expiresAt": "2028-01-04",
-                      "status": "APPROVED",
-                      "type": "VEHICLE_REGISTRATION",
-                      "uploaded": true,
-                      "valid": true
-                    }
-                  ],
                   "status": "BACKGROUND_CHECK",
                   "statusReason": null,
                   "totalTrips": 0,
-                  "training": {
-                    "averageScore": null,
-                    "completed": false,
-                    "modules": [
-                      {
-                        "attempts": 0,
-                        "bestScore": null,
-                        "moduleId": "41774a3d-c45e-4d28-bf20-beb422ee702a",
-                        "passMark": 80,
-                        "passed": false,
-                        "title": "Safety and food handling"
-                      },
-                      {
-                        "attempts": 0,
-                        "bestScore": null,
-                        "moduleId": "afa3066c-c053-48e6-9cdf-eb0ea06b209a",
-                        "passMark": 80,
-                        "passed": false,
-                        "title": "Using the driver app"
-                      }
-                    ],
-                    "passMark": 80,
-                    "score": null
-                  },
                   "trainingCompleted": false,
                   "user": {
                     "email": "driver28@demo.forksy.ca",
                     "firstName": "Andre",
-                    "id": "5672fc64-383d-4801-a73f-bbe2f6ecb437",
+                    "id": "da9cda99-91d7-4a5e-8e0a-57586763a394",
                     "lastLoginAt": null,
                     "lastName": "Silva",
                     "phone": "+14165550128",
                     "status": "ACTIVE"
                   },
-                  "userId": "5672fc64-383d-4801-a73f-bbe2f6ecb437",
+                  "userId": "da9cda99-91d7-4a5e-8e0a-57586763a394",
                   "vehicle": {
                     "color": "Black",
                     "licensePlate": "CMBR 128",
@@ -27145,6 +27254,10 @@
                     "type": "CAR"
                   },
                   "vehicleType": "CAR",
+                  "verificationDueAt": null,
+                  "verificationMethod": null,
+                  "verificationStatus": "PENDING",
+                  "verifiedAt": null,
                   "zoneIds": []
                 },
                 "schema": {
@@ -27161,8 +27274,7 @@
                           "type": "integer"
                         },
                         "lastUpdatedAt": {
-                          "format": "date-time",
-                          "type": "string"
+                          "nullable": true
                         },
                         "rate": {
                           "type": "integer"
@@ -27513,8 +27625,7 @@
                               "type": "integer"
                             },
                             "lastUpdatedAt": {
-                              "format": "date-time",
-                              "type": "string"
+                              "nullable": true
                             },
                             "rate": {
                               "type": "integer"
@@ -27779,6 +27890,18 @@
                     "vehicleType": {
                       "type": "string"
                     },
+                    "verificationDueAt": {
+                      "nullable": true
+                    },
+                    "verificationMethod": {
+                      "nullable": true
+                    },
+                    "verificationStatus": {
+                      "type": "string"
+                    },
+                    "verifiedAt": {
+                      "nullable": true
+                    },
                     "zoneIds": {
                       "items": {},
                       "type": "array"
@@ -27841,6 +27964,10 @@
                     "userId",
                     "vehicle",
                     "vehicleType",
+                    "verificationDueAt",
+                    "verificationMethod",
+                    "verificationStatus",
+                    "verifiedAt",
                     "zoneIds",
                     "zones"
                   ],
@@ -48270,6 +48397,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "verification state of the business (merchant): UNVERIFIED, PENDING, NEEDS_REVIEW, VERIFIED or REJECTED (docs/verification.md)",
+            "in": "query",
+            "name": "verification",
+            "required": false,
+            "schema": {
+              "enum": [
+                "UNVERIFIED",
+                "PENDING",
+                "NEEDS_REVIEW",
+                "VERIFIED",
+                "REJECTED"
+              ],
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -48284,24 +48427,24 @@
                       "addressLine2": null,
                       "busyExtraPrepMin": 0,
                       "city": "Mississauga",
-                      "cityId": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
-                      "commissionTierId": "6c4c7d55-d458-42c8-bd37-9f98548b9896",
+                      "cityId": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
+                      "commissionTierId": "2e34ead4-bb5e-47b2-bb3f-a89b51deeb4f",
                       "coverUrl": null,
-                      "createdAt": "2026-10-01T13:29:29.266Z",
+                      "createdAt": "2026-10-14T18:11:32.910Z",
                       "description": "Sweet Crumbs Bakery & Cafe - fresh, made to order in Mississauga.",
                       "email": "orders+sweet-crumbs-bakery-cafe@demo-restaurant.ca",
                       "hstNumber": null,
-                      "id": "967a688d-a6e5-44e5-bda2-0a27985e999c",
+                      "id": "9531f355-395c-4230-9c9a-255ab5b650b3",
                       "lat": 43.5537,
                       "lng": -79.7092,
                       "logoUrl": null,
-                      "menuEditDecidedAt": "2026-10-06T21:06:46.869Z",
+                      "menuEditDecidedAt": null,
                       "menuEditDecidedById": null,
-                      "menuEditDecisionNote": "Existing restaurant: access granted when menu permissions were introduced",
+                      "menuEditDecisionNote": null,
                       "menuEditRequestNote": null,
                       "menuEditRequestedAt": null,
                       "menuEditStatus": "ALLOWED",
-                      "merchantId": "634757c3-e0ad-428f-9de2-612673768917",
+                      "merchantId": "b90a2182-35d8-4885-90b8-c24d8bb8b9aa",
                       "name": "Sweet Crumbs Bakery & Cafe",
                       "pausedUntil": null,
                       "phone": "+14165553026",
@@ -48315,10 +48458,10 @@
                       "slug": "sweet-crumbs-bakery-cafe",
                       "status": "LIVE",
                       "statusReason": null,
-                      "updatedAt": "2026-10-06T21:06:46.870Z",
+                      "updatedAt": "2026-10-14T18:11:32.910Z",
                       "website": null,
-                      "wentLiveAt": "2026-08-02T13:29:29.265Z",
-                      "zoneId": "bf65d45f-2c3e-4d2b-95d4-2f11e91ba042"
+                      "wentLiveAt": "2026-08-15T18:11:32.909Z",
+                      "zoneId": "00ae6cf8-4adc-4827-9875-e3a0004ebb0a"
                     },
                     {
                       "acceptingOrders": true,
@@ -48326,24 +48469,24 @@
                       "addressLine2": null,
                       "busyExtraPrepMin": 0,
                       "city": "Mississauga",
-                      "cityId": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
-                      "commissionTierId": "9d7bbca2-bfbf-453d-8cfa-c4c22821d735",
+                      "cityId": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
+                      "commissionTierId": "733a994f-2410-4d5c-8f8f-0b15d3279bed",
                       "coverUrl": null,
-                      "createdAt": "2026-10-01T13:29:29.046Z",
+                      "createdAt": "2026-10-14T18:11:32.598Z",
                       "description": "Smokehouse Burger Lab - fresh, made to order in Mississauga.",
                       "email": "orders+smokehouse-burger-lab@demo-restaurant.ca",
                       "hstNumber": null,
-                      "id": "d2df2d79-8e07-4e1d-bf58-1008273fd0e5",
+                      "id": "821ad70d-fdf5-4987-9cdf-db89471a77e0",
                       "lat": 43.5789,
                       "lng": -79.7116,
                       "logoUrl": null,
-                      "menuEditDecidedAt": "2026-10-06T21:06:46.869Z",
+                      "menuEditDecidedAt": null,
                       "menuEditDecidedById": null,
-                      "menuEditDecisionNote": "Existing restaurant: access granted when menu permissions were introduced",
+                      "menuEditDecisionNote": null,
                       "menuEditRequestNote": null,
                       "menuEditRequestedAt": null,
                       "menuEditStatus": "ALLOWED",
-                      "merchantId": "96e45602-e6d1-437e-b1d3-bc05b2708874",
+                      "merchantId": "3b55153c-53e3-44d2-ac39-656ce5224672",
                       "name": "Smokehouse Burger Lab",
                       "pausedUntil": null,
                       "phone": "+14165553025",
@@ -48351,16 +48494,16 @@
                       "postalCode": "L5M 1L7",
                       "priceLevel": 2,
                       "province": "ON",
-                      "serviceMode": "PICKUP_ONLY",
+                      "serviceMode": "PICKUP_AND_DELIVERY",
                       "serviceModeResumeAt": null,
-                      "serviceModeUpdatedAt": "2026-10-01T17:38:00.363Z",
+                      "serviceModeUpdatedAt": null,
                       "slug": "smokehouse-burger-lab",
                       "status": "LIVE",
                       "statusReason": null,
-                      "updatedAt": "2026-10-06T21:06:46.870Z",
+                      "updatedAt": "2026-10-14T18:11:32.598Z",
                       "website": null,
-                      "wentLiveAt": "2026-08-02T13:29:29.045Z",
-                      "zoneId": "60041d44-22fd-44a2-8f38-b9519d52b1f2"
+                      "wentLiveAt": "2026-08-15T18:11:32.598Z",
+                      "zoneId": "11b1c114-6729-4f68-8a62-904cc794e023"
                     }
                   ],
                   "meta": {
@@ -48459,14 +48602,13 @@
                             "type": "integer"
                           },
                           "menuEditDecidedAt": {
-                            "format": "date-time",
-                            "type": "string"
+                            "nullable": true
                           },
                           "menuEditDecidedById": {
                             "nullable": true
                           },
                           "menuEditDecisionNote": {
-                            "type": "string"
+                            "nullable": true
                           },
                           "menuEditRequestNote": {
                             "nullable": true
@@ -48483,24 +48625,6 @@
                           },
                           "meta": {
                             "properties": {
-                              "assistant": {
-                                "properties": {
-                                  "botKey": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "botKey"
-                                ],
-                                "type": "object"
-                              },
-                              "automation": {
-                                "properties": {},
-                                "type": "object"
-                              },
-                              "busyManual": {
-                                "type": "boolean"
-                              },
                               "ratingsSeeded": {
                                 "type": "boolean"
                               }
@@ -48569,19 +48693,16 @@
                             "type": "number"
                           },
                           "rating30d": {
-                            "nullable": true,
-                            "type": "integer"
+                            "nullable": true
                           },
                           "rating90d": {
-                            "nullable": true,
-                            "type": "number"
+                            "nullable": true
                           },
                           "ratingAlert": {
                             "nullable": true
                           },
                           "ratingAllTime": {
-                            "nullable": true,
-                            "type": "number"
+                            "nullable": true
                           },
                           "ratingCount": {
                             "type": "integer"
@@ -48593,130 +48714,7 @@
                             "type": "integer"
                           },
                           "ratingStats": {
-                            "properties": {
-                              "all": {
-                                "properties": {
-                                  "avg": {
-                                    "nullable": true,
-                                    "type": "integer"
-                                  },
-                                  "count": {
-                                    "type": "integer"
-                                  },
-                                  "smoothed": {
-                                    "type": "number"
-                                  }
-                                },
-                                "required": [
-                                  "avg",
-                                  "count",
-                                  "smoothed"
-                                ],
-                                "type": "object"
-                              },
-                              "distribution": {
-                                "properties": {
-                                  "1": {
-                                    "type": "integer"
-                                  },
-                                  "2": {
-                                    "type": "integer"
-                                  },
-                                  "3": {
-                                    "type": "integer"
-                                  },
-                                  "4": {
-                                    "type": "integer"
-                                  },
-                                  "5": {
-                                    "type": "integer"
-                                  }
-                                },
-                                "required": [
-                                  "1",
-                                  "2",
-                                  "3",
-                                  "4",
-                                  "5"
-                                ],
-                                "type": "object"
-                              },
-                              "last30": {
-                                "properties": {
-                                  "avg": {
-                                    "nullable": true,
-                                    "type": "integer"
-                                  },
-                                  "count": {
-                                    "type": "integer"
-                                  }
-                                },
-                                "required": [
-                                  "avg",
-                                  "count"
-                                ],
-                                "type": "object"
-                              },
-                              "negativeTags": {
-                                "items": {},
-                                "type": "array"
-                              },
-                              "positiveTags": {
-                                "items": {
-                                  "oneOf": [
-                                    {},
-                                    {
-                                      "properties": {
-                                        "count": {
-                                          "type": "integer"
-                                        },
-                                        "label": {
-                                          "type": "string"
-                                        },
-                                        "tag": {
-                                          "type": "string"
-                                        }
-                                      },
-                                      "required": [
-                                        "count",
-                                        "label",
-                                        "tag"
-                                      ],
-                                      "type": "object"
-                                    }
-                                  ]
-                                },
-                                "type": "array"
-                              },
-                              "rolling": {
-                                "properties": {
-                                  "avg": {
-                                    "nullable": true,
-                                    "type": "integer"
-                                  },
-                                  "count": {
-                                    "type": "integer"
-                                  },
-                                  "days": {
-                                    "type": "integer"
-                                  },
-                                  "smoothed": {
-                                    "type": "number"
-                                  }
-                                },
-                                "required": [
-                                  "avg",
-                                  "count",
-                                  "days",
-                                  "smoothed"
-                                ],
-                                "type": "object"
-                              },
-                              "updatedAt": {
-                                "format": "date-time",
-                                "type": "string"
-                              }
-                            },
+                            "properties": {},
                             "type": "object"
                           },
                           "receiptPrinterEnabled": {
@@ -48738,9 +48736,7 @@
                             "nullable": true
                           },
                           "serviceModeUpdatedAt": {
-                            "format": "date-time",
-                            "nullable": true,
-                            "type": "string"
+                            "nullable": true
                           },
                           "slotMinutes": {
                             "type": "integer"
@@ -48763,6 +48759,34 @@
                           "updatedAt": {
                             "format": "date-time",
                             "type": "string"
+                          },
+                          "verification": {
+                            "properties": {
+                              "dueAt": {
+                                "nullable": true
+                              },
+                              "method": {
+                                "type": "string"
+                              },
+                              "nextStep": {
+                                "nullable": true
+                              },
+                              "status": {
+                                "type": "string"
+                              },
+                              "verifiedAt": {
+                                "format": "date-time",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "dueAt",
+                              "method",
+                              "nextStep",
+                              "status",
+                              "verifiedAt"
+                            ],
+                            "type": "object"
                           },
                           "website": {
                             "nullable": true
@@ -48852,6 +48876,7 @@
                           "tabletActivated",
                           "tabletCode",
                           "updatedAt",
+                          "verification",
                           "website",
                           "wentLiveAt",
                           "zoneId"
@@ -49142,6 +49167,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "verification state: UNVERIFIED, PENDING, NEEDS_REVIEW, VERIFIED or REJECTED (docs/verification.md)",
+            "in": "query",
+            "name": "verification",
+            "required": false,
+            "schema": {
+              "enum": [
+                "UNVERIFIED",
+                "PENDING",
+                "NEEDS_REVIEW",
+                "VERIFIED",
+                "REJECTED"
+              ],
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -49151,8 +49192,11 @@
                 "example": {
                   "data": [
                     {
-                      "agreementSignedAt": "2026-07-03T13:29:29.252Z",
+                      "agreementSignedAt": "2026-07-16T18:11:32.889Z",
                       "agreementSignedBy": "Owner 26",
+                      "backgroundCheckProvider": null,
+                      "backgroundCheckRef": null,
+                      "backgroundCheckStatus": "NOT_STARTED",
                       "bank": {
                         "accountLast4": "6789",
                         "holder": "Sweet Crumbs Bakery & Cafe Ltd.",
@@ -49164,20 +49208,30 @@
                       "businessName": "Sweet Crumbs Bakery & Cafe Ltd.",
                       "contactEmail": "owner26@demo-restaurant.ca",
                       "contactPhone": "+14165551026",
-                      "createdAt": "2026-10-01T13:29:29.253Z",
+                      "createdAt": "2026-10-14T18:11:32.889Z",
                       "hstNumber": "810028886RT0001",
-                      "id": "634757c3-e0ad-428f-9de2-612673768917",
+                      "id": "b90a2182-35d8-4885-90b8-c24d8bb8b9aa",
                       "legalName": "Sweet Crumbs Bakery & Cafe Ltd.",
+                      "meta": {},
                       "payoutHold": false,
                       "payoutHoldReason": null,
                       "stripeAccountId": null,
                       "stripeAccountInfo": null,
                       "stripeAccountStatus": "NOT_STARTED",
-                      "updatedAt": "2026-10-01T13:29:29.253Z"
+                      "updatedAt": "2026-10-14T18:11:32.889Z",
+                      "verificationDueAt": null,
+                      "verificationForcedAt": null,
+                      "verificationMethod": "MANUAL",
+                      "verificationStatus": "VERIFIED",
+                      "verifiedAt": "2026-08-15T18:11:32.889Z",
+                      "verifiedBy": null
                     },
                     {
-                      "agreementSignedAt": "2026-07-03T13:29:29.027Z",
+                      "agreementSignedAt": "2026-07-16T18:11:32.578Z",
                       "agreementSignedBy": "Owner 25",
+                      "backgroundCheckProvider": null,
+                      "backgroundCheckRef": null,
+                      "backgroundCheckStatus": "NOT_STARTED",
                       "bank": {
                         "accountLast4": "6789",
                         "holder": "Smokehouse Burger Lab Ltd.",
@@ -49189,16 +49243,23 @@
                       "businessName": "Smokehouse Burger Lab Ltd.",
                       "contactEmail": "owner25@demo-restaurant.ca",
                       "contactPhone": "+14165551025",
-                      "createdAt": "2026-10-01T13:29:29.028Z",
+                      "createdAt": "2026-10-14T18:11:32.578Z",
                       "hstNumber": "810027775RT0001",
-                      "id": "96e45602-e6d1-437e-b1d3-bc05b2708874",
+                      "id": "3b55153c-53e3-44d2-ac39-656ce5224672",
                       "legalName": "Smokehouse Burger Lab Ltd.",
+                      "meta": {},
                       "payoutHold": false,
                       "payoutHoldReason": null,
                       "stripeAccountId": null,
                       "stripeAccountInfo": null,
                       "stripeAccountStatus": "NOT_STARTED",
-                      "updatedAt": "2026-10-01T13:29:29.028Z"
+                      "updatedAt": "2026-10-14T18:11:32.578Z",
+                      "verificationDueAt": null,
+                      "verificationForcedAt": null,
+                      "verificationMethod": "MANUAL",
+                      "verificationStatus": "VERIFIED",
+                      "verifiedAt": "2026-08-15T18:11:32.578Z",
+                      "verifiedBy": null
                     }
                   ],
                   "meta": {
@@ -49218,6 +49279,15 @@
                             "type": "string"
                           },
                           "agreementSignedBy": {
+                            "type": "string"
+                          },
+                          "backgroundCheckProvider": {
+                            "nullable": true
+                          },
+                          "backgroundCheckRef": {
+                            "nullable": true
+                          },
+                          "backgroundCheckStatus": {
                             "type": "string"
                           },
                           "bank": {
@@ -49274,6 +49344,10 @@
                           "legalName": {
                             "type": "string"
                           },
+                          "meta": {
+                            "properties": {},
+                            "type": "object"
+                          },
                           "payoutHold": {
                             "type": "boolean"
                           },
@@ -49292,11 +49366,33 @@
                           "updatedAt": {
                             "format": "date-time",
                             "type": "string"
+                          },
+                          "verificationDueAt": {
+                            "nullable": true
+                          },
+                          "verificationForcedAt": {
+                            "nullable": true
+                          },
+                          "verificationMethod": {
+                            "type": "string"
+                          },
+                          "verificationStatus": {
+                            "type": "string"
+                          },
+                          "verifiedAt": {
+                            "format": "date-time",
+                            "type": "string"
+                          },
+                          "verifiedBy": {
+                            "nullable": true
                           }
                         },
                         "required": [
                           "agreementSignedAt",
                           "agreementSignedBy",
+                          "backgroundCheckProvider",
+                          "backgroundCheckRef",
+                          "backgroundCheckStatus",
                           "bank",
                           "bankVerification",
                           "businessName",
@@ -49306,12 +49402,19 @@
                           "hstNumber",
                           "id",
                           "legalName",
+                          "meta",
                           "payoutHold",
                           "payoutHoldReason",
                           "stripeAccountId",
                           "stripeAccountInfo",
                           "stripeAccountStatus",
-                          "updatedAt"
+                          "updatedAt",
+                          "verificationDueAt",
+                          "verificationForcedAt",
+                          "verificationMethod",
+                          "verificationStatus",
+                          "verifiedAt",
+                          "verifiedBy"
                         ],
                         "type": "object"
                       },
@@ -49427,8 +49530,11 @@
             "content": {
               "application/json": {
                 "example": {
-                  "agreementSignedAt": "2026-07-03T13:29:29.252Z",
+                  "agreementSignedAt": "2026-07-16T18:11:32.889Z",
                   "agreementSignedBy": "Owner 26",
+                  "backgroundCheckProvider": null,
+                  "backgroundCheckRef": null,
+                  "backgroundCheckStatus": "NOT_STARTED",
                   "bank": {
                     "accountLast4": "6789",
                     "holder": "Sweet Crumbs Bakery & Cafe Ltd.",
@@ -49440,24 +49546,31 @@
                   "businessName": "Sweet Crumbs Bakery & Cafe Ltd.",
                   "contactEmail": "owner26@demo-restaurant.ca",
                   "contactPhone": "+14165551026",
-                  "createdAt": "2026-10-01T13:29:29.253Z",
+                  "createdAt": "2026-10-14T18:11:32.889Z",
                   "hstNumber": "810028886RT0001",
-                  "id": "634757c3-e0ad-428f-9de2-612673768917",
+                  "id": "b90a2182-35d8-4885-90b8-c24d8bb8b9aa",
                   "legalName": "Sweet Crumbs Bakery & Cafe Ltd.",
                   "locations": [
                     {
                       "city": "Mississauga",
-                      "id": "967a688d-a6e5-44e5-bda2-0a27985e999c",
+                      "id": "9531f355-395c-4230-9c9a-255ab5b650b3",
                       "name": "Sweet Crumbs Bakery & Cafe",
                       "status": "LIVE"
                     }
                   ],
+                  "meta": {},
                   "payoutHold": false,
                   "payoutHoldReason": null,
                   "stripeAccountId": null,
                   "stripeAccountInfo": null,
                   "stripeAccountStatus": "NOT_STARTED",
-                  "updatedAt": "2026-10-01T13:29:29.253Z"
+                  "updatedAt": "2026-10-14T18:11:32.889Z",
+                  "verificationDueAt": null,
+                  "verificationForcedAt": null,
+                  "verificationMethod": "MANUAL",
+                  "verificationStatus": "VERIFIED",
+                  "verifiedAt": "2026-08-15T18:11:32.889Z",
+                  "verifiedBy": null
                 },
                 "schema": {
                   "properties": {
@@ -49466,6 +49579,15 @@
                       "type": "string"
                     },
                     "agreementSignedBy": {
+                      "type": "string"
+                    },
+                    "backgroundCheckProvider": {
+                      "nullable": true
+                    },
+                    "backgroundCheckRef": {
+                      "nullable": true
+                    },
+                    "backgroundCheckStatus": {
                       "type": "string"
                     },
                     "bank": {
@@ -49549,6 +49671,10 @@
                       },
                       "type": "array"
                     },
+                    "meta": {
+                      "properties": {},
+                      "type": "object"
+                    },
                     "payoutHold": {
                       "type": "boolean"
                     },
@@ -49567,11 +49693,33 @@
                     "updatedAt": {
                       "format": "date-time",
                       "type": "string"
+                    },
+                    "verificationDueAt": {
+                      "nullable": true
+                    },
+                    "verificationForcedAt": {
+                      "nullable": true
+                    },
+                    "verificationMethod": {
+                      "type": "string"
+                    },
+                    "verificationStatus": {
+                      "type": "string"
+                    },
+                    "verifiedAt": {
+                      "format": "date-time",
+                      "type": "string"
+                    },
+                    "verifiedBy": {
+                      "nullable": true
                     }
                   },
                   "required": [
                     "agreementSignedAt",
                     "agreementSignedBy",
+                    "backgroundCheckProvider",
+                    "backgroundCheckRef",
+                    "backgroundCheckStatus",
                     "bank",
                     "bankVerification",
                     "businessName",
@@ -49582,12 +49730,19 @@
                     "id",
                     "legalName",
                     "locations",
+                    "meta",
                     "payoutHold",
                     "payoutHoldReason",
                     "stripeAccountId",
                     "stripeAccountInfo",
                     "stripeAccountStatus",
-                    "updatedAt"
+                    "updatedAt",
+                    "verificationDueAt",
+                    "verificationForcedAt",
+                    "verificationMethod",
+                    "verificationStatus",
+                    "verifiedAt",
+                    "verifiedBy"
                   ],
                   "type": "object"
                 }
@@ -50029,45 +50184,45 @@
                   "addressLine1": "45 Lakeshore Rd E",
                   "addressLine2": null,
                   "city": "Mississauga",
-                  "cityId": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
+                  "cityId": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
                   "coverUrl": null,
-                  "createdAt": "2026-09-30T18:37:51.491Z",
+                  "createdAt": "2026-10-14T18:11:22.658Z",
                   "cuisines": [
                     {
                       "active": true,
-                      "createdAt": "2026-09-30T18:37:50.807Z",
+                      "createdAt": "2026-10-14T18:11:21.907Z",
                       "iconUrl": null,
-                      "id": "7632dc49-f47a-4e94-b46d-7bb508cbefd4",
+                      "id": "fcff5777-8ca6-4b8b-9c14-27cfc873949e",
                       "name": "Pizza",
                       "slug": "pizza",
                       "sortOrder": 1,
-                      "updatedAt": "2026-09-30T18:37:50.807Z"
+                      "updatedAt": "2026-10-14T18:11:21.907Z"
                     },
                     {
                       "active": true,
-                      "createdAt": "2026-09-30T18:37:50.839Z",
+                      "createdAt": "2026-10-14T18:11:21.942Z",
                       "iconUrl": null,
-                      "id": "c9cfa0fc-3a89-46d3-9925-ee6ec102a980",
+                      "id": "21c36352-9857-4ec5-a384-4b1844eaf8cf",
                       "name": "Italian",
                       "slug": "italian",
                       "sortOrder": 7,
-                      "updatedAt": "2026-09-30T18:37:50.839Z"
+                      "updatedAt": "2026-10-14T18:11:21.942Z"
                     }
                   ],
                   "description": "Napoli Wood Fired Pizza - Port Credit - fresh, made to order in Mississauga.",
                   "email": "orders+napoli-wood-fired-pizza-port-credit@demo-restaurant.ca",
                   "hstNumber": null,
-                  "id": "01b3fa44-8ddc-4a42-b4cd-f52d38f57da5",
+                  "id": "d3184744-e62b-4755-af0a-92a566893ca9",
                   "lat": 43.5616,
                   "lng": -79.5857,
                   "logoUrl": null,
-                  "menuEditDecidedAt": "2026-10-06T21:13:01.409Z",
-                  "menuEditDecidedById": "d21204a4-bd46-4984-95cf-3783590baf07",
-                  "menuEditDecisionNote": "Approved",
-                  "menuEditRequestNote": "We changed our lunch menu",
-                  "menuEditRequestedAt": "2026-10-06T21:13:01.051Z",
+                  "menuEditDecidedAt": null,
+                  "menuEditDecidedById": null,
+                  "menuEditDecisionNote": null,
+                  "menuEditRequestNote": null,
+                  "menuEditRequestedAt": null,
                   "menuEditStatus": "ALLOWED",
-                  "merchantId": "81ee83c1-a111-4c84-8232-ec4b91158ab9",
+                  "merchantId": "56550b29-16c7-4e1a-8157-f5e4a8532238",
                   "name": "Napoli Wood Fired Pizza - Port Credit",
                   "pausedUntil": null,
                   "phone": "+14165553001",
@@ -50077,13 +50232,13 @@
                   "province": "ON",
                   "serviceMode": "PICKUP_AND_DELIVERY",
                   "serviceModeResumeAt": null,
-                  "serviceModeUpdatedAt": "2026-10-01T13:32:07.239Z",
+                  "serviceModeUpdatedAt": null,
                   "slug": "napoli-wood-fired-pizza-port-credit",
                   "status": "LIVE",
                   "statusReason": null,
-                  "updatedAt": "2026-10-09T14:22:42.495Z",
+                  "updatedAt": "2026-10-14T18:11:22.658Z",
                   "website": null,
-                  "wentLiveAt": "2026-08-01T18:37:51.490Z",
+                  "wentLiveAt": "2026-08-15T18:11:22.658Z",
                   "zone": {
                     "active": true,
                     "baseFee": null,
@@ -50092,10 +50247,10 @@
                     "busyRadiusKm": null,
                     "centerLat": 43.5606,
                     "centerLng": -79.5877,
-                    "cityId": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
-                    "createdAt": "2026-09-30T18:37:50.749Z",
+                    "cityId": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
+                    "createdAt": "2026-10-14T18:11:21.822Z",
                     "deliveryRadiusKm": null,
-                    "id": "f606a4c5-b625-4450-82c2-3564edbb35c5",
+                    "id": "8099934e-ae44-4e20-8969-f0923d44e9ca",
                     "maxDeliveryRadiusKm": null,
                     "minimumOrder": null,
                     "name": "Port Credit",
@@ -50112,9 +50267,9 @@
                     ],
                     "serviceHours": {},
                     "targetDrivers": 20,
-                    "updatedAt": "2026-10-01T23:16:27.339Z"
+                    "updatedAt": "2026-10-14T18:11:21.822Z"
                   },
-                  "zoneId": "f606a4c5-b625-4450-82c2-3564edbb35c5"
+                  "zoneId": "8099934e-ae44-4e20-8969-f0923d44e9ca"
                 },
                 "schema": {
                   "properties": {
@@ -50404,30 +50559,7 @@
                       "type": "boolean"
                     },
                     "kdsSettings": {
-                      "properties": {
-                        "autoLoadPrep": {
-                          "type": "boolean"
-                        },
-                        "capacityTickets": {
-                          "type": "integer"
-                        },
-                        "largeFont": {
-                          "type": "boolean"
-                        },
-                        "recentPickedUpMinutes": {
-                          "type": "integer"
-                        },
-                        "soundOn": {
-                          "type": "boolean"
-                        }
-                      },
-                      "required": [
-                        "autoLoadPrep",
-                        "capacityTickets",
-                        "largeFont",
-                        "recentPickedUpMinutes",
-                        "soundOn"
-                      ],
+                      "properties": {},
                       "type": "object"
                     },
                     "kitchenPrinterEnabled": {
@@ -50446,22 +50578,19 @@
                       "type": "integer"
                     },
                     "menuEditDecidedAt": {
-                      "format": "date-time",
-                      "type": "string"
+                      "nullable": true
                     },
                     "menuEditDecidedById": {
-                      "format": "uuid",
-                      "type": "string"
+                      "nullable": true
                     },
                     "menuEditDecisionNote": {
-                      "type": "string"
+                      "nullable": true
                     },
                     "menuEditRequestNote": {
-                      "type": "string"
+                      "nullable": true
                     },
                     "menuEditRequestedAt": {
-                      "format": "date-time",
-                      "type": "string"
+                      "nullable": true
                     },
                     "menuEditStatus": {
                       "type": "string"
@@ -50483,72 +50612,12 @@
                           ],
                           "type": "object"
                         },
-                        "kds": {
-                          "properties": {
-                            "autoLoadPrep": {
-                              "type": "boolean"
-                            },
-                            "capacityTickets": {
-                              "type": "integer"
-                            },
-                            "largeFont": {
-                              "type": "boolean"
-                            },
-                            "recentPickedUpMinutes": {
-                              "type": "integer"
-                            },
-                            "soundOn": {
-                              "type": "boolean"
-                            }
-                          },
-                          "required": [
-                            "autoLoadPrep",
-                            "capacityTickets",
-                            "largeFont",
-                            "recentPickedUpMinutes",
-                            "soundOn"
-                          ],
-                          "type": "object"
-                        },
-                        "notificationSettings": {
-                          "properties": {
-                            "emailOnNewOrder": {
-                              "type": "boolean"
-                            },
-                            "lowStockAlerts": {
-                              "type": "boolean"
-                            },
-                            "newOrderSound": {
-                              "type": "boolean"
-                            },
-                            "repeatSeconds": {
-                              "type": "integer"
-                            },
-                            "smsOnNewOrder": {
-                              "type": "boolean"
-                            },
-                            "volume": {
-                              "type": "integer"
-                            }
-                          },
-                          "required": [
-                            "emailOnNewOrder",
-                            "lowStockAlerts",
-                            "newOrderSound",
-                            "repeatSeconds",
-                            "smsOnNewOrder",
-                            "volume"
-                          ],
-                          "type": "object"
-                        },
                         "ratingsSeeded": {
                           "type": "boolean"
                         }
                       },
                       "required": [
                         "assistant",
-                        "kds",
-                        "notificationSettings",
                         "ratingsSeeded"
                       ],
                       "type": "object"
@@ -50560,34 +50629,7 @@
                       "type": "string"
                     },
                     "notificationSettings": {
-                      "properties": {
-                        "emailOnNewOrder": {
-                          "type": "boolean"
-                        },
-                        "lowStockAlerts": {
-                          "type": "boolean"
-                        },
-                        "newOrderSound": {
-                          "type": "boolean"
-                        },
-                        "repeatSeconds": {
-                          "type": "integer"
-                        },
-                        "smsOnNewOrder": {
-                          "type": "boolean"
-                        },
-                        "volume": {
-                          "type": "integer"
-                        }
-                      },
-                      "required": [
-                        "emailOnNewOrder",
-                        "lowStockAlerts",
-                        "newOrderSound",
-                        "repeatSeconds",
-                        "smsOnNewOrder",
-                        "volume"
-                      ],
+                      "properties": {},
                       "type": "object"
                     },
                     "openStatus": {
@@ -50836,8 +50878,7 @@
                       "nullable": true
                     },
                     "serviceModeUpdatedAt": {
-                      "format": "date-time",
-                      "type": "string"
+                      "nullable": true
                     },
                     "slotMinutes": {
                       "type": "integer"
@@ -50902,6 +50943,34 @@
                     "updatedAt": {
                       "format": "date-time",
                       "type": "string"
+                    },
+                    "verification": {
+                      "properties": {
+                        "dueAt": {
+                          "nullable": true
+                        },
+                        "method": {
+                          "type": "string"
+                        },
+                        "nextStep": {
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "verifiedAt": {
+                          "format": "date-time",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "dueAt",
+                        "method",
+                        "nextStep",
+                        "status",
+                        "verifiedAt"
+                      ],
+                      "type": "object"
                     },
                     "website": {
                       "nullable": true
@@ -51100,6 +51169,7 @@
                     "tabletActivated",
                     "tabletCode",
                     "updatedAt",
+                    "verification",
                     "website",
                     "wentLiveAt",
                     "zone",
@@ -63945,6 +64015,1428 @@
         ]
       }
     },
+    "/api/v1/admin/verification": {
+      "get": {
+        "operationId": "VerificationController_overview",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "businesses": {
+                    "counts": {
+                      "NEEDS_REVIEW": 0,
+                      "PENDING": 0,
+                      "REJECTED": 0,
+                      "UNVERIFIED": 0,
+                      "VERIFIED": 26,
+                      "operatingUnverified": 0,
+                      "total": 26,
+                      "withDeadline": 0
+                    },
+                    "policy": {
+                      "description": "A new business waits for staff to review its documents, menu and a test order, then go live (SOP-01).",
+                      "instant": false,
+                      "method": "MANUAL",
+                      "mode": "MANUAL",
+                      "modes": {
+                        "AUTOMATIC": "A new business is sent a Certn identity and criminal-record check and is activated automatically when it comes back clear. A flagged or failed result goes to...",
+                        "INSTANT": "A new business is live the moment it applies and can use the portal and receive orders straight away. It is recorded as unverified until you force verification.",
+                        "MANUAL": "A new business waits for staff to review its documents, menu and a test order, then go live (SOP-01)."
+                      }
+                    }
+                  },
+                  "certn": {
+                    "configured": false,
+                    "mock": true,
+                    "provider": "certn-mock",
+                    "ready": true,
+                    "reason": null,
+                    "webhookSecret": "<redacted>",
+                    "webhookUrl": "http://localhost:4200/api/v1/public/webhooks/certn"
+                  },
+                  "drivers": {
+                    "counts": {
+                      "NEEDS_REVIEW": 0,
+                      "PENDING": 5,
+                      "REJECTED": 1,
+                      "UNVERIFIED": 0,
+                      "VERIFIED": 22,
+                      "operatingUnverified": 0,
+                      "total": 28,
+                      "withDeadline": 0
+                    },
+                    "policy": {
+                      "description": "A new driver waits for staff to review their documents and background check, then approve and activate them (SOP-02).",
+                      "instant": false,
+                      "method": "MANUAL",
+                      "mode": "MANUAL",
+                      "modes": {
+                        "AUTOMATIC": "A new driver is sent a Certn identity and criminal-record check and is activated automatically when it comes back clear. A flagged or failed result goes to s...",
+                        "INSTANT": "A new driver is active the moment they sign up and can go online straight away. They are recorded as unverified until you force verification.",
+                        "MANUAL": "A new driver waits for staff to review their documents and background check, then approve and activate them (SOP-02)."
+                      }
+                    }
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "businesses": {
+                      "properties": {
+                        "counts": {
+                          "properties": {
+                            "NEEDS_REVIEW": {
+                              "type": "integer"
+                            },
+                            "PENDING": {
+                              "type": "integer"
+                            },
+                            "REJECTED": {
+                              "type": "integer"
+                            },
+                            "UNVERIFIED": {
+                              "type": "integer"
+                            },
+                            "VERIFIED": {
+                              "type": "integer"
+                            },
+                            "operatingUnverified": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            },
+                            "withDeadline": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "NEEDS_REVIEW",
+                            "PENDING",
+                            "REJECTED",
+                            "UNVERIFIED",
+                            "VERIFIED",
+                            "operatingUnverified",
+                            "total",
+                            "withDeadline"
+                          ],
+                          "type": "object"
+                        },
+                        "policy": {
+                          "properties": {
+                            "description": {
+                              "type": "string"
+                            },
+                            "instant": {
+                              "type": "boolean"
+                            },
+                            "method": {
+                              "type": "string"
+                            },
+                            "mode": {
+                              "type": "string"
+                            },
+                            "modes": {
+                              "properties": {
+                                "AUTOMATIC": {
+                                  "type": "string"
+                                },
+                                "INSTANT": {
+                                  "type": "string"
+                                },
+                                "MANUAL": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "AUTOMATIC",
+                                "INSTANT",
+                                "MANUAL"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "description",
+                            "instant",
+                            "method",
+                            "mode",
+                            "modes"
+                          ],
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "counts",
+                        "policy"
+                      ],
+                      "type": "object"
+                    },
+                    "certn": {
+                      "properties": {
+                        "configured": {
+                          "type": "boolean"
+                        },
+                        "mock": {
+                          "type": "boolean"
+                        },
+                        "provider": {
+                          "type": "string"
+                        },
+                        "ready": {
+                          "type": "boolean"
+                        },
+                        "reason": {
+                          "nullable": true
+                        },
+                        "webhookSecret": {
+                          "type": "boolean"
+                        },
+                        "webhookUrl": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "configured",
+                        "mock",
+                        "provider",
+                        "ready",
+                        "reason",
+                        "webhookSecret",
+                        "webhookUrl"
+                      ],
+                      "type": "object"
+                    },
+                    "drivers": {
+                      "properties": {
+                        "counts": {
+                          "properties": {
+                            "NEEDS_REVIEW": {
+                              "type": "integer"
+                            },
+                            "PENDING": {
+                              "type": "integer"
+                            },
+                            "REJECTED": {
+                              "type": "integer"
+                            },
+                            "UNVERIFIED": {
+                              "type": "integer"
+                            },
+                            "VERIFIED": {
+                              "type": "integer"
+                            },
+                            "operatingUnverified": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            },
+                            "withDeadline": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "NEEDS_REVIEW",
+                            "PENDING",
+                            "REJECTED",
+                            "UNVERIFIED",
+                            "VERIFIED",
+                            "operatingUnverified",
+                            "total",
+                            "withDeadline"
+                          ],
+                          "type": "object"
+                        },
+                        "policy": {
+                          "properties": {
+                            "description": {
+                              "type": "string"
+                            },
+                            "instant": {
+                              "type": "boolean"
+                            },
+                            "method": {
+                              "type": "string"
+                            },
+                            "mode": {
+                              "type": "string"
+                            },
+                            "modes": {
+                              "properties": {
+                                "AUTOMATIC": {
+                                  "type": "string"
+                                },
+                                "INSTANT": {
+                                  "type": "string"
+                                },
+                                "MANUAL": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "AUTOMATIC",
+                                "INSTANT",
+                                "MANUAL"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "description",
+                            "instant",
+                            "method",
+                            "mode",
+                            "modes"
+                          ],
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "counts",
+                        "policy"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "businesses",
+                    "certn",
+                    "drivers"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response shape observed on demo data (a field that was empty in every demo row may be typed loosely or be missing)"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin / verification"
+        ]
+      }
+    },
+    "/api/v1/admin/verification/businesses/{id}": {
+      "get": {
+        "operationId": "VerificationController_business",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "accountStatus": "LIVE",
+                  "audience": "BUSINESS",
+                  "backgroundCheck": {
+                    "provider": null,
+                    "ref": null,
+                    "status": "NOT_STARTED"
+                  },
+                  "canReject": false,
+                  "canStartCheck": false,
+                  "canVerify": false,
+                  "email": "owner26@demo-restaurant.ca",
+                  "gates": [
+                    {
+                      "done": true,
+                      "key": "documents_approved:9531f355-395c-4230-9c9a-255ab5b650b3",
+                      "label": "Sweet Crumbs Bakery & Cafe: required documents approved"
+                    }
+                  ],
+                  "id": "b90a2182-35d8-4885-90b8-c24d8bb8b9aa",
+                  "name": "Sweet Crumbs Bakery & Cafe Ltd.",
+                  "operating": true,
+                  "owner": {
+                    "email": "owner26@demo-restaurant.ca",
+                    "name": "Olivia Owner26"
+                  },
+                  "phone": "+14165551026",
+                  "restaurants": [
+                    {
+                      "acceptingOrders": true,
+                      "id": "9531f355-395c-4230-9c9a-255ab5b650b3",
+                      "name": "Sweet Crumbs Bakery & Cafe",
+                      "status": "LIVE"
+                    }
+                  ],
+                  "verification": {
+                    "certnAttempts": 0,
+                    "certnError": null,
+                    "dueAt": null,
+                    "effectiveMethod": "MANUAL",
+                    "fallback": null,
+                    "forcedAt": null,
+                    "method": "MANUAL",
+                    "nextStep": null,
+                    "status": "VERIFIED",
+                    "verifiedAt": "2026-08-15T18:11:32.889Z",
+                    "verifiedBy": null
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "accountStatus": {
+                      "type": "string"
+                    },
+                    "audience": {
+                      "type": "string"
+                    },
+                    "backgroundCheck": {
+                      "properties": {
+                        "provider": {
+                          "nullable": true
+                        },
+                        "ref": {
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "provider",
+                        "ref",
+                        "status"
+                      ],
+                      "type": "object"
+                    },
+                    "canReject": {
+                      "type": "boolean"
+                    },
+                    "canStartCheck": {
+                      "type": "boolean"
+                    },
+                    "canVerify": {
+                      "type": "boolean"
+                    },
+                    "email": {
+                      "format": "email",
+                      "type": "string"
+                    },
+                    "gates": {
+                      "items": {
+                        "properties": {
+                          "done": {
+                            "type": "boolean"
+                          },
+                          "key": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "done",
+                          "key",
+                          "label"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "id": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "operating": {
+                      "type": "boolean"
+                    },
+                    "owner": {
+                      "properties": {
+                        "email": {
+                          "format": "email",
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "email",
+                        "name"
+                      ],
+                      "type": "object"
+                    },
+                    "phone": {
+                      "type": "string"
+                    },
+                    "restaurants": {
+                      "items": {
+                        "properties": {
+                          "acceptingOrders": {
+                            "type": "boolean"
+                          },
+                          "id": {
+                            "format": "uuid",
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "acceptingOrders",
+                          "id",
+                          "name",
+                          "status"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "verification": {
+                      "properties": {
+                        "certnAttempts": {
+                          "type": "integer"
+                        },
+                        "certnError": {
+                          "nullable": true
+                        },
+                        "dueAt": {
+                          "nullable": true
+                        },
+                        "effectiveMethod": {
+                          "type": "string"
+                        },
+                        "fallback": {
+                          "nullable": true
+                        },
+                        "forcedAt": {
+                          "nullable": true
+                        },
+                        "method": {
+                          "type": "string"
+                        },
+                        "nextStep": {
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "verifiedAt": {
+                          "format": "date-time",
+                          "type": "string"
+                        },
+                        "verifiedBy": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "certnAttempts",
+                        "certnError",
+                        "dueAt",
+                        "effectiveMethod",
+                        "fallback",
+                        "forcedAt",
+                        "method",
+                        "nextStep",
+                        "status",
+                        "verifiedAt",
+                        "verifiedBy"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "accountStatus",
+                    "audience",
+                    "backgroundCheck",
+                    "canReject",
+                    "canStartCheck",
+                    "canVerify",
+                    "email",
+                    "gates",
+                    "id",
+                    "name",
+                    "operating",
+                    "owner",
+                    "phone",
+                    "restaurants",
+                    "verification"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response shape observed on demo data (a field that was empty in every demo row may be typed loosely or be missing)"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin / verification"
+        ]
+      }
+    },
+    "/api/v1/admin/verification/businesses/{id}/reject": {
+      "post": {
+        "operationId": "VerificationController_rejectBusiness",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectVerificationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin / verification"
+        ]
+      }
+    },
+    "/api/v1/admin/verification/businesses/{id}/start-check": {
+      "post": {
+        "operationId": "VerificationController_startBusinessCheck",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin / verification"
+        ]
+      }
+    },
+    "/api/v1/admin/verification/businesses/{id}/verify": {
+      "post": {
+        "operationId": "VerificationController_verifyBusiness",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin / verification"
+        ]
+      }
+    },
+    "/api/v1/admin/verification/drivers/{id}": {
+      "get": {
+        "operationId": "VerificationController_driver",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "accountStatus": "BACKGROUND_CHECK",
+                  "audience": "DRIVER",
+                  "backgroundCheck": {
+                    "history": [],
+                    "provider": "certn-mock",
+                    "ref": "mock_seed_28",
+                    "status": "IN_PROGRESS"
+                  },
+                  "canReject": true,
+                  "canStartCheck": false,
+                  "canVerify": true,
+                  "email": "driver28@demo.forksy.ca",
+                  "gates": [
+                    {
+                      "done": true,
+                      "key": "documents_approved",
+                      "label": "Required documents approved"
+                    },
+                    {
+                      "done": false,
+                      "key": "insurance_confirmed",
+                      "label": "Insurance covers delivery use (expiry recorded)"
+                    }
+                  ],
+                  "id": "8b647e4c-a303-4ff7-a2f0-cff1bbf12a2d",
+                  "isOnline": false,
+                  "name": "Andre Silva",
+                  "onTrip": false,
+                  "phone": "+14165550128",
+                  "verification": {
+                    "certnAttempts": 0,
+                    "certnError": null,
+                    "dueAt": null,
+                    "effectiveMethod": "MANUAL",
+                    "fallback": null,
+                    "forcedAt": null,
+                    "method": null,
+                    "nextStep": "Our team is reviewing your application. Upload any documents we ask for.",
+                    "status": "PENDING",
+                    "verifiedAt": null,
+                    "verifiedBy": null
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "accountStatus": {
+                      "type": "string"
+                    },
+                    "audience": {
+                      "type": "string"
+                    },
+                    "backgroundCheck": {
+                      "properties": {
+                        "history": {
+                          "items": {},
+                          "type": "array"
+                        },
+                        "provider": {
+                          "type": "string"
+                        },
+                        "ref": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "history",
+                        "provider",
+                        "ref",
+                        "status"
+                      ],
+                      "type": "object"
+                    },
+                    "canReject": {
+                      "type": "boolean"
+                    },
+                    "canStartCheck": {
+                      "type": "boolean"
+                    },
+                    "canVerify": {
+                      "type": "boolean"
+                    },
+                    "email": {
+                      "format": "email",
+                      "type": "string"
+                    },
+                    "gates": {
+                      "items": {
+                        "properties": {
+                          "detail": {
+                            "type": "string"
+                          },
+                          "done": {
+                            "type": "boolean"
+                          },
+                          "key": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "done",
+                          "key",
+                          "label"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "id": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "isOnline": {
+                      "type": "boolean"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "onTrip": {
+                      "type": "boolean"
+                    },
+                    "phone": {
+                      "type": "string"
+                    },
+                    "verification": {
+                      "properties": {
+                        "certnAttempts": {
+                          "type": "integer"
+                        },
+                        "certnError": {
+                          "nullable": true
+                        },
+                        "dueAt": {
+                          "nullable": true
+                        },
+                        "effectiveMethod": {
+                          "type": "string"
+                        },
+                        "fallback": {
+                          "nullable": true
+                        },
+                        "forcedAt": {
+                          "nullable": true
+                        },
+                        "method": {
+                          "nullable": true
+                        },
+                        "nextStep": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "verifiedAt": {
+                          "nullable": true
+                        },
+                        "verifiedBy": {
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "certnAttempts",
+                        "certnError",
+                        "dueAt",
+                        "effectiveMethod",
+                        "fallback",
+                        "forcedAt",
+                        "method",
+                        "nextStep",
+                        "status",
+                        "verifiedAt",
+                        "verifiedBy"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "accountStatus",
+                    "audience",
+                    "backgroundCheck",
+                    "canReject",
+                    "canStartCheck",
+                    "canVerify",
+                    "email",
+                    "gates",
+                    "id",
+                    "isOnline",
+                    "name",
+                    "onTrip",
+                    "phone",
+                    "verification"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response shape observed on demo data (a field that was empty in every demo row may be typed loosely or be missing)"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin / verification"
+        ]
+      }
+    },
+    "/api/v1/admin/verification/drivers/{id}/reject": {
+      "post": {
+        "operationId": "VerificationController_rejectDriver",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectVerificationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin / verification"
+        ]
+      }
+    },
+    "/api/v1/admin/verification/drivers/{id}/start-check": {
+      "post": {
+        "operationId": "VerificationController_startDriverCheck",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin / verification"
+        ]
+      }
+    },
+    "/api/v1/admin/verification/drivers/{id}/verify": {
+      "post": {
+        "operationId": "VerificationController_verifyDriver",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin / verification"
+        ]
+      }
+    },
+    "/api/v1/admin/verification/force": {
+      "post": {
+        "operationId": "VerificationController_force",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForceVerificationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin / verification"
+        ]
+      }
+    },
+    "/api/v1/admin/verification/policy": {
+      "put": {
+        "operationId": "VerificationController_updatePolicy",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePolicyDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin / verification"
+        ]
+      }
+    },
+    "/api/v1/admin/verification/subjects": {
+      "get": {
+        "operationId": "VerificationController_subjects",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "audience",
+            "required": true,
+            "schema": {
+              "enum": [
+                "DRIVER",
+                "BUSINESS"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "UNVERIFIED",
+                "PENDING",
+                "NEEDS_REVIEW",
+                "VERIFIED",
+                "REJECTED"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": [
+                    {
+                      "accountStatus": "BACKGROUND_CHECK",
+                      "audience": "DRIVER",
+                      "backgroundCheckStatus": "IN_PROGRESS",
+                      "createdAt": "2026-10-14T18:11:33.688Z",
+                      "email": "driver28@demo.forksy.ca",
+                      "id": "8b647e4c-a303-4ff7-a2f0-cff1bbf12a2d",
+                      "name": "Andre Silva",
+                      "operating": false,
+                      "phone": "+14165550128",
+                      "verificationDueAt": null,
+                      "verificationForcedAt": null,
+                      "verificationMethod": null,
+                      "verificationStatus": "PENDING",
+                      "verifiedAt": null
+                    },
+                    {
+                      "accountStatus": "APPROVED",
+                      "audience": "DRIVER",
+                      "backgroundCheckStatus": "CLEAR",
+                      "createdAt": "2026-10-14T18:11:33.657Z",
+                      "email": "driver27@demo.forksy.ca",
+                      "id": "d335fe4d-65be-4df5-81e2-90465c4e706d",
+                      "name": "Simran Kaur",
+                      "operating": false,
+                      "phone": "+14165550127",
+                      "verificationDueAt": null,
+                      "verificationForcedAt": null,
+                      "verificationMethod": "MANUAL",
+                      "verificationStatus": "VERIFIED",
+                      "verifiedAt": "2026-08-28T18:11:33.657Z"
+                    }
+                  ],
+                  "meta": {
+                    "limit": 20,
+                    "page": 1,
+                    "total": 28,
+                    "totalPages": 2
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "items": {
+                        "properties": {
+                          "accountStatus": {
+                            "type": "string"
+                          },
+                          "audience": {
+                            "type": "string"
+                          },
+                          "backgroundCheckStatus": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "format": "date-time",
+                            "type": "string"
+                          },
+                          "email": {
+                            "format": "email",
+                            "type": "string"
+                          },
+                          "id": {
+                            "format": "uuid",
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "operating": {
+                            "type": "boolean"
+                          },
+                          "phone": {
+                            "type": "string"
+                          },
+                          "verificationDueAt": {
+                            "nullable": true
+                          },
+                          "verificationForcedAt": {
+                            "nullable": true
+                          },
+                          "verificationMethod": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "verificationStatus": {
+                            "type": "string"
+                          },
+                          "verifiedAt": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "accountStatus",
+                          "audience",
+                          "backgroundCheckStatus",
+                          "createdAt",
+                          "email",
+                          "id",
+                          "name",
+                          "operating",
+                          "phone",
+                          "verificationDueAt",
+                          "verificationForcedAt",
+                          "verificationMethod",
+                          "verificationStatus",
+                          "verifiedAt"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "meta": {
+                      "properties": {
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "totalPages": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "limit",
+                        "page",
+                        "total",
+                        "totalPages"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response shape observed on demo data (a field that was empty in every demo row may be typed loosely or be missing)"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin / verification"
+        ]
+      }
+    },
+    "/api/v1/admin/verification/sweep": {
+      "post": {
+        "operationId": "VerificationController_sweep",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Admin / verification"
+        ]
+      }
+    },
     "/api/v1/admin/zones": {
       "get": {
         "operationId": "ZonesController_list",
@@ -76229,23 +77721,23 @@
               "application/json": {
                 "example": {
                   "acceptance": {
-                    "accepted": 1,
+                    "accepted": 17,
                     "declined": 0,
-                    "expired": 0,
-                    "lastUpdatedAt": "2026-10-14T15:00:00.061Z",
-                    "rate": 92,
-                    "since": "2026-09-30T15:56:41.176Z",
-                    "total": 1,
+                    "expired": 1,
+                    "lastUpdatedAt": "2026-10-14T18:11:34.254Z",
+                    "rate": 94.44,
+                    "since": "2026-09-30T18:15:41.135Z",
+                    "total": 18,
                     "windowDays": 14
                   },
-                  "acceptanceRate": 92,
-                  "activeZoneId": "9d02033a-6ed9-495b-ac14-901c88e7f91b",
+                  "acceptanceRate": 94.44,
+                  "activeZoneId": "11f4c8a9-32b2-4f8d-a899-967421e2a9a8",
                   "avatarUrl": null,
-                  "cityId": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
+                  "cityId": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
                   "completionRate": 100,
                   "email": "driver1@demo.forksy.ca",
                   "firstName": "Liam",
-                  "id": "bf5e7c20-ca7b-465f-a17d-9c428e49985c",
+                  "id": "aebd1e26-56d2-455a-b9eb-dc943e5bf4de",
                   "insulatedBagConfirmed": true,
                   "isOnline": true,
                   "language": "en",
@@ -76277,8 +77769,8 @@
                   "ontarioNoticeAcked": true,
                   "payoutSchedule": "WEEKLY",
                   "phone": "+14165550101",
-                  "rating": 4.859,
-                  "ratingCount": 61,
+                  "rating": 4.812,
+                  "ratingCount": 59,
                   "status": "ACTIVE",
                   "statusReason": null,
                   "totalTrips": 53,
@@ -76289,9 +77781,16 @@
                     "model": "Corolla",
                     "type": "CAR"
                   },
+                  "verification": {
+                    "dueAt": null,
+                    "method": "MANUAL",
+                    "nextStep": null,
+                    "status": "VERIFIED",
+                    "verifiedAt": "2026-09-13T18:11:26.091Z"
+                  },
                   "zoneIds": [
-                    "9d02033a-6ed9-495b-ac14-901c88e7f91b",
-                    "bf65d45f-2c3e-4d2b-95d4-2f11e91ba042"
+                    "11f4c8a9-32b2-4f8d-a899-967421e2a9a8",
+                    "00ae6cf8-4adc-4827-9875-e3a0004ebb0a"
                   ]
                 },
                 "schema": {
@@ -76312,7 +77811,7 @@
                           "type": "string"
                         },
                         "rate": {
-                          "type": "integer"
+                          "type": "number"
                         },
                         "since": {
                           "format": "date-time",
@@ -76338,7 +77837,7 @@
                       "type": "object"
                     },
                     "acceptanceRate": {
-                      "type": "integer"
+                      "type": "number"
                     },
                     "activeZoneId": {
                       "format": "uuid",
@@ -76497,6 +77996,34 @@
                       ],
                       "type": "object"
                     },
+                    "verification": {
+                      "properties": {
+                        "dueAt": {
+                          "nullable": true
+                        },
+                        "method": {
+                          "type": "string"
+                        },
+                        "nextStep": {
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "verifiedAt": {
+                          "format": "date-time",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "dueAt",
+                        "method",
+                        "nextStep",
+                        "status",
+                        "verifiedAt"
+                      ],
+                      "type": "object"
+                    },
                     "zoneIds": {
                       "items": {
                         "format": "uuid",
@@ -76531,6 +78058,7 @@
                     "statusReason",
                     "totalTrips",
                     "vehicle",
+                    "verification",
                     "zoneIds"
                   ],
                   "type": "object"
@@ -102116,45 +103644,45 @@
                   "addressLine1": "45 Lakeshore Rd E",
                   "addressLine2": null,
                   "city": "Mississauga",
-                  "cityId": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
+                  "cityId": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
                   "coverUrl": null,
-                  "createdAt": "2026-09-30T18:37:51.491Z",
+                  "createdAt": "2026-10-14T18:11:22.658Z",
                   "cuisines": [
                     {
                       "active": true,
-                      "createdAt": "2026-09-30T18:37:50.807Z",
+                      "createdAt": "2026-10-14T18:11:21.907Z",
                       "iconUrl": null,
-                      "id": "7632dc49-f47a-4e94-b46d-7bb508cbefd4",
+                      "id": "fcff5777-8ca6-4b8b-9c14-27cfc873949e",
                       "name": "Pizza",
                       "slug": "pizza",
                       "sortOrder": 1,
-                      "updatedAt": "2026-09-30T18:37:50.807Z"
+                      "updatedAt": "2026-10-14T18:11:21.907Z"
                     },
                     {
                       "active": true,
-                      "createdAt": "2026-09-30T18:37:50.839Z",
+                      "createdAt": "2026-10-14T18:11:21.942Z",
                       "iconUrl": null,
-                      "id": "c9cfa0fc-3a89-46d3-9925-ee6ec102a980",
+                      "id": "21c36352-9857-4ec5-a384-4b1844eaf8cf",
                       "name": "Italian",
                       "slug": "italian",
                       "sortOrder": 7,
-                      "updatedAt": "2026-09-30T18:37:50.839Z"
+                      "updatedAt": "2026-10-14T18:11:21.942Z"
                     }
                   ],
                   "description": "Napoli Wood Fired Pizza - Port Credit - fresh, made to order in Mississauga.",
                   "email": "orders+napoli-wood-fired-pizza-port-credit@demo-restaurant.ca",
                   "hstNumber": null,
-                  "id": "01b3fa44-8ddc-4a42-b4cd-f52d38f57da5",
+                  "id": "d3184744-e62b-4755-af0a-92a566893ca9",
                   "lat": 43.5616,
                   "lng": -79.5857,
                   "logoUrl": null,
-                  "menuEditDecidedAt": "2026-10-06T21:13:01.409Z",
-                  "menuEditDecidedById": "d21204a4-bd46-4984-95cf-3783590baf07",
-                  "menuEditDecisionNote": "Approved",
-                  "menuEditRequestNote": "We changed our lunch menu",
-                  "menuEditRequestedAt": "2026-10-06T21:13:01.051Z",
+                  "menuEditDecidedAt": null,
+                  "menuEditDecidedById": null,
+                  "menuEditDecisionNote": null,
+                  "menuEditRequestNote": null,
+                  "menuEditRequestedAt": null,
                   "menuEditStatus": "ALLOWED",
-                  "merchantId": "81ee83c1-a111-4c84-8232-ec4b91158ab9",
+                  "merchantId": "56550b29-16c7-4e1a-8157-f5e4a8532238",
                   "name": "Napoli Wood Fired Pizza - Port Credit",
                   "pausedUntil": null,
                   "phone": "+14165553001",
@@ -102164,13 +103692,13 @@
                   "province": "ON",
                   "serviceMode": "PICKUP_AND_DELIVERY",
                   "serviceModeResumeAt": null,
-                  "serviceModeUpdatedAt": "2026-10-01T13:32:07.239Z",
+                  "serviceModeUpdatedAt": null,
                   "slug": "napoli-wood-fired-pizza-port-credit",
                   "status": "LIVE",
                   "statusReason": null,
-                  "updatedAt": "2026-10-09T14:22:42.495Z",
+                  "updatedAt": "2026-10-14T18:11:22.658Z",
                   "website": null,
-                  "wentLiveAt": "2026-08-01T18:37:51.490Z",
+                  "wentLiveAt": "2026-08-15T18:11:22.658Z",
                   "zone": {
                     "active": true,
                     "baseFee": null,
@@ -102179,10 +103707,10 @@
                     "busyRadiusKm": null,
                     "centerLat": 43.5606,
                     "centerLng": -79.5877,
-                    "cityId": "b092a22c-af3f-4f92-8296-fd38c98f71f3",
-                    "createdAt": "2026-09-30T18:37:50.749Z",
+                    "cityId": "2b6ee9b4-3c0c-4fd1-8492-ecb66b927568",
+                    "createdAt": "2026-10-14T18:11:21.822Z",
                     "deliveryRadiusKm": null,
-                    "id": "f606a4c5-b625-4450-82c2-3564edbb35c5",
+                    "id": "8099934e-ae44-4e20-8969-f0923d44e9ca",
                     "maxDeliveryRadiusKm": null,
                     "minimumOrder": null,
                     "name": "Port Credit",
@@ -102199,9 +103727,9 @@
                     ],
                     "serviceHours": {},
                     "targetDrivers": 20,
-                    "updatedAt": "2026-10-01T23:16:27.339Z"
+                    "updatedAt": "2026-10-14T18:11:21.822Z"
                   },
-                  "zoneId": "f606a4c5-b625-4450-82c2-3564edbb35c5"
+                  "zoneId": "8099934e-ae44-4e20-8969-f0923d44e9ca"
                 },
                 "schema": {
                   "properties": {
@@ -102491,30 +104019,7 @@
                       "type": "boolean"
                     },
                     "kdsSettings": {
-                      "properties": {
-                        "autoLoadPrep": {
-                          "type": "boolean"
-                        },
-                        "capacityTickets": {
-                          "type": "integer"
-                        },
-                        "largeFont": {
-                          "type": "boolean"
-                        },
-                        "recentPickedUpMinutes": {
-                          "type": "integer"
-                        },
-                        "soundOn": {
-                          "type": "boolean"
-                        }
-                      },
-                      "required": [
-                        "autoLoadPrep",
-                        "capacityTickets",
-                        "largeFont",
-                        "recentPickedUpMinutes",
-                        "soundOn"
-                      ],
+                      "properties": {},
                       "type": "object"
                     },
                     "kitchenPrinterEnabled": {
@@ -102533,22 +104038,19 @@
                       "type": "integer"
                     },
                     "menuEditDecidedAt": {
-                      "format": "date-time",
-                      "type": "string"
+                      "nullable": true
                     },
                     "menuEditDecidedById": {
-                      "format": "uuid",
-                      "type": "string"
+                      "nullable": true
                     },
                     "menuEditDecisionNote": {
-                      "type": "string"
+                      "nullable": true
                     },
                     "menuEditRequestNote": {
-                      "type": "string"
+                      "nullable": true
                     },
                     "menuEditRequestedAt": {
-                      "format": "date-time",
-                      "type": "string"
+                      "nullable": true
                     },
                     "menuEditStatus": {
                       "type": "string"
@@ -102570,72 +104072,12 @@
                           ],
                           "type": "object"
                         },
-                        "kds": {
-                          "properties": {
-                            "autoLoadPrep": {
-                              "type": "boolean"
-                            },
-                            "capacityTickets": {
-                              "type": "integer"
-                            },
-                            "largeFont": {
-                              "type": "boolean"
-                            },
-                            "recentPickedUpMinutes": {
-                              "type": "integer"
-                            },
-                            "soundOn": {
-                              "type": "boolean"
-                            }
-                          },
-                          "required": [
-                            "autoLoadPrep",
-                            "capacityTickets",
-                            "largeFont",
-                            "recentPickedUpMinutes",
-                            "soundOn"
-                          ],
-                          "type": "object"
-                        },
-                        "notificationSettings": {
-                          "properties": {
-                            "emailOnNewOrder": {
-                              "type": "boolean"
-                            },
-                            "lowStockAlerts": {
-                              "type": "boolean"
-                            },
-                            "newOrderSound": {
-                              "type": "boolean"
-                            },
-                            "repeatSeconds": {
-                              "type": "integer"
-                            },
-                            "smsOnNewOrder": {
-                              "type": "boolean"
-                            },
-                            "volume": {
-                              "type": "integer"
-                            }
-                          },
-                          "required": [
-                            "emailOnNewOrder",
-                            "lowStockAlerts",
-                            "newOrderSound",
-                            "repeatSeconds",
-                            "smsOnNewOrder",
-                            "volume"
-                          ],
-                          "type": "object"
-                        },
                         "ratingsSeeded": {
                           "type": "boolean"
                         }
                       },
                       "required": [
                         "assistant",
-                        "kds",
-                        "notificationSettings",
                         "ratingsSeeded"
                       ],
                       "type": "object"
@@ -102647,34 +104089,7 @@
                       "type": "string"
                     },
                     "notificationSettings": {
-                      "properties": {
-                        "emailOnNewOrder": {
-                          "type": "boolean"
-                        },
-                        "lowStockAlerts": {
-                          "type": "boolean"
-                        },
-                        "newOrderSound": {
-                          "type": "boolean"
-                        },
-                        "repeatSeconds": {
-                          "type": "integer"
-                        },
-                        "smsOnNewOrder": {
-                          "type": "boolean"
-                        },
-                        "volume": {
-                          "type": "integer"
-                        }
-                      },
-                      "required": [
-                        "emailOnNewOrder",
-                        "lowStockAlerts",
-                        "newOrderSound",
-                        "repeatSeconds",
-                        "smsOnNewOrder",
-                        "volume"
-                      ],
+                      "properties": {},
                       "type": "object"
                     },
                     "openStatus": {
@@ -102923,8 +104338,7 @@
                       "nullable": true
                     },
                     "serviceModeUpdatedAt": {
-                      "format": "date-time",
-                      "type": "string"
+                      "nullable": true
                     },
                     "slotMinutes": {
                       "type": "integer"
@@ -102989,6 +104403,34 @@
                     "updatedAt": {
                       "format": "date-time",
                       "type": "string"
+                    },
+                    "verification": {
+                      "properties": {
+                        "dueAt": {
+                          "nullable": true
+                        },
+                        "method": {
+                          "type": "string"
+                        },
+                        "nextStep": {
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "verifiedAt": {
+                          "format": "date-time",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "dueAt",
+                        "method",
+                        "nextStep",
+                        "status",
+                        "verifiedAt"
+                      ],
+                      "type": "object"
                     },
                     "website": {
                       "nullable": true
@@ -103187,6 +104629,7 @@
                     "tabletActivated",
                     "tabletCode",
                     "updatedAt",
+                    "verification",
                     "website",
                     "wentLiveAt",
                     "zone",
@@ -105556,6 +106999,9 @@
       "name": "Admin / tax-classes"
     },
     {
+      "name": "Admin / verification"
+    },
+    {
       "name": "Admin / zones"
     },
     {
@@ -105804,6 +107250,7 @@
         "Admin / support/chat",
         "Admin / system health",
         "Admin / tax-classes",
+        "Admin / verification",
         "Admin / zones"
       ]
     },

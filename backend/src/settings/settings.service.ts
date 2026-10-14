@@ -5,6 +5,7 @@ import { FeatureFlag, Setting } from '../database/entities';
 import { defaultMatrix } from '../notifications/events';
 import { seal, unseal } from '../common/secretbox';
 import { HEALTH_SETTING_DEFINITIONS } from '../system-health/health-settings';
+import { VERIFICATION_SETTING_DEFINITIONS, VERIFICATION_SETTING_GROUP } from '../verification/verification-policy';
 
 /** Every configurable platform setting with its default. Seeded on boot (existing values are never overwritten). */
 export const SETTING_DEFINITIONS: any[] = [
@@ -279,6 +280,8 @@ export const SETTING_DEFINITIONS: any[] = [
   { key: 'assistant.central.chips', group: 'assistant', label: 'Central assistant: starter chips ([{label, query}], max 6; empty = built-in defaults)', value: [], inputType: 'json' },
   // ---- System Health page thresholds (docs/system-health.md)
   ...HEALTH_SETTING_DEFINITIONS,
+  // ---- registration and verification policy (docs/verification.md; Super Admin only, edited on System > Verification)
+  ...VERIFICATION_SETTING_DEFINITIONS,
 ];
 
 export const FEATURE_FLAG_DEFINITIONS = [
@@ -410,8 +413,8 @@ export class SettingsService implements OnModuleInit {
 
   async list(group?: string) {
     const rows = await this.repo.find({ where: group ? { group } : {}, order: { group: 'ASC', key: 'ASC' } });
-    // the "integrations" group is edited on its own page (format checks, super admin only, test connection); it is not listed here
-    return rows.filter((r) => r.group !== 'integrations').map((r) => this.mask(r));
+    // the "integrations" and "verification" groups are edited on their own pages (validation, super admin only); they are not listed here
+    return rows.filter((r) => r.group !== 'integrations' && r.group !== VERIFICATION_SETTING_GROUP).map((r) => this.mask(r));
   }
 
   mask(r: Setting) {

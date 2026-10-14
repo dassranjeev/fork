@@ -175,6 +175,7 @@ function paramValues(param, tpl, role) {
   const name = param.replace(/Id$/, '');
   const field = /^(id|[a-z]+Id)$/i.test(param) ? 'id' : param;
   const kinds = [...new Set([prev, name.endsWith('y') ? name.slice(0, -1) + 'ies' : name + 's', name + 'es', prev.replace(/s$/, '') + 's'].filter(Boolean))];
+  if (prev === 'businesses') kinds.push('merchants'); // /admin/verification/businesses/{id} takes a merchant id
   const found = [];
   for (const kind of kinds) for (const r of [role || 'public', '*']) {
     const m = pools.get(`${r}|${kind}|${field}`);
@@ -230,7 +231,8 @@ async function attempt(g) {
       last.as = as;
       // 400: maybe a query parameter is really required; fill the ones the message names
       if (last.status === 400 && last.json?.message) {
-        const msg = String(Array.isArray(last.json.message) ? last.json.message.join(' ') : last.json.message);
+        // validation errors answer message "Validation failed" and name the parameters in `details`
+        const msg = [].concat(last.json.message, last.json.details ?? []).flat().join(' ');
         const needed = queryNames.filter((p) => new RegExp('\\b' + p.name + '\\b', 'i').test(msg));
         // a route can demand a parameter the generated spec does not declare at all (it reads the request object directly)
         if (!needed.some((p) => p.name === 'restaurantId') && /\brestaurantId\b/.test(msg)) needed.push({ name: 'restaurantId', in: 'query', schema: { type: 'string' } });

@@ -1,7 +1,7 @@
 import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { City, DriverDocument, DriverOffer, DriverProfile, TrainingModule, User, Zone } from '../database/entities';
-import { DocStatus, DriverDocType, DriverStatus, OfferStatus, UserStatus, UserType, VehicleType } from '../common/enums';
+import { DocStatus, DriverDocType, DriverStatus, OfferStatus, UserStatus, UserType, VehicleType, VerificationMethod, VerificationStatus } from '../common/enums';
 import { SeedOptions } from '../database/seed-types';
 
 type Plan = { first: string; last: string; status: DriverStatus; online?: boolean; vehicle: VehicleType; docs: 'all' | 'some' | 'none'; bg: DriverProfile['backgroundCheckStatus']; reason?: string };
@@ -85,6 +85,10 @@ export async function seedDrivers(ds: DataSource, opts: SeedOptions): Promise<vo
         insulatedBagConfirmed: assigned,
         welcomeBoostSent: live,
         approvedAt: assigned ? new Date(Date.now() - (30 + n) * 86400000) : null,
+        // demo drivers who went through the pipeline count as verified (method MANUAL), like the migration's backfill
+        verificationStatus: assigned ? VerificationStatus.VERIFIED : p.status === DriverStatus.REJECTED ? VerificationStatus.REJECTED : VerificationStatus.PENDING,
+        verificationMethod: assigned ? VerificationMethod.MANUAL : null,
+        verifiedAt: assigned ? new Date(Date.now() - (30 + n) * 86400000) : null,
         bank: assigned ? { institution: '004', transit: '12345', accountLast4: String(1000 + n), holder: `${p.first} ${p.last}` } : null,
         taxInfo: assigned ? { sinLast3: String(100 + n), legalName: `${p.first} ${p.last}`, address: `${n} Hurontario St, Mississauga, ON`, collectedAt: new Date().toISOString() } : null,
         ontarioPlatformWorkerNoticeAcked: p.docs !== 'none',
@@ -194,6 +198,9 @@ export async function seedDriversExtra(ds: DataSource, opts: SeedOptions): Promi
         insulatedBagConfirmed: assigned,
         welcomeBoostSent: live,
         approvedAt: assigned ? new Date(Date.now() - (20 + n) * 86400000) : null,
+        verificationStatus: assigned ? VerificationStatus.VERIFIED : VerificationStatus.PENDING,
+        verificationMethod: assigned ? VerificationMethod.MANUAL : null,
+        verifiedAt: assigned ? new Date(Date.now() - (20 + n) * 86400000) : null,
         bank: assigned ? { institution: '004', transit: '12345', accountLast4: String(1000 + n), holder: `${p.first} ${p.last}` } : null,
         taxInfo: assigned ? { sinLast3: String(100 + n), legalName: `${p.first} ${p.last}`, address: `${n} Main St, Brampton, ON`, collectedAt: new Date().toISOString() } : null,
         ontarioPlatformWorkerNoticeAcked: true,

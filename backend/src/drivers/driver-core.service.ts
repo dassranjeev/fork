@@ -10,7 +10,7 @@ import {
   TrainingModule,
   User,
 } from '../database/entities';
-import { ActorType, DocStatus, DriverDocType, DriverStatus, NotificationChannel, UserStatus, UserType } from '../common/enums';
+import { ActorType, DocStatus, DriverDocType, DriverStatus, NotificationChannel, UserStatus, UserType, VerificationMethod } from '../common/enums';
 import { ActorRef, Events, StatusChangedEvent } from '../common/contracts';
 import { SettingsService } from '../settings/settings.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -24,6 +24,8 @@ export interface ChecklistItem {
   detail?: string;
   /** who has to act: DRIVER | OPS */
   owner: 'DRIVER' | 'OPS';
+  /** not needed for this driver to work (admitted instantly, verified by Certn, or verified despite missing documents): left out of `missing`, `driverActions` and `percent` */
+  optional?: boolean;
 }
 
 export const PRE_ACTIVE: DriverStatus[] = [
@@ -111,7 +113,7 @@ export class DriverCoreService {
     const docState = await this.requiredDocState(p.id);
     const training = await this.trainingProgress(p.id);
     const insurance = p.meta?.insurance as { coversDelivery?: boolean; expiresAt?: string } | undefined;
-    const steps: ChecklistItem[] = [
+    const all: ChecklistItem[] = [
       { key: 'profile', label: 'Sign up (name, phone, email, city, vehicle)', done: true, owner: 'DRIVER' },
       {
         key: 'documents_uploaded',
@@ -154,16 +156,33 @@ export class DriverCoreService {
       { key: 'approved', label: 'Approved', done: [DriverStatus.APPROVED, DriverStatus.ACTIVE].includes(p.status), owner: 'OPS' },
       { key: 'zones', label: 'Activated for zones', done: p.status === DriverStatus.ACTIVE && p.zoneIds.length > 0, owner: 'OPS' },
     ];
-    const missing = steps.filter((s) => !s.done);
+    // what staff would have checked is optional for a driver who was admitted without that check (docs/verification.md); the Certn check itself
+    // stays required for a driver whose verification is automatic, and the manual process is unchanged
+    const STAFF_CHECKED = ['documents_uploaded', 'documents_approved', 'insurance_confirmed', 'background_check', 'training', 'insulated_bag'];
+    const instantOrWaived = p.verificationMethod === VerificationMethod.INSTANT || p.meta?.verification?.docsWaived === true;
+    const optional = instantOrWaived ? STAFF_CHECKED : p.verificationMethod === VerificationMethod.AUTOMATIC ? STAFF_CHECKED.filter((k) => k !== 'background_check') : [];
+    const steps: ChecklistItem[] = all.map((s) => (optional.includes(s.key) ? { ...s, optional: true } : s));
+    const needed = steps.filter((s) => !s.optional);
+    const missing = needed.filter((s) => !s.done);
     return {
       status: p.status,
       statusReason: p.statusReason,
       steps,
       missing: missing.map((m) => m.key),
       driverActions: missing.filter((m) => m.owner === 'DRIVER').map((m) => m.key),
-      percent: Math.round((steps.filter((s) => s.done).length / steps.length) * 100),
+      percent: Math.round((needed.filter((s) => s.done).length / needed.length) * 100),
       complete: missing.length === 0,
     };
+  }
+
+  /**
+   * Must staff-approved documents be on file for this driver to work? Yes for the manual process (also for drivers created by staff, where
+   * the method is not set). No for drivers admitted instantly or verified by the Certn check: that is the point of those modes. No either
+   * when a Super Admin verified the driver despite missing documents (`docsWaived`, docs/verification.md).
+   */
+  docsRequired(p: Pick<DriverProfile, 'verificationMethod' | 'meta'>): boolean {
+    if (p.meta?.verification?.docsWaived) return false;
+    return p.verificationMethod !== VerificationMethod.INSTANT && p.verificationMethod !== VerificationMethod.AUTOMATIC;
   }
 
   /** Can the driver go online right now? */
@@ -171,8 +190,10 @@ export class DriverCoreService {
     const reasons: string[] = [];
     if (p.status !== DriverStatus.ACTIVE) reasons.push(`Account status is ${p.status}`);
     if (p.user && p.user.status !== UserStatus.ACTIVE) reasons.push(`User account is ${p.user.status}`);
-    const docs = await this.requiredDocState(p.id);
-    for (const d of docs) if (!d.valid) reasons.push(d.expired ? `${d.type} has expired` : `${d.type} is ${d.status ?? 'missing'}`);
+    if (this.docsRequired(p)) {
+      const docs = await this.requiredDocState(p.id);
+      for (const d of docs) if (!d.valid) reasons.push(d.expired ? `${d.type} has expired` : `${d.type} is ${d.status ?? 'missing'}`);
+    }
     if (!p.zoneIds?.length) reasons.push('No zone assigned');
     if (!p.ontarioPlatformWorkerNoticeAcked) reasons.push('Ontario platform worker notice not acknowledged');
     return { ok: reasons.length === 0, reasons };

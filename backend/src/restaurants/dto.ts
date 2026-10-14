@@ -424,10 +424,14 @@ export class RestaurantsQuery extends PageQueryDto {
   /** "true": only restaurants having a document expiring within `expiringDays` (default 30) or already expired */
   @IsOptional() @IsString() hasExpiringDocs?: string;
   @IsOptional() @IsString() expiringDays?: string;
+  /** verification state of the business (merchant): UNVERIFIED, PENDING, NEEDS_REVIEW, VERIFIED or REJECTED (docs/verification.md) */
+  @IsOptional() @IsIn(['UNVERIFIED', 'PENDING', 'NEEDS_REVIEW', 'VERIFIED', 'REJECTED']) verification?: string;
 }
 
 export class MerchantsQuery extends PageQueryDto {
   @IsOptional() @IsString() hasLocations?: string;
+  /** verification state: UNVERIFIED, PENDING, NEEDS_REVIEW, VERIFIED or REJECTED (docs/verification.md) */
+  @IsOptional() @IsIn(['UNVERIFIED', 'PENDING', 'NEEDS_REVIEW', 'VERIFIED', 'REJECTED']) verification?: string;
 }
 
 export class CommissionDto {

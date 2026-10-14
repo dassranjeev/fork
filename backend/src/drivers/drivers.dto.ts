@@ -19,7 +19,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
-import { DeliveryAction, DocStatus, DriverDocType, DriverStatus, ProofExceptionReason, VehicleType } from '../common/enums';
+import { DeliveryAction, DocStatus, DriverDocType, DriverStatus, ProofExceptionReason, VehicleType, VerificationStatus } from '../common/enums';
 import { PageQueryDto } from '../common/pagination';
 
 // ------------------------------------------------------------------ admin: drivers
@@ -35,6 +35,8 @@ export class DriverListQuery extends PageQueryDto {
   /** documents expiring within N days (or already expired) */
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) expiringDays?: number;
   @IsOptional() @IsString() backgroundCheck?: string;
+  /** verification state: UNVERIFIED, PENDING, NEEDS_REVIEW, VERIFIED or REJECTED (docs/verification.md) */
+  @IsOptional() @IsEnum(VerificationStatus) verification?: VerificationStatus;
 }
 
 export class CreateDriverDto {
