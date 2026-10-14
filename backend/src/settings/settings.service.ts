@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { FeatureFlag, Setting } from '../database/entities';
 import { defaultMatrix } from '../notifications/events';
 import { seal, unseal } from '../common/secretbox';
+import { HEALTH_SETTING_DEFINITIONS } from '../system-health/health-settings';
 
 /** Every configurable platform setting with its default. Seeded on boot (existing values are never overwritten). */
 export const SETTING_DEFINITIONS: any[] = [
@@ -276,6 +277,8 @@ export const SETTING_DEFINITIONS: any[] = [
   { key: 'assistant.training.holdPhrases', group: 'assistant', label: 'Bot training: phrases that hold an entry for FORKSY review (allergen-safety guarantees, medical claims); built-in patterns always apply too', value: ["100% safe","100 percent safe","completely safe","totally safe","guaranteed nut free","guaranteed gluten free","guaranteed dairy free","guaranteed allergen free","no allergens","allergen free","allergy safe","safe for celiacs","safe for coeliacs","safe for people with allergies","safe for diabetics","no cross contamination","no cross-contamination","cure for","clinically proven","doctor approved"], inputType: 'json' },
   { key: 'assistant.training.blockPhrases', group: 'assistant', label: 'Bot training: phrases that are refused outright (profanity / abuse); built-in patterns always apply too', value: ["fuck","shit","bitch","asshole","bastard","cunt","dickhead","slut","whore","retard","faggot","nigger","nigga"], inputType: 'json' },
   { key: 'assistant.central.chips', group: 'assistant', label: 'Central assistant: starter chips ([{label, query}], max 6; empty = built-in defaults)', value: [], inputType: 'json' },
+  // ---- System Health page thresholds (docs/system-health.md)
+  ...HEALTH_SETTING_DEFINITIONS,
 ];
 
 export const FEATURE_FLAG_DEFINITIONS = [

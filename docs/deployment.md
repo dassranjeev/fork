@@ -88,6 +88,12 @@ docker compose --env-file deploy/.env --profile proxy up -d --build   # rebuilds
 
 Take a database backup before every update that contains a new migration (below).
 
+## Watching the server and the load
+
+Super Admins get a live **System Health** page (**System > System Health**): server CPU / RAM / swap / disk, request rate and response time, database, TLS certificate expiry and
+the load-balancing view. Build with `GIT_SHA=$(git rev-parse --short HEAD) docker compose --env-file deploy/.env build` and each instance shows which commit it runs.
+Running more than one API instance is **not supported yet** (the page lists the five blockers); see [system-health.md](system-health.md).
+
 ## Backups
 
 - **Database:** `docker compose exec db pg_dump -U forksy -Fc forksy > forksy-$(date +%F).dump` (adjust user / database to `deploy/.env`). Store

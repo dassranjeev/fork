@@ -14,6 +14,8 @@ import { AssistantConfigService } from './assistant/assistant-config.service';
 import { assistantCors } from './assistant/assistant.cors';
 import { KNOWN_DEFAULT_PASSWORDS, corsOriginCheck, productionProblems, stripeProductionProblems, trustProxySetting } from './common/security';
 import { StripeClientService } from './integrations/stripe-client.service';
+import { SystemMetricsService } from './system-health/system-metrics.service';
+import { requestMetricsMiddleware } from './system-health/request-metrics.middleware';
 
 /** Refuse to boot a production deployment that is configured insecurely. There is deliberately no override flag. */
 function productionGate() {
@@ -92,6 +94,8 @@ async function bootstrap() {
   await productionDbGate(app.get(DataSource), app);
 
   // ---- network edge ---------------------------------------------------------------------------------
+  app.enableShutdownHooks(); // SIGTERM/SIGINT run onApplicationShutdown: the instance removes itself from the System Health page and the pool closes cleanly
+  app.use(requestMetricsMiddleware(app.get(SystemMetricsService))); // request count / latency / errors for the System Health page (route patterns only)
   app.disable('x-powered-by');
   // X-Forwarded-For is honoured ONLY for the configured number of trusted proxy hops (TRUST_PROXY); default none => cannot be spoofed.
   app.set('trust proxy', trustProxySetting());

@@ -7,7 +7,10 @@
 # TLS: enable the "proxy" profile (Caddy gets certificates automatically):  docker compose --profile proxy up -d
 # Settings shared by the API and the one-shot migrate service (same image, same environment).
 x-api-base: &api-base
-  build: ./backend
+  build:
+    context: ./backend
+    args:
+      GIT_SHA: ${GIT_SHA:-}
   image: forksy-api:latest
   env_file: backend/.env.production
   environment:

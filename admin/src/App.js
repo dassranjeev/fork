@@ -33,8 +33,9 @@ function NotFound() {
 }
 
 /** Wrap an element with a permission / restaurant-role check. */
-function Guard({ perm, anyPerm, roles, children }) {
-  const { can, restaurantRole } = useAuth();
+function Guard({ perm, anyPerm, roles, superOnly, children }) {
+  const { can, restaurantRole, isSuper } = useAuth();
+  if (superOnly && !isSuper) return <Forbidden />;
   if (perm && !can(perm[0], perm[1] || "view")) return <Forbidden />;
   if (anyPerm && !anyPerm.some((p) => can(p[0], p[1] || "view"))) return <Forbidden />;
   if (roles && !roles.includes(restaurantRole)) return <Forbidden />;
@@ -44,7 +45,7 @@ function Guard({ perm, anyPerm, roles, children }) {
 const toRoutes = (features) =>
   features
     .flatMap((f) => f.routes || [])
-    .map((r) => <Route key={r.path || "index"} path={r.path?.replace(/^\//, "")} index={r.index} element={<Guard perm={r.perm} anyPerm={r.anyPerm} roles={r.roles}>{r.element}</Guard>} />);
+    .map((r) => <Route key={r.path || "index"} path={r.path?.replace(/^\//, "")} index={r.index} element={<Guard perm={r.perm} anyPerm={r.anyPerm} roles={r.roles} superOnly={r.superOnly}>{r.element}</Guard>} />);
 
 const adminMenu = adminFeatures.flatMap((f) => f.menu || []);
 const portalMenu = portalFeatures.flatMap((f) => f.menu || []);

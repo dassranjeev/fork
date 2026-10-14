@@ -18,6 +18,7 @@ import { corsOriginCheck, clientIp } from '../common/security';
 import { JwtPayload } from '../common/auth.types';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { drainState } from '../common/drain-state';
 
 /**
  * Room naming (use these from services via RealtimeService):
@@ -123,6 +124,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   async handleConnection(client: Socket) {
     const ip = clientIp(client.handshake as any) || client.handshake.address;
     try {
+      if (drainState.active) throw new Error('draining'); // this instance is being taken out of rotation: clients reconnect to another one
       const nIp = (this.perIp.get(ip) ?? 0) + 1;
       if (nIp > this.maxPerIp) throw new Error('too many connections from this address');
       this.perIp.set(ip, nIp);
@@ -227,6 +229,20 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   chatTyping(@ConnectedSocket() client: Socket, @MessageBody() body: { sessionId?: string; typing?: boolean }) {
     if (!client.data.user?.id || typeof body?.sessionId !== 'string' || body.sessionId.length > 64 || !this.allow(client, 'typing', 30)) return { ok: false };
     this.events.emit('chat.socket.typing', { userId: client.data.user.id, sessionId: body.sessionId, typing: body.typing !== false });
+    return { ok: true };
+  }
+
+  /** System Health page: ONLY a Super Admin socket may join the live health room (staff with every permission cannot). */
+  @SubscribeMessage('system.subscribe')
+  subscribeSystem(@ConnectedSocket() client: Socket) {
+    if (client.data.user?.type !== UserType.SUPER_ADMIN || !this.allow(client, 'system', 10)) return { ok: false, error: 'forbidden' };
+    client.join('admin:system');
+    return { ok: true };
+  }
+
+  @SubscribeMessage('system.unsubscribe')
+  unsubscribeSystem(@ConnectedSocket() client: Socket) {
+    client.leave('admin:system');
     return { ok: true };
   }
 

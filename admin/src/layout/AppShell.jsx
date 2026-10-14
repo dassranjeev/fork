@@ -157,7 +157,7 @@ function Shell({ menu, home = "/", portal = "admin", topbarLeft, extraNav }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [openKey, setOpenKey] = useState(null);
-  const { user, can, logout, restaurantRole, impersonating, impersonationInfo, exitImpersonation } = useAuth();
+  const { user, can, isSuper, logout, restaurantRole, impersonating, impersonationInfo, exitImpersonation } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [quick, setQuick] = useState("");
@@ -167,6 +167,7 @@ function Shell({ menu, home = "/", portal = "admin", topbarLeft, extraNav }) {
 
   const groups = useMemo(() => {
     const allowed = (it) => {
+      if (it.superOnly && !isSuper) return false; // Super Admin only (for example System Health)
       if (it.roles && !it.roles.includes(restaurantRole)) return false;
       if (it.perm && !can(it.perm[0], it.perm[1] || "view")) return false;
       // anyPerm: [[module, action], ...] - visible when the staff member has at least one of them
@@ -190,7 +191,7 @@ function Shell({ menu, home = "/", portal = "admin", topbarLeft, extraNav }) {
     return Object.keys(bySection)
       .sort((a, b) => (SECTION_ORDER.indexOf(a) + 1 || 99) - (SECTION_ORDER.indexOf(b) + 1 || 99))
       .map((s) => ({ section: s, items: bySection[s] }));
-  }, [menu, can, restaurantRole]);
+  }, [menu, can, isSuper, restaurantRole]);
 
   const doLogout = async () => {
     disconnectSocket();
