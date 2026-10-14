@@ -8,7 +8,9 @@ COPY . .
 RUN npm run build && npm prune --omit=dev
 
 FROM node:22-alpine
-ENV NODE_ENV=production
+# build with  GIT_SHA=$(git rev-parse --short HEAD) docker compose build  to show the commit on the System Health page
+ARG GIT_SHA=""
+ENV NODE_ENV=production APP_COMMIT=$GIT_SHA
 WORKDIR /app
 RUN addgroup -S forky && adduser -S forky -G forky
 COPY --from=build /app/node_modules ./node_modules

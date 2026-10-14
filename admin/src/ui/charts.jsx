@@ -18,16 +18,23 @@ const base = (height, extra = {}) => ({
  * Line / area chart.
  *  series: [{ name, data: [{x:'2026-01-01', y: 10}, ...] }]  (or data: number[] with `categories`)
  */
-export function LineChart({ series: rawSeries, categories: rawCategories, height = 300, area = true, currency, stacked, colors, yFormatter }) {
+export function LineChart({ series: rawSeries, categories: rawCategories, height = 300, area = true, currency, stacked, colors, yFormatter, time, yMinWidth }) {
   const series = chartSafe(rawSeries);
   const categories = chartSafe(rawCategories);
   const fmt = yFormatter || (currency ? (v) => `$${Number(v).toLocaleString("en-CA", { maximumFractionDigits: 0 })}` : (v) => Number(v).toLocaleString("en-CA", { maximumFractionDigits: 1 }));
+  const b = base(height, { colors, chart: { type: area ? "area" : "line", stacked } });
   const options = {
-    ...base(height, { colors, chart: { type: area ? "area" : "line", stacked } }),
+    ...b,
+    // time: points are { x: epoch ms, y } and the axis picks readable HH:mm:ss ticks itself
+    tooltip: time ? { ...b.tooltip, x: { format: "HH:mm:ss" } } : b.tooltip,
     stroke: { curve: "smooth", width: 2.5 },
     fill: area ? { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.02 } } : { opacity: 1 },
-    xaxis: categories ? { categories } : { type: "category", labels: { rotate: 0, hideOverlappingLabels: true } },
-    yaxis: { labels: { formatter: fmt } },
+    xaxis: time
+      ? { type: "datetime", labels: { datetimeUTC: false, format: "HH:mm:ss", rotate: 0 }, tooltip: { enabled: false } }
+      : categories
+        ? { categories }
+        : { type: "category", labels: { rotate: 0, hideOverlappingLabels: true } },
+    yaxis: { labels: { formatter: fmt, ...(yMinWidth ? { minWidth: yMinWidth } : {}) } },
     markers: { size: 0, hover: { size: 5 } },
   };
   return <ReactApexChart options={options} series={series} type={area ? "area" : "line"} height={height} />;

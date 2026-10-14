@@ -43,6 +43,7 @@ import { RatingsModule } from './ratings/ratings.module';
 import { AssistantModule } from './assistant/assistant.module';
 import { PaymentsModule } from './payments/payments.module';
 import { MIGRATIONS_GLOB, MIGRATIONS_TABLE } from './database/migrations.config';
+import { SystemHealthModule } from './system-health/system-health.module';
 
 @Module({
   imports: [
@@ -108,6 +109,7 @@ import { MIGRATIONS_GLOB, MIGRATIONS_TABLE } from './database/migrations.config'
     RatingsModule,
     AssistantModule,
     PaymentsModule,
+    SystemHealthModule,
   ],
   providers: [
     // order matters: authenticate -> account type -> staff permission -> restaurant role

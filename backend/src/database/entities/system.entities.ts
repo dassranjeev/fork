@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, PrimaryColumn, PrimaryGeneratedColumn } from 'typeorm';
 import { BaseEntity } from '../../common/base.entity';
 
 /** Non-editable audit log. A DB trigger (see AuditModule.onModuleInit) blocks UPDATE/DELETE. Retain 7 years. */
@@ -200,4 +200,50 @@ export class OpsChecklist extends BaseEntity {
 
   @Column({ type: 'timestamptz', nullable: true })
   completedAt: Date | null;
+}
+
+/**
+ * One row per running API process (written every ~2 s by SystemHeartbeatService). The System Health page reads all rows, so it can show
+ * every instance behind a load balancer; a row that stops updating means that instance is down. Rows of stopped instances are removed
+ * on a clean shutdown, crashed ones after an hour. Nothing else reads or joins this table (created UNLOGGED by its migration).
+ */
+@Entity('system_instances')
+export class SystemInstance {
+  /** hostname + random suffix, unique per process start */
+  @PrimaryColumn({ type: 'varchar', length: 100 })
+  id: string;
+
+  @Column({ type: 'varchar', length: 120 })
+  hostname: string;
+
+  @Column({ type: 'int', default: 0 })
+  pid: number;
+
+  @Column({ type: 'timestamptz' })
+  startedAt: Date;
+
+  /** set by the database clock (now()), so instances with skewed clocks cannot disagree about who is alive. Not indexed on purpose: the table has a few rows, and an indexed column would stop heartbeat updates from being cheap in-place (HOT) updates. */
+  @Column({ type: 'timestamptz', default: () => 'now()' })
+  lastSeenAt: Date;
+
+  @Column({ type: 'varchar', length: 60, default: '' })
+  version: string;
+
+  @Column({ type: 'varchar', length: 30, default: '' })
+  nodeVersion: string;
+
+  @Column({ type: 'varchar', length: 30, default: '' })
+  env: string;
+
+  /** a Super Admin asked this instance to stop taking new traffic (see /ready); the instance applies it on its next heartbeat */
+  @Column({ type: 'boolean', default: false })
+  drainRequested: boolean;
+
+  /** latest metrics snapshot of this instance (requests, latency, CPU, memory, event loop, host, database pool, sockets) */
+  @Column({ type: 'jsonb', default: {} })
+  metrics: Record<string, any>;
+
+  /** the last 5 minutes at 5 s resolution as compact number arrays (for the charts) */
+  @Column({ type: 'jsonb', default: {} })
+  series: Record<string, any>;
 }

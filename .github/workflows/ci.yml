@@ -22,6 +22,8 @@ jobs:
       - run: npm run build
       - name: Encryption key derivation must not change (known-answer test)
         run: node test/secretbox-kat.mjs
+      - name: System Health calculations (percentiles, CPU / memory parsing, balance verdicts)
+        run: npx ts-node --transpile-only test/system-health.test.ts
 
   # The production schema comes from migrations, so they must exactly match the entities: apply them to an empty database and
   # fail if TypeORM still sees a difference. Fix: npm run migration:generate -- src/database/migrations/<Name>  (commit the file)
