@@ -20,6 +20,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
+      - name: Encryption key derivation must not change (known-answer test)
+        run: node test/secretbox-kat.mjs
 
   # The production schema comes from migrations, so they must exactly match the entities: apply them to an empty database and
   # fail if TypeORM still sees a difference. Fix: npm run migration:generate -- src/database/migrations/<Name>  (commit the file)

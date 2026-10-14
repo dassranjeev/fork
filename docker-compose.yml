@@ -83,6 +83,7 @@ services:
       API_DOMAIN: ${API_DOMAIN}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/caddy.d:/etc/caddy/caddy.d:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
