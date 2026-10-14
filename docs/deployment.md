@@ -21,7 +21,7 @@ Stripe **live** keys.
 
 1. **Get the code** and copy the two environment templates:
    ```bash
-   git clone https://github.com/dassranjeev/fork.git && cd fork
+   git clone https://github.com/iwebkokri/fork.git && cd fork
    cp deploy/.env.example deploy/.env
    cp backend/.env.production.example backend/.env.production
    ```
