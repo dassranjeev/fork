@@ -17,7 +17,8 @@ import * as marketing from "./marketing";
 import * as assistant from "./assistant";
 import * as system from "./system";
 import * as health from "./health";
+import * as verification from "./verification";
 import * as portal from "./portal";
 
-export const adminFeatures = [dashboard, orders, restaurants, drivers, customers, platform, finance, support, marketing, assistant, system, health];
+export const adminFeatures = [dashboard, orders, restaurants, drivers, customers, platform, finance, support, marketing, assistant, system, health, verification];
 export const portalFeatures = [portal];

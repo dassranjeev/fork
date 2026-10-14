@@ -8,6 +8,7 @@ import { useFetch, useForm, usePagedList, useSubmit } from "../../lib/hooks";
 import { useAuth } from "../../lib/auth";
 import { num, titleCase } from "../../lib/format";
 import { RatingValue } from "../ratings/shared";
+import { STATUS_OPTIONS, VerificationCell } from "../verification/shared";
 import { fmtDay as fmtDate } from "./shared";
 import { DRIVER_STATUSES, VEHICLES, acceptanceTone, downloadText, useCities } from "./shared";
 
@@ -42,7 +43,7 @@ function AddDriverModal({ open, onClose, onDone }) {
 export default function DriversList() {
   const nav = useNavigate();
   const { can } = useAuth();
-  const list = usePagedList("/admin/drivers", { filters: { status: "", vehicleType: "", online: "" } });
+  const list = usePagedList("/admin/drivers", { filters: { status: "", vehicleType: "", online: "", verification: "" } });
   const summary = useFetch("/admin/drivers/summary", null, { refreshMs: 30000 });
   const [add, setAdd] = useState(false);
   const by = summary.data?.byStatus || {};
@@ -68,6 +69,7 @@ export default function DriversList() {
       ),
     },
     { key: "status", title: "Status", render: (d) => <StatusBadge status={d.status} /> },
+    { key: "verificationStatus", title: "Verification", render: (d) => <VerificationCell status={d.verificationStatus} dueAt={d.verificationDueAt} /> },
     { key: "vehicleType", title: "Vehicle", render: (d) => titleCase(d.vehicleType) },
     {
       key: "isOnline",
@@ -143,6 +145,7 @@ export default function DriversList() {
           filters={
             <>
               <FilterSelect value={list.filters.vehicleType} onChange={(v) => list.setFilter("vehicleType", v)} options={VEHICLES} placeholder="Any vehicle" />
+              <FilterSelect value={list.filters.verification} onChange={(v) => list.setFilter("verification", v)} options={STATUS_OPTIONS} placeholder="Verification: any" />
               <FilterSelect
                 value={list.filters.online}
                 onChange={(v) => list.setFilter("online", v)}

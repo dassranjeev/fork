@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button, Card, DateInput, IconButton, NumberInput, MoneyInput, Switch, Tabs, TextArea, TextInput, useConfirm } from "../../ui";
 import { fmtDate } from "../../lib/format";
 import { Async, DAYS, PortalPage, useAction, useApi, usePortalFetch, useRealtimeReload } from "./shared";
 import { usePortal } from "./context";
 import ServiceModeControl from "./ServiceMode";
 import OrderAutomationCard from "./Automation";
+import VerificationBanner from "../verification/VerificationBanner";
+import DocumentsTab from "./Documents";
+
+const TAB_KEYS = ["profile", "documents", "fulfilment", "hours", "closures", "stations", "alerts"];
 
 function SaveBar({ busy, onSave, dirtyHint }) {
   return (
@@ -351,23 +356,32 @@ function AlertsTab({ store, reload }) {
 export default function Store() {
   const state = usePortalFetch("/restaurant/store");
   useRealtimeReload(() => state.reload(), ["store.updated"]);
-  const [tab, setTab] = useState("profile");
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState(TAB_KEYS.includes(params.get("tab")) ? params.get("tab") : "profile"); // /portal/store?tab=documents opens the documents
   return (
     <PortalPage title="Store settings">
       <Async state={state}>
         {(store) => (
-          <Tabs
-            active={tab}
-            onChange={setTab}
-            tabs={[
-              { key: "profile", label: "Profile", content: <ProfileTab store={store} reload={state.reload} /> },
-              { key: "fulfilment", label: "Ordering & prep times", content: <FulfilmentTab store={store} reload={state.reload} /> },
-              { key: "hours", label: "Opening hours", content: <HoursTab store={store} reload={state.reload} /> },
-              { key: "closures", label: "Holiday closures", content: <ClosuresTab /> },
-              { key: "stations", label: "Stations", content: <StationsTab /> },
-              { key: "alerts", label: "Kitchen & alerts", content: <AlertsTab store={store} reload={state.reload} /> },
-            ]}
-          />
+          <>
+            <VerificationBanner
+              verification={store.verification}
+              className="mb-24"
+              action={store.verification?.status === "PENDING" && store.verification?.method !== "AUTOMATIC" && tab !== "documents" ? { label: "Upload documents", onClick: () => setTab("documents") } : undefined}
+            />
+            <Tabs
+              active={tab}
+              onChange={setTab}
+              tabs={[
+                { key: "profile", label: "Profile", content: <ProfileTab store={store} reload={state.reload} /> },
+                { key: "documents", label: "Documents", content: <DocumentsTab /> },
+                { key: "fulfilment", label: "Ordering & prep times", content: <FulfilmentTab store={store} reload={state.reload} /> },
+                { key: "hours", label: "Opening hours", content: <HoursTab store={store} reload={state.reload} /> },
+                { key: "closures", label: "Holiday closures", content: <ClosuresTab /> },
+                { key: "stations", label: "Stations", content: <StationsTab /> },
+                { key: "alerts", label: "Kitchen & alerts", content: <AlertsTab store={store} reload={state.reload} /> },
+              ]}
+            />
+          </>
         )}
       </Async>
     </PortalPage>

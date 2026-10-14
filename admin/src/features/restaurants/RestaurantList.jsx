@@ -7,13 +7,14 @@ import { ServiceModeBadge } from "../portal/ServiceMode";
 import { Card, DataTable, FilterSelect, ListToolbar, PageHeader, StatusBadge } from "../../ui";
 import OpenPanelButton from "./OpenPanelButton";
 import { MenuAccessBadge } from "./MenuAccess";
+import { STATUS_OPTIONS, VerificationCell } from "../verification/shared";
 import { RESTAURANT_STATUSES, useLookups } from "./shared";
 
 export default function RestaurantList() {
   const nav = useNavigate();
   const { can } = useAuth();
   const { cities, zones, tiers, zoneName, tierName } = useLookups();
-  const list = usePagedList("/admin/restaurants", { filters: { status: "", menuAccess: "", cityId: "", zoneId: "", commissionTierId: "", hasExpiringDocs: "", expiringDays: "" }, sortBy: "createdAt" });
+  const list = usePagedList("/admin/restaurants", { filters: { status: "", menuAccess: "", cityId: "", zoneId: "", commissionTierId: "", hasExpiringDocs: "", expiringDays: "", verification: "" }, sortBy: "createdAt" });
   const f = list.filters;
   const waiting = useFetch("/admin/restaurants/menu-access", { status: "REQUESTED" });
   const pending = waiting.data?.pending || 0;
@@ -34,6 +35,7 @@ export default function RestaurantList() {
     },
     { key: "city", title: "City / Zone", render: (r) => [r.city, zoneName(r.zoneId)].filter(Boolean).join(" · ") || "—" },
     { key: "status", title: "Status", render: (r) => <StatusBadge status={r.status} /> },
+    { key: "verification", title: "Verification", render: (r) => (r.verification ? <VerificationCell status={r.verification.status} dueAt={r.verification.dueAt} /> : <span className="text-secondary-light">—</span>) },
     {
       key: "acceptingOrders",
       title: "Service mode",
@@ -101,6 +103,7 @@ export default function RestaurantList() {
                 placeholder="Menu editing: any"
               />
               <FilterSelect value={f.commissionTierId} onChange={(v) => list.setFilter("commissionTierId", v)} options={tiers.map((t) => ({ value: t.id, label: t.name }))} placeholder="Any tier" />
+              <FilterSelect value={f.verification} onChange={(v) => list.setFilter("verification", v)} options={STATUS_OPTIONS} placeholder="Verification: any" />
               <FilterSelect
                 value={f.hasExpiringDocs ? f.expiringDays || "30" : ""}
                 onChange={(v) => list.setFilters(v ? { hasExpiringDocs: "true", expiringDays: v } : { hasExpiringDocs: "", expiringDays: "" })}

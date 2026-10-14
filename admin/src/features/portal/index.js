@@ -1,4 +1,5 @@
 import React from "react";
+import { Navigate } from "react-router-dom";
 import { PortalProvider } from "./context";
 
 const Dashboard = React.lazy(() => import("./Dashboard"));
@@ -23,6 +24,8 @@ export const Provider = PortalProvider;
 
 export const routes = [
   { index: true, element: <Dashboard /> },
+  // where a new restaurant lands after applying: the dashboard shows its verification status, next step and document checklist
+  { path: "onboarding", element: <Navigate to="/portal" replace /> },
   { path: "orders", element: <Orders /> },
   { path: "kds", element: <Kds /> },
   { path: "menu", element: <Menu /> },

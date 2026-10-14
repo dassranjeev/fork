@@ -11,6 +11,8 @@ import { useAuth } from "../../lib/auth";
 import { fmtDateTime, money, num, timeAgo, titleCase } from "../../lib/format";
 import DriverRatingCard from "../ratings/DriverRatingCard";
 import PayoutAccountBadge from "../finance/PayoutAccountBadge";
+import VerificationCard from "../verification/VerificationCard";
+import { VerificationBadge } from "../verification/shared";
 import { fmtDay as fmtDate } from "./shared";
 import { EXPIRY_REQUIRED, VEHICLES, acceptanceTone, fileHref, useZones } from "./shared";
 
@@ -185,6 +187,7 @@ function Overview({ d, reload, can }) {
         </Card>
       </div>
       <div className="col-xl-5">
+        <VerificationCard audience="DRIVER" id={d.id} onChanged={reload} className="mb-24" />
         <Card title="Onboarding checklist" subtitle={ob.complete ? "Complete" : `${ob.missing?.length || 0} step(s) outstanding`}>
           <Progress value={ob.percent || 0} label="Progress" />
           <ul className="list-unstyled mt-16 mb-0 d-flex flex-column gap-2">
@@ -504,6 +507,7 @@ export default function DriverDetail() {
             <div className="d-flex flex-wrap align-items-center gap-2">
               <StatusBadge status={s} />
               <StatusBadge status={live[0]} tone={live[1]} />
+              <VerificationBadge status={d.verificationStatus} />
               {d.rating != null && d.ratingCount >= 5 && <Badge tone="warning"><Icon icon="solar:star-bold" className="me-1" />{Number(d.rating).toFixed(2)}</Badge>}
             </div>
             {d.statusReason && <div className="text-secondary-light text-sm mt-8">Reason: {d.statusReason}</div>}

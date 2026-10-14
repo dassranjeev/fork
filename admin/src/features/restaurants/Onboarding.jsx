@@ -5,6 +5,7 @@ import { useFetch } from "../../lib/hooks";
 import { timeAgo } from "../../lib/format";
 import { Badge, Card, EmptyState, ErrorState, Loading, PageHeader, StatusBadge } from "../../ui";
 import { RestaurantActions, listOf } from "./shared";
+import { VerificationChips } from "../verification/shared";
 
 const STAGES = [
   { status: "APPLIED", label: "1. Applied", icon: "solar:document-add-outline", hint: "Waiting for documents" },
@@ -57,6 +58,7 @@ export default function Onboarding() {
                           <div className="text-secondary-light text-xs mb-8">
                             {[r.city, r.phone, `applied ${timeAgo(r.createdAt)}`].filter(Boolean).join(" · ")}
                           </div>
+                          {r.verification && <VerificationChips status={r.verification.status} method={r.verification.method} dueAt={r.verification.dueAt} wrap="d-flex flex-wrap gap-2 mb-8" />}
                           {stage.status === "APPLIED" || stage.status === "DOCS_REVIEW" ? (
                             <Link to={`/restaurants/${r.id}?tab=documents`} className="btn btn-primary-600 btn-sm radius-8 px-12 py-6">
                               Review documents
