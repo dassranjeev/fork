@@ -77,7 +77,7 @@ Severity: **Critical** (direct loss of money / full takeover) · **High** · **M
 | F-28 | Weak password policy (min 8, the setting could only lower it) | Min 10 (setting, floor 8), letters+digits, common-password block-list, max 128 (bcrypt), hashes upgraded to cost 12 |
 | F-29 | Impersonation (`/admin/restaurants/:id/impersonate`): `restaurants:edit`, 2 h, bank/staff routes reachable | `restaurants:approve`, 1 h, `@NoImpersonation` on bank, staff, auth routes; audited as before |
 | F-30 | CSV/Excel formula injection in 6 exports (payout export had no quoting at all) | One shared `common/csv.ts` (`csv_before.txt`: `=HYPERLINK(…)` live → `'=HYPERLINK` neutralised) |
-| F-31 | Swagger (`/docs`, `/docs-json`) enabled in every environment | Off by default in production (`SWAGGER_ENABLED`), dev CSP scoped to `/docs` |
+| F-31 | Swagger (`/docs`, `/docs/openapi.json`, `/docs/openapi.yaml`, `/docs-json`) enabled in every environment | Off by default in production (`SWAGGER_ENABLED`), dev CSP scoped to `/docs`. The OpenAPI file is public in the repository anyway; switching the page on in production only adds "Try it out" against the same public API |
 | F-32 | Error handler echoed DB constraint details (PII), reflected URL/query; 500 on bad `sortDir`, invalid dates, missing rows | Generic production messages, path without query, mapped to 400/404, `sortDir`/`sortBy` whitelisted (own-property lookup) |
 | F-33 | Insecure defaults reaching production (`EXPOSE_OTP=true`, `DB_SYNC=true`, localhost CORS, demo accounts, default admin password, no 2FA) | **Production safety gate** (section 4) – the process refuses to start |
 | F-34 | Production mock SMS/email adapters logged OTP bodies | Never logged in production |

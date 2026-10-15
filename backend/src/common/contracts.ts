@@ -32,6 +32,8 @@ export interface QuoteItemInput {
   quantity: number;
   modifierOptionIds?: string[];
   notes?: string;
+  /** retail: what to do when the store does not have the product (default ALLOW a replacement) */
+  substitution?: 'ALLOW' | 'REFUND';
 }
 
 export interface QuoteInput {
@@ -48,6 +50,10 @@ export interface QuoteInput {
   /** apply FORKSY wallet balance */
   useWallet?: boolean;
   scheduledFor?: Date | null;
+  /** the customer confirmed they are old enough for the age-restricted products in the basket (required when there are any) */
+  ageConfirmed?: boolean;
+  /** HAND_TO_ME | LEAVE_AT_DOOR | MEET_OUTSIDE: age-restricted baskets cannot be left at the door */
+  dropoffMethod?: string;
 }
 
 export interface QuoteLine {
@@ -62,12 +68,32 @@ export interface QuoteLine {
   notes?: string;
   stationId?: string | null;
   allergens: string[];
+  // ---- retail line facts (defaults for a plain dish) ----
+  sku?: string | null;
+  barcode?: string | null;
+  packSize?: string | null;
+  sellBy?: 'UNIT' | 'WEIGHT';
+  weightUnit?: 'KG' | 'LB';
+  /** weighed products: `quantity` is a number of steps of this many weight units; `unitPrice` is the price of one step */
+  stepSize?: number;
+  /** weighed products: quantity x stepSize, in weightUnit */
+  estimatedWeight?: number | null;
+  minAge?: number;
+  temperature?: 'AMBIENT' | 'CHILLED' | 'FROZEN';
+  substitution?: 'ALLOW' | 'REFUND';
 }
 
 export interface Quote {
   restaurantId: string;
   type: OrderType;
   fulfilment: FulfilmentMode;
+  /** what kind of store this is (RESTAURANT, GROCERY ...) */
+  storeType?: string;
+  /** age-restricted goods in the basket: ID is checked at hand-over */
+  requiresIdCheck?: boolean;
+  minAge?: number;
+  /** what the picker and the driver need to know about the basket */
+  basket?: { units: number; lines: number; weighed: number; chilled: number; frozen: number; estimatedKg: number };
   lines: QuoteLine[];
   subtotal: number;
   deliveryFee: number;

@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsBoolean, IsEmail, IsEnum, IsIn, IsNumber, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
 import { VehicleType } from '../common/enums';
+import { STORE_TYPES } from '../common/store-types';
 
 const PW = { min: 8, max: 128 };
 
@@ -119,4 +120,6 @@ export class RestaurantApplyDto {
   @IsOptional() @IsUUID() cityId?: string;
   @IsOptional() @IsBoolean() pickupEnabled?: boolean;
   @IsOptional() @IsBoolean() deliveryEnabled?: boolean;
+  /** RESTAURANT (default), CAFE, BAKERY, GROCERY, CONVENIENCE or SPECIALTY: decides the documents asked for and how the store works (docs/store-types.md) */
+  @IsOptional() @IsIn(STORE_TYPES) storeType?: string;
 }

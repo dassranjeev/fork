@@ -23,7 +23,8 @@ import {
   User,
 } from '../database/entities';
 import { AuthUser, JwtPayload } from '../common/auth.types';
-import { DriverStatus, RestaurantRole, RestaurantStatus, UserStatus, UserType, VerificationMethod } from '../common/enums';
+import { DriverStatus, RestaurantRole, RestaurantStatus, StoreType, UserStatus, UserType, VerificationMethod } from '../common/enums';
+import { storeTypeDefaults } from '../restaurants/restaurants.util';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Events, SubjectRegisteredEvent } from '../common/contracts';
 import { AuditService } from '../audit/audit.service';
@@ -688,6 +689,7 @@ export class AuthService {
           lng: dto.lng ?? null,
           cityId: dto.cityId ?? null,
           hstNumber: dto.hstNumber ?? null,
+          ...storeTypeDefaults((dto.storeType as StoreType | undefined) ?? StoreType.RESTAURANT),
           status: RestaurantStatus.APPLIED,
           acceptingOrders: false,
           deliveryEnabled: dto.deliveryEnabled ?? true,

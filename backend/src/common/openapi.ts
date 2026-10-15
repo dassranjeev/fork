@@ -1,4 +1,6 @@
 import { DocumentBuilder, OpenAPIObject } from '@nestjs/swagger';
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
 
 /**
  * The OpenAPI (Swagger) document: one definition used by the live /docs page (main.ts) and by the file export
@@ -16,6 +18,7 @@ const DESCRIPTION = `Food delivery marketplace API (customers, restaurants and s
 - \`/customer/*\`: customer app and website
 - \`/public/*\`, \`/health\`, \`/ready\`: no sign-in
 - \`/orders/:id/tracking\` and \`/orders/:id/messages\`: shared by everyone involved in an order
+- Swagger UI: a server with API docs switched on (\`SWAGGER_ENABLED=true\`) shows this very description at \`/docs\`, with the file at \`/docs/openapi.json\` and \`/docs/openapi.yaml\`
 - Realtime: Socket.IO on the same host (not described by OpenAPI): \`docs/ARCHITECTURE.md\` and the module guides list the rooms and events
 
 **Signing in.** \`POST /auth/login\` with \`{ identifier, password, app }\` (\`app\`: \`admin\`, \`restaurant\`, \`driver\` or \`customer\`; \`identifier\` is an email or phone number).
@@ -60,10 +63,17 @@ function serverList(live: boolean) {
   return list;
 }
 
+/** Added to the description of the LIVE /docs page only: where to get the very same description as a file. */
+const FILE_LINKS = `
+
+**OpenAPI file.** This page is the OpenAPI description of the API. Get the same description as a file for code generators, Postman or Insomnia:
+[\`openapi.json\`](/docs/openapi.json) and [\`openapi.yaml\`](/docs/openapi.yaml) (served by this server), or the copy kept with the source code:
+\`https://raw.githubusercontent.com/iwebkokri/fork/main/docs/openapi/openapi.json\` / \`openapi.yaml\`.`;
+
 export function buildOpenApiConfig(opts: { live?: boolean } = {}) {
   const b = new DocumentBuilder()
     .setTitle('FORKSY API')
-    .setDescription(DESCRIPTION)
+    .setDescription(opts.live ? DESCRIPTION + FILE_LINKS : DESCRIPTION)
     .setVersion('1.0')
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT', description: 'Access token from POST /auth/login (and /auth/2fa/verify when two-factor sign-in is on)' });
   for (const s of serverList(!!opts.live)) b.addServer(s.url, s.description);
@@ -151,7 +161,23 @@ export function enrichOpenApi(doc: OpenAPIObject): OpenAPIObject {
 }
 
 export interface ObservedFile {
-  operations: Record<string, { as?: string; requiredQuery?: string[]; undeclaredQuery?: string[]; schema: any; example: any }>;
+  /** key: "GET /api/v1/path" or "POST /api/v1/path" (a few read-only POST probes: the checkout quote). `status` is the success code seen (default 200). */
+  operations: Record<string, { as?: string; status?: number; requiredQuery?: string[]; undeclaredQuery?: string[]; schema: any; example: any }>;
+}
+
+/** Where the observed response shapes are kept: next to the code (backend/assets), so the Docker image carries them and the live /docs page shows what the exported file shows. */
+export function observedFilePath(): string {
+  return process.env.OPENAPI_RESPONSES_FILE || join(__dirname, '..', '..', 'assets', 'openapi.responses.json');
+}
+
+/**
+ * The final OpenAPI document: generated from the code, enriched (error shape, tag groups, ordering), with the observed response shapes merged in, keys sorted.
+ * The exported files (docs/openapi) and the live Swagger UI (/docs, /docs/openapi.json, /docs/openapi.yaml) both use this, so they say exactly the same.
+ */
+export function finalizeOpenApi(generated: OpenAPIObject, file = observedFilePath()): { doc: OpenAPIObject; observed: number } {
+  const enriched = enrichOpenApi(generated);
+  const observed = existsSync(file) ? applyObserved(enriched, JSON.parse(readFileSync(file, 'utf8'))) : 0;
+  return { doc: sortKeysDeep(enriched), observed };
 }
 
 /**
@@ -179,7 +205,7 @@ export function applyObserved(doc: OpenAPIObject, observed: ObservedFile): numbe
     const op: any = (doc.paths as any)[p]?.[method.toLowerCase()];
     if (!op) continue;
     op.responses = op.responses ?? {};
-    op.responses['200'] = {
+    op.responses[String(o.status ?? 200)] = {
       description: 'Response shape observed on demo data (a field that was empty in every demo row may be typed loosely or be missing)',
       content: { 'application/json': { schema: cleanSchema(o.schema), example: o.example } },
     };

@@ -248,6 +248,13 @@ export const SETTING_DEFINITIONS: any[] = [
   // ---- restaurant ----
   { key: 'restaurant.requiredDocuments', group: 'restaurant', label: 'Required documents', value: ['BUSINESS_LICENCE', 'HEALTH_CERTIFICATE', 'VOID_CHEQUE'], inputType: 'json' },
   { key: 'restaurant.defaultPrepTimeMin', group: 'restaurant', label: 'Default prep time (min)', value: 20, inputType: 'number' },
+  // ---- store types: groceries, convenience, specialty food (docs/store-types.md) ----
+  { key: 'restaurant.requiredDocumentsByType', group: 'restaurant', label: 'Required documents per store type: a JSON object such as {"GROCERY": ["BUSINESS_LICENCE", "FOOD_PREMISES_PERMIT", "VOID_CHEQUE"]}. A type without an entry uses the built-in list for it (restaurants: business licence, health certificate, void cheque; retail: business licence, food premises permit, void cheque)', value: {}, inputType: 'json' },
+  { key: 'restaurant.ageRestricted.enabled', group: 'restaurant', label: 'Allow age-restricted products (alcohol, tobacco) to be sold: the customer confirms their age at checkout and ID is checked at hand-over', value: true, inputType: 'boolean' },
+  { key: 'restaurant.ageRestricted.requireLicence', group: 'restaurant', label: 'A store may only list age-restricted products once it has an APPROVED liquor or tobacco licence document', value: true, inputType: 'boolean' },
+  { key: 'orders.retail.prepBaseMinutes', group: 'orders', label: 'Grocery / retail picking time: minutes every order needs, plus the minutes per unit below (never below the prep time set for the store)', value: 10, inputType: 'number' },
+  { key: 'orders.retail.prepSecondsPerUnit', group: 'orders', label: 'Grocery / retail picking time: seconds per unit picked', value: 20, inputType: 'number' },
+  { key: 'orders.retail.prepMaxMinutes', group: 'orders', label: 'Grocery / retail picking time: longest estimate a customer is quoted (min)', value: 90, inputType: 'number' },
   { key: 'restaurant.selfServePromosNeedApproval', group: 'restaurant', label: 'Restaurant promos need ops approval', value: false, inputType: 'boolean' },
   { key: 'restaurant.docExpiryReminderDays', group: 'restaurant', label: 'Document expiry reminders (days before)', value: [30, 14, 7, 1], inputType: 'json' },
   // ---- marketing ----

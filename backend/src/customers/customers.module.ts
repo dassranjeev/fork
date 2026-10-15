@@ -24,10 +24,14 @@ import {
   CustomerHomeController,
   CustomerRestaurantsController,
   CustomerSearchController,
+  CustomerStoresController,
+  CustomerStoreTypesController,
   PublicGuestController,
   PublicHomeController,
   PublicRestaurantsController,
   PublicSearchController,
+  PublicStoresController,
+  PublicStoreTypesController,
 } from './discovery.controller';
 
 @Module({
@@ -50,9 +54,13 @@ import {
     CustomerHomeController,
     CustomerSearchController,
     CustomerRestaurantsController,
+    CustomerStoresController,
+    CustomerStoreTypesController,
     PublicHomeController,
     PublicSearchController,
     PublicRestaurantsController,
+    PublicStoresController,
+    PublicStoreTypesController,
     PublicGuestController,
   ],
   exports: [CartService, DiscoveryService, CustomerAccountService, DataRequestsService],

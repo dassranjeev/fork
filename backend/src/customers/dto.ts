@@ -97,9 +97,12 @@ export class UpdateAddressDto {
 // ------------------------------------------------------------------ cart
 export class CartItemDto {
   @IsUUID() menuItemId: string;
-  @IsInt() @Min(1) @Max(50) quantity: number;
+  /** pieces, or steps of a product sold by weight (the store type sets the ceiling: 50 per line for restaurants, 99 for grocery stores) */
+  @IsInt() @Min(1) @Max(99) quantity: number;
   @IsOptional() @IsArray() @IsUUID('all', { each: true }) modifierOptionIds?: string[];
   @IsOptional() @IsString() @MaxLength(300) notes?: string;
+  /** groceries: if the store does not have this product, ALLOW a replacement (default) or REFUND it */
+  @IsOptional() @IsIn(['ALLOW', 'REFUND']) substitution?: 'ALLOW' | 'REFUND';
 }
 
 export class ReplaceCartDto {
@@ -117,9 +120,10 @@ export class AddCartItemDto extends CartItemDto {
 }
 
 export class UpdateCartItemDto {
-  @IsOptional() @IsInt() @Min(0) @Max(50) quantity?: number;
+  @IsOptional() @IsInt() @Min(0) @Max(99) quantity?: number;
   @IsOptional() @IsArray() @IsUUID('all', { each: true }) modifierOptionIds?: string[];
   @IsOptional() @IsString() @MaxLength(300) notes?: string;
+  @IsOptional() @IsIn(['ALLOW', 'REFUND']) substitution?: 'ALLOW' | 'REFUND';
 }
 
 export class SetPromoDto {
@@ -145,6 +149,8 @@ export class CheckoutQuoteDto {
   @IsOptional() @IsString() @MaxLength(300) dropoffNotes?: string;
   /** buzzer / gate / door code (max 40, sensitive: shown only to the assigned driver after pickup) */
   @IsOptional() @Matches(/^[A-Za-z0-9 #*\-_./]{1,40}$/, { message: 'accessCode: up to 40 letters, digits, space and # * - _ . /' }) accessCode?: string;
+  /** I am old enough for the age-restricted products in my basket (alcohol, tobacco...). Required when there are any: the quote answers AGE_CONFIRMATION_REQUIRED otherwise. */
+  @IsOptional() @Transform(({ obj }) => obj.ageConfirmed) @IsBoolean() ageConfirmed?: boolean;
 }
 
 /** POST /customer/payments/intent: the checkout quote fields + the card options. The amount is NEVER taken from the client. */

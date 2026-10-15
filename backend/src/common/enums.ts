@@ -143,7 +143,24 @@ export enum RestaurantDocType {
   AGREEMENT = 'AGREEMENT',
   MENU = 'MENU',
   PHOTOS = 'PHOTOS',
+  /** retail: needed before age-restricted goods (alcohol, tobacco) may be sold (docs/store-types.md) */
+  LIQUOR_LICENCE = 'LIQUOR_LICENCE',
+  TOBACCO_LICENCE = 'TOBACCO_LICENCE',
+  FOOD_PREMISES_PERMIT = 'FOOD_PREMISES_PERMIT',
   OTHER = 'OTHER',
+}
+
+/**
+ * What kind of business a location is. One platform, one store entity: the type decides how the catalog, picking and checkout behave
+ * (see common/store-types.ts). RESTAURANT / CAFE / BAKERY are food service (made to order); GROCERY / CONVENIENCE / SPECIALTY are retail (picked from shelves).
+ */
+export enum StoreType {
+  RESTAURANT = 'RESTAURANT',
+  CAFE = 'CAFE',
+  BAKERY = 'BAKERY',
+  GROCERY = 'GROCERY',
+  CONVENIENCE = 'CONVENIENCE',
+  SPECIALTY = 'SPECIALTY',
 }
 
 export enum OrderType {

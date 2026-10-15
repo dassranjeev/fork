@@ -16,8 +16,9 @@ import {
   TaxClass,
   Zone,
 } from '../database/entities';
-import { ACTIVE_ORDER_STATUSES, FulfilmentMode, OrderStatus, OrderType, RestaurantServiceMode } from '../common/enums';
+import { ACTIVE_ORDER_STATUSES, DropoffMethod, FulfilmentMode, OrderStatus, OrderType, RestaurantServiceMode } from '../common/enums';
 import { fulfilmentAvailability } from '../common/service-mode';
+import { basketOf, estimatedWeight, isRetail, profileOf, stockUse, unitPriceOf } from '../common/store-types';
 import { IPricingService, IPromotionsService, PromotionEvaluation, Quote, QuoteInput, QuoteLine } from '../common/contracts';
 import { haversineKm } from '../common/geo.util';
 import { MapsService } from '../integrations/maps.service';
@@ -68,6 +69,8 @@ export class PricingService implements IPricingService {
       o ?? t?.[key] ?? def;
     let tier: CommissionTier | null = null;
     if (r?.commissionTierId) tier = await this.tiers.findOne({ where: { id: r.commissionTierId } });
+    // no tier of its own: the tier made for this kind of store (groceries), else the platform default
+    if (!tier && r?.storeType) tier = (await this.tiers.find({ where: { active: true } })).find((t) => (t.defaultForStoreTypes ?? []).includes(r.storeType)) ?? null;
     if (!tier) tier = await this.tiers.findOne({ where: { isDefault: true, active: true } });
     switch (fulfilment) {
       case FulfilmentMode.PICKUP:
@@ -102,6 +105,19 @@ export class PricingService implements IPricingService {
 
     // --- items
     const lines = await this.priceLines(restaurant, input, at, tz, pickup);
+    const profile = profileOf(restaurant.storeType);
+    const basket = basketOf(lines);
+    // age-restricted goods: the customer confirms their age, and they are never left at the door (ID is checked at hand-over)
+    const minAge = lines.reduce((m, l) => Math.max(m, l.minAge ?? 0), 0);
+    if (minAge > 0) {
+      const names = lines.filter((l) => (l.minAge ?? 0) > 0).map((l) => l.name);
+      if (!input.ageConfirmed) {
+        throw new BadRequestException({ message: `You must be at least ${minAge} to order ${names.slice(0, 3).join(', ')}${names.length > 3 ? ' and more' : ''}. Confirm your age to continue.`, code: 'AGE_CONFIRMATION_REQUIRED', details: { minAge, items: names } });
+      }
+      if (type === OrderType.DELIVERY && input.dropoffMethod === DropoffMethod.LEAVE_AT_DOOR) {
+        throw new BadRequestException({ message: 'Orders with age-restricted products are handed over in person (the driver checks ID). Choose "Hand it to me" or "Meet outside".', code: 'ID_CHECK_NO_LEAVE_AT_DOOR', details: { minAge } });
+      }
+    }
     const subtotal = round2(lines.reduce((s, l) => s + l.lineTotal, 0));
     const foodTax = round2(lines.reduce((s, l) => s + l.taxAmount, 0));
 
@@ -220,7 +236,15 @@ export class PricingService implements IPricingService {
     }
 
     // --- ETA (prep incl. busy mode + kitchen load, drive time, buffer)
-    const prepBase = this.availability.prepTime(restaurant, pickup);
+    let prepBase = this.availability.prepTime(restaurant, pickup);
+    if (profile.retail) {
+      // picking a basket takes longer the more is in it: a base time plus seconds per unit (never below the store's own prep time, capped)
+      const base = Number(this.settings.get<number>('orders.retail.prepBaseMinutes', 10));
+      const perUnit = Number(this.settings.get<number>('orders.retail.prepSecondsPerUnit', 20));
+      const cap = Number(this.settings.get<number>('orders.retail.prepMaxMinutes', 90));
+      const picking = Math.min(cap, Math.round(base + (basket.units * perUnit) / 60)) + (restaurant.busyExtraPrepMin ?? 0);
+      prepBase = Math.max(prepBase, picking);
+    }
     const load = await this.orders.count({
       where: { restaurantId: restaurant.id, status: In([OrderStatus.PLACED, OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.DRIVER_ASSIGNED]) },
     });
@@ -235,6 +259,10 @@ export class PricingService implements IPricingService {
       restaurantId: restaurant.id,
       type,
       fulfilment,
+      storeType: restaurant.storeType,
+      requiresIdCheck: minAge > 0,
+      minAge,
+      basket,
       lines,
       subtotal,
       deliveryFee,
@@ -346,14 +374,19 @@ export class PricingService implements IPricingService {
     const defaultCode = this.settings.get<string>('taxes.defaultTaxClass', 'HST_ON');
     const defaultRate = await this.defaultTaxRate();
     const minutes = zonedParts(at, tz).minutes;
+    const profile = profileOf(r.storeType);
+    if (input.items.length > profile.limits.maxLines) throw new BadRequestException(`A ${profile.label.toLowerCase()} order can have at most ${profile.limits.maxLines} different ${profile.itemLabelPlural}`);
 
     const out: QuoteLine[] = [];
     for (const it of input.items) {
       const qty = Math.floor(Number(it.quantity));
-      if (!qty || qty < 1 || qty > 99) throw new BadRequestException('Item quantity must be between 1 and 99');
+      if (!qty || qty < 1 || qty > profile.limits.maxQtyPerLine) throw new BadRequestException(`Item quantity must be between 1 and ${profile.limits.maxQtyPerLine}`);
       const item = byId.get(it.menuItemId);
       if (!item) throw new BadRequestException('An item in your cart is no longer on this restaurant\'s menu');
       if (!this.availability.itemSellable(item, at, tz)) throw new BadRequestException(`"${item.name}" is not available right now`);
+      if ((item.minAge ?? 0) > 0 && !this.settings.get<boolean>('restaurant.ageRestricted.enabled', true)) {
+        throw new BadRequestException({ message: `"${item.name}" cannot be sold right now`, code: 'AGE_RESTRICTED_DISABLED' });
+      }
       const cat = item.categoryId ? catById.get(item.categoryId) : null;
       if (cat && (!cat.active || (cat.dayparts?.length && !cat.dayparts.includes(daypartOf(minutes))))) {
         throw new BadRequestException(`"${item.name}" is not available at this time of day`);
@@ -382,7 +415,8 @@ export class PricingService implements IPricingService {
         if (n > max) throw new BadRequestException(`You can choose at most ${max} for "${g.name}" on "${item.name}"`);
       }
       const base = pickup && item.pickupPrice != null ? item.pickupPrice : item.price;
-      const unitPrice = round2(base + mods.reduce((s, m) => s + m.priceDelta, 0));
+      // weighed products: `price` is per kg / lb and the customer orders steps, so one unit is one step (price x step weight); pieces cost `price` each
+      const unitPrice = round2(unitPriceOf(item, base) + mods.reduce((s, m) => s + m.priceDelta, 0));
       const lineTotal = round2(unitPrice * qty);
       const code = item.taxClassCode ?? defaultCode;
       const tc = rows.find((t) => t.code === code);
@@ -399,7 +433,36 @@ export class PricingService implements IPricingService {
         notes: it.notes?.slice(0, 300),
         stationId: item.stationId,
         allergens: item.allergens ?? [],
+        sku: item.sku ?? null,
+        barcode: item.barcode ?? null,
+        packSize: item.packSize ?? null,
+        sellBy: item.sellBy === 'WEIGHT' ? 'WEIGHT' : 'UNIT',
+        weightUnit: item.weightUnit ?? 'KG',
+        stepSize: item.sellBy === 'WEIGHT' ? Number(item.stepSize) : 1,
+        estimatedWeight: item.sellBy === 'WEIGHT' ? estimatedWeight(item, qty) : null,
+        minAge: item.minAge ?? 0,
+        temperature: item.temperature ?? 'AMBIENT',
+        substitution: it.substitution === 'REFUND' ? 'REFUND' : 'ALLOW',
       });
+    }
+
+    // what the whole basket takes from the shelves, and the per-order limit, per product (the same product may sit on several lines)
+    const used = new Map<string, { use: number; qty: number }>();
+    for (const l of out) {
+      const item = byId.get(l.menuItemId)!;
+      const cur = used.get(item.id) ?? { use: 0, qty: 0 };
+      used.set(item.id, { use: cur.use + stockUse(item, l.quantity), qty: cur.qty + l.quantity });
+    }
+    for (const [id, u] of used) {
+      const item = byId.get(id)!;
+      if (item.trackStock && u.use > Number(item.stockQty ?? 0) + 1e-9) {
+        const left = Number(item.stockQty ?? 0);
+        const label = item.sellBy === 'WEIGHT' ? `${left} ${String(item.weightUnit).toLowerCase()}` : String(left);
+        throw new BadRequestException({ message: `Only ${label} of "${item.name}" left`, code: 'INSUFFICIENT_STOCK', details: { menuItemId: item.id, name: item.name, available: left } });
+      }
+      if (item.maxPerOrder && u.qty > item.maxPerOrder) {
+        throw new BadRequestException({ message: `You can order at most ${item.maxPerOrder} of "${item.name}"`, code: 'MAX_PER_ORDER', details: { menuItemId: item.id, name: item.name, max: item.maxPerOrder } });
+      }
     }
     return out;
   }

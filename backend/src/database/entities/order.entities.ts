@@ -1,5 +1,5 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, Relation } from 'typeorm';
-import { BaseEntity, GeoColumn, MoneyColumn, PctColumn } from '../../common/base.entity';
+import { BaseEntity, GeoColumn, MoneyColumn, PctColumn, QtyColumn } from '../../common/base.entity';
 import {
   ActorType,
   DropoffMethod,
@@ -258,6 +258,23 @@ export class Order extends BaseEntity {
   @Column({ default: false })
   hasAllergyFlag: boolean;
 
+  // ---- retail (groceries): see docs/store-types.md ----
+  /** the basket holds age-restricted goods: ID is checked at hand-over (driver) or at the counter (pickup) */
+  @Column({ default: false })
+  requiresIdCheck: boolean;
+
+  /** highest minimum age among the items (0 = none) */
+  @Column({ default: 0 })
+  minAge: number;
+
+  /** the customer confirmed their age at checkout */
+  @Column({ default: false })
+  ageConfirmed: boolean;
+
+  /** counts for the picker and the driver: { units, lines, weighed, chilled, frozen, heavyKg } */
+  @Column({ type: 'jsonb', nullable: true })
+  basket: { units: number; lines: number; weighed: number; chilled: number; frozen: number; estimatedKg: number } | null;
+
   // ---- exceptions ----
   @Column({ default: false })
   isLate: boolean;
@@ -334,6 +351,59 @@ export class OrderItem extends BaseEntity {
 
   @Column({ type: 'jsonb', default: [] })
   allergens: string[];
+
+  // ---- retail line facts, copied from the product when the order is placed (the product may change later) ----
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  sku: string | null;
+
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  barcode: string | null;
+
+  @Column({ type: 'varchar', length: 60, nullable: true })
+  packSize: string | null;
+
+  /** UNIT, or WEIGHT: `quantity` is then a number of steps of `stepSize` weight units, weighed when picked */
+  @Column({ type: 'varchar', length: 10, default: 'UNIT' })
+  sellBy: 'UNIT' | 'WEIGHT';
+
+  @Column({ type: 'varchar', length: 4, default: 'KG' })
+  weightUnit: 'KG' | 'LB';
+
+  @QtyColumn({ default: 1 })
+  stepSize: number;
+
+  /** weighed items: what was ordered (steps x step size) and what the picker weighed (null until weighed) */
+  @QtyColumn({ nullable: true })
+  estimatedWeight: number | null;
+
+  @QtyColumn({ nullable: true })
+  actualWeight: number | null;
+
+  @Column({ default: 0 })
+  minAge: number;
+
+  @Column({ type: 'varchar', length: 10, default: 'AMBIENT' })
+  temperature: 'AMBIENT' | 'CHILLED' | 'FROZEN';
+
+  /** what the customer wants if the store does not have it: ALLOW a replacement or REFUND it */
+  @Column({ type: 'varchar', length: 10, default: 'ALLOW' })
+  substitution: 'ALLOW' | 'REFUND';
+
+  /** picking list state (retail): PENDING | PICKED | REPLACED | OUT_OF_STOCK */
+  @Column({ type: 'varchar', length: 14, default: 'PENDING' })
+  pickStatus: 'PENDING' | 'PICKED' | 'REPLACED' | 'OUT_OF_STOCK';
+
+  /** REPLACED: what the customer gets instead { menuItemId, name, quantity, unitPrice, packSize } */
+  @Column({ type: 'jsonb', nullable: true })
+  replacement: { menuItemId: string; name: string; quantity: number; unitPrice: number; packSize?: string | null } | null;
+
+  /** money given back for this line after picking (weighed lighter, replaced by a cheaper product, not handed over without ID) */
+  @MoneyColumn({ default: 0 })
+  adjustmentRefund: number;
+
+  /** age-restricted line the recipient could not show ID for: not handed over, refunded */
+  @Column({ default: false })
+  idRefused: boolean;
 
   /** KDS station state */
   @Column({ type: 'varchar', default: 'NEW' })

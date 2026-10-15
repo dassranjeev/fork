@@ -2,7 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectDataSource } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DataSource } from 'typeorm';
-import { Address, Order } from '../database/entities';
+import { Address, Order, Restaurant } from '../database/entities';
+import { retailView } from '../common/store-types';
 import { ActorType, OrderStatus, OrderType } from '../common/enums';
 import { Events, PlaceOrderInput, QuoteInput } from '../common/contracts';
 import { PageQueryDto, paginateQb } from '../common/pagination';
@@ -48,17 +49,26 @@ export class CheckoutService {
     if (!cart.restaurantId || !cart.items.length) throw new BadRequestException('Your cart is empty');
     const deliveryAddress = dto.type === OrderType.PICKUP ? undefined : await this.resolveDeliveryAddress(customerId, dto);
     if (dto.type !== OrderType.PICKUP && !deliveryAddress) throw new BadRequestException('A delivery address is required');
+    // the hand-over method is part of the quote: baskets with age-restricted products cannot be left at the door (ID is checked)
+    let dropoffMethod: string | undefined;
+    if (dto.type !== OrderType.PICKUP) {
+      const def = dto.addressId ? await this.addressDefaults(customerId, dto.addressId) : null;
+      const contactless = (dto as { contactless?: boolean }).contactless;
+      dropoffMethod = dto.dropoffMethod ?? (contactless !== undefined ? (contactless ? 'LEAVE_AT_DOOR' : 'HAND_TO_ME') : def?.dropoffMethod ?? 'HAND_TO_ME');
+    }
     return {
       customerId,
       restaurantId: cart.restaurantId,
       type: dto.type,
       fulfilment: dto.fulfilment,
-      items: cart.items.map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity, modifierOptionIds: i.modifierOptionIds, notes: i.notes })),
+      items: cart.items.map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity, modifierOptionIds: i.modifierOptionIds, notes: i.notes, substitution: i.substitution })),
       deliveryAddress,
       promoCode: dto.promoCode ?? cart.promoCode ?? undefined,
       tip: dto.tip,
       useWallet: dto.useWallet,
       scheduledFor: dto.scheduledFor ? new Date(dto.scheduledFor) : null,
+      ageConfirmed: dto.ageConfirmed === true,
+      dropoffMethod,
     };
   }
 
@@ -133,7 +143,8 @@ export class CheckoutService {
     const hasCode = !!(await this.orders().createQueryBuilder('o').select('o.accessCode', 'ac').where('o.id = :id', { id: order.id }).getRawOne())?.ac;
     const p = [OrderStatus.DELIVERED, OrderStatus.COLLECTED].includes(order.status) ? await this.ds.getRepository(DeliveryProof).findOne({ where: { orderId: order.id } }) : null;
     const photoOk = p?.photoFile && !p.photoPurgedAt;
-    return Object.assign(order, {
+    const store = await this.ds.getRepository(Restaurant).findOne({ where: { id: order.restaurantId }, select: ['id', 'storeType'] });
+    return Object.assign(order, retailView(order, store?.storeType), {
       deliveryPin: order.requiresPin ? order.deliveryPin : null,
       accessCodeSet: hasCode,
       driverWaitFee: undefined,
@@ -187,6 +198,7 @@ export class CheckoutService {
           quantity: item.quantity,
           modifierOptionIds: (item.modifiers ?? []).map((m) => m.optionId),
           notes: item.notes ?? undefined,
+          substitution: item.substitution === 'REFUND' ? 'REFUND' : undefined,
           replaceCart: first,
         });
       } catch (e: any) {

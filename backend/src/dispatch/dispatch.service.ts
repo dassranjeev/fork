@@ -423,6 +423,11 @@ export class DispatchService implements IDispatchService {
         estimatedPay: candidate.estimatedPay,
         expiresAt: expiresAt.toISOString(),
         seconds: timeoutSec,
+        // what the driver is picking up (groceries: many bags, cold chain, ID check at the door)
+        storeType: order.restaurant?.storeType ?? null,
+        basket: order.basket ?? null,
+        requiresIdCheck: !!order.requiresIdCheck,
+        minAge: order.minAge ?? 0,
       });
       this.rt.emitToOps('dispatch.offer_sent', {
         orderId: order.id,

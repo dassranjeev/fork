@@ -74,6 +74,7 @@ export const BASE_URL: Record<Audience, string> = {
 };
 const C_TRACK = '/order/track/{orderId}';
 const R_ORDER = '/portal/orders?order={orderId}';
+const R_CATALOG = '/portal/menu';
 const D_HOME = '/driver-demo.html';
 const A_ORDER = '/orders/{orderId}';
 const A_TICKET = '/support/tickets/{ticketId}';
@@ -175,6 +176,42 @@ export const EVENTS: Record<string, EventDef> = {
     pushVars: ['code', 'item', 'amount'],
     pushData: ['orderId'],
     audiences: { CUSTOMER: { channels: PI, push: { title: 'An item is unavailable', body: 'Order {{code}}: "{{item}}" is unavailable. Approve the change or cancel.' }, url: C_TRACK, urgency: 'high', requireInteraction: true, tag: 'order:{orderId}' } },
+  },
+  // ---- grocery / retail picking (docs/store-types.md): the customer is told as the store goes through the basket; the money is already back ----
+  'order.item_out_of_stock': {
+    category: 'orders',
+    pushVars: ['code', 'item', 'amount'],
+    pushData: ['orderId'],
+    audiences: { CUSTOMER: { channels: PI, push: { title: '"{{item}}" is out of stock', body: 'Order {{code}}: the store does not have "{{item}}". {{amount}} was refunded to you.' }, url: C_TRACK, urgency: 'normal', tag: 'order:{orderId}' } },
+    msg: { CUSTOMER: { title: '"{{item}}" is out of stock', body: 'Order {{code}}: the store does not have "{{item}}". {{amount}} was refunded to you; the rest of your order is on its way.' } },
+  },
+  'order.item_replaced': {
+    category: 'orders',
+    pushVars: ['code', 'item', 'replacement', 'amount'],
+    pushData: ['orderId'],
+    audiences: { CUSTOMER: { channels: PI, push: { title: '"{{item}}" was replaced', body: 'Order {{code}}: you get "{{replacement}}" instead of "{{item}}". You never pay more than the original price.' }, url: C_TRACK, urgency: 'normal', tag: 'order:{orderId}' } },
+    msg: { CUSTOMER: { title: '"{{item}}" was replaced', body: 'Order {{code}}: the store replaced "{{item}}" with "{{replacement}}". You never pay more than the original price; if the replacement costs less, the difference ({{amount}}) is refunded to you.' } },
+  },
+  'order.weight_adjusted': {
+    category: 'orders',
+    pushVars: ['code', 'item', 'weight', 'amount'],
+    pushData: ['orderId'],
+    audiences: { CUSTOMER: { channels: ['IN_APP'], push: { title: '"{{item}}" weighed {{weight}}', body: 'Order {{code}}: {{amount}} was refunded because it weighed less than ordered.' }, url: C_TRACK, urgency: 'low', tag: 'order:{orderId}' } },
+    msg: { CUSTOMER: { title: '"{{item}}" weighed {{weight}}', body: 'Order {{code}}: "{{item}}" weighed {{weight}}, a little less than ordered, so {{amount}} was refunded to you. You are never charged for more than the estimated weight.' } },
+  },
+  'order.id_check_failed': {
+    category: 'orders',
+    pushVars: ['code', 'minAge', 'amount'],
+    pushData: ['orderId'],
+    audiences: { CUSTOMER: { channels: PI, push: { title: 'Age-restricted items were not handed over', body: 'Order {{code}}: valid ID showing you are at least {{minAge}} was not shown. {{amount}} was refunded for those items.' }, url: C_TRACK, urgency: 'high', tag: 'order:{orderId}' } },
+    msg: { CUSTOMER: { title: 'Age-restricted items were not handed over', body: 'Order {{code}}: the driver could not check valid ID showing you are at least {{minAge}}, so the age-restricted items were not handed over. {{amount}} was refunded to you; the rest of your order was delivered.' } },
+  },
+  'stock.low': {
+    category: 'orders',
+    pushVars: ['item', 'left'],
+    pushData: ['menuItemId'],
+    audiences: { RESTAURANT: { channels: PI, push: { title: 'Low stock: {{item}}', body: '"{{item}}" is running out: {{left}} left. Restock it or customers will find it sold out.' }, url: R_CATALOG, urgency: 'normal', tag: 'stock:{menuItemId}' } },
+    msg: { RESTAURANT: { title: 'Low stock: {{item}}', body: '"{{item}}" is running out ({{left}} left). Update the stock in your catalog when it is delivered.' } },
   },
   'order.partial_refund': {
     category: 'payments',

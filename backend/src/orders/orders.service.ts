@@ -25,6 +25,8 @@ import { quoteFingerprint } from './quote-hash';
 import { LedgerService } from './ledger.service';
 import { WalletService } from './wallet.service';
 import { RefundsService } from './refunds.service';
+import { Reservation, RetailService } from './retail.service';
+import { retailView } from '../common/store-types';
 import { PricingService } from './pricing.service';
 import { lazyProvider, round2 } from './pricing.math';
 import { ProofService } from './proof.service';
@@ -107,6 +109,7 @@ export class OrdersService implements IOrdersService {
     private audit: AuditService,
     private emitter: EventEmitter2,
     private proof: ProofService,
+    private retail: RetailService,
   ) {}
 
   private promotions(): IPromotionsService | null {
@@ -159,6 +162,16 @@ export class OrdersService implements IOrdersService {
           notes: l.notes ?? null,
           stationId: l.stationId ?? null,
           allergens: l.allergens ?? [],
+          sku: l.sku ?? null,
+          barcode: l.barcode ?? null,
+          packSize: l.packSize ?? null,
+          sellBy: l.sellBy ?? 'UNIT',
+          weightUnit: l.weightUnit ?? 'KG',
+          stepSize: l.stepSize ?? 1,
+          estimatedWeight: l.estimatedWeight ?? null,
+          minAge: l.minAge ?? 0,
+          temperature: l.temperature ?? 'AMBIENT',
+          substitution: l.substitution ?? 'ALLOW',
         }),
     );
     let order = this.orders.create({
@@ -208,13 +221,21 @@ export class OrdersService implements IOrdersService {
       accessCode: quote.fulfilment === FulfilmentMode.PICKUP ? null : sealCode(cleanAccessCode(input.accessCode)),
       customerNotes: input.customerNotes?.slice(0, 1000) ?? null,
       hasAllergyFlag: quote.lines.some((l) => l.allergens?.length > 0),
+      requiresIdCheck: quote.requiresIdCheck ?? false,
+      minAge: quote.minAge ?? 0,
+      ageConfirmed: (quote.minAge ?? 0) > 0 && input.ageConfirmed === true,
+      basket: quote.basket ?? null,
       cancellationFee: 0,
       source: input.source ?? 'app',
       meta: {},
     });
+    // the basket leaves the shelves now (atomic per product: the last one can only be taken once). Refused with INSUFFICIENT_STOCK when something just sold out
+    // (the caller refunds the payment). Given back below if the order cannot be completed.
+    const reserved: Reservation[] = await this.retail.reserve(quote.lines);
     try {
       order = await this.orders.save(order);
     } catch (e: any) {
+      await this.retail.release(reserved);
       // the payment stays untouched: another order owns it (23505), or the customer retries (the clean-up returns it if no order ever uses it)
       if (e?.code === '23505' && /paymentIntentId/i.test(String(e?.detail ?? e?.message ?? ''))) throw payError(409, 'PAYMENT_INTENT_USED', 'This payment was already used for another order.');
       throw e;
@@ -227,6 +248,7 @@ export class OrdersService implements IOrdersService {
       try {
         await promoSvc.redeem(quote.promotion.id, customerId, order.id, quote.discountTotal);
       } catch (e) {
+        await this.retail.release(reserved);
         await this.orders.delete(order.id);
         throw e instanceof BadRequestException ? e : new BadRequestException('This promo code is no longer available. Please remove it and try again.');
       }
@@ -246,6 +268,7 @@ export class OrdersService implements IOrdersService {
       if (paid) await this.payments.recordCharge(order, paid);
     } catch (e) {
       // undo everything this attempt did; the card payment stays the customer's (placeOrder refunds it for a clear refusal, a retry can use it otherwise)
+      await this.retail.release(reserved);
       await promoSvc?.unredeem(order.id).catch(() => undefined);
       if (walletDebited) await this.wallet.credit(customerId, quote.walletUsed, 'ADJUSTMENT', { orderId: order.id, note: `Order ${order.code} could not be placed - wallet credit returned` }).catch(() => undefined);
       await this.payments.forgetPayments(order.id);
@@ -335,6 +358,11 @@ export class OrdersService implements IOrdersService {
         if (due.getTime() > order.estimatedReadyAt.getTime()) order.estimatedReadyAt = due;
       }
     }
+    if ((to === OrderStatus.REJECTED || to === OrderStatus.CANCELLED) && !order.meta?.stockRestored) {
+      // the products go back on the shelves (once per order)
+      await this.retail.restoreFor(order);
+      order.meta = { ...(order.meta ?? {}), stockRestored: true };
+    }
     if (to === OrderStatus.REJECTED) {
       order.rejectReason = opts.reason ?? null;
       order.cancelledBy = actor.type;
@@ -358,6 +386,7 @@ export class OrdersService implements IOrdersService {
       // evidence first: if it cannot be stored the transition fails and the status is rolled back
       if (opts.proof) await this.proof.persist(order, opts.proof);
       else await this.proof.recordForced(order, actor.id);
+      if (opts.proof?.idCheck) order.meta = { ...(order.meta ?? {}), idCheck: { result: opts.proof.idCheck, minAge: order.minAge, at: new Date().toISOString() } };
       await this.settleDelivered(order);
       if (order.driverId) {
         // a stacked second order may still be in progress: the driver stays "on trip" until the last one is done
@@ -382,6 +411,8 @@ export class OrdersService implements IOrdersService {
     }
 
     await this.addEvent(order.id, 'STATUS_CHANGE', actor, opts.note ?? opts.reason, { from, to });
+    // the recipient could not show ID: the age-restricted products stay with the driver / store and are refunded (after the order is saved: the refund updates it too)
+    if (to === OrderStatus.DELIVERED && opts.proof?.idCheck === 'REFUSED') await this.retail.refuseAgeRestricted(order, actor);
     if (to === OrderStatus.PICKED_UP && Number(order.driverWaitFee) > 0) {
       const amount = `$${Number(order.driverWaitFee).toFixed(2)}`;
       await this.addEvent(order.id, 'DRIVER_WAIT_FEE', { type: ActorType.SYSTEM }, `Driver waited ${order.driverWaitMinutes} min at the restaurant: ${amount} paid to the driver and deducted from the restaurant payout`, { amount: Number(order.driverWaitFee), minutes: order.driverWaitMinutes });
@@ -994,6 +1025,7 @@ export class OrdersService implements IOrdersService {
       id: order.id,
       code: order.code,
       status: order.status,
+      ...retailView(order, order.restaurant.storeType),
       fulfilment: order.fulfilment,
       restaurant: {
         id: order.restaurant.id,
@@ -1003,6 +1035,8 @@ export class OrdersService implements IOrdersService {
         lng: order.restaurant.lng,
       },
       items: order.items.filter((i) => !i.removed),
+      /** lines that are gone (out of stock, ID not shown): shown to the customer with the refund, never to the driver */
+      removedItems: viewer === 'DRIVER' ? undefined : order.items.filter((i) => i.removed).map((i) => ({ id: i.id, name: i.name, quantity: i.quantity, reason: i.removedReason, pickStatus: i.pickStatus, refunded: Number(i.adjustmentRefund ?? 0) })),
       total: order.total,
       waiting: viewer !== 'CUSTOMER' ? this.waitingInfo(order) : undefined,
       kitchenReleaseAt: viewer === 'CUSTOMER' || full ? order.kitchenReleaseAt : undefined,

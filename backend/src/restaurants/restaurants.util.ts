@@ -3,7 +3,8 @@ import { ModuleRef } from '@nestjs/core';
 import { randomBytes } from 'crypto';
 import { ActorRef, IOrdersService } from '../common/contracts';
 import { AuthUser } from '../common/auth.types';
-import { ActorType, RestaurantRole } from '../common/enums';
+import { ActorType, RestaurantRole, StoreType } from '../common/enums';
+import { profileOf } from '../common/store-types';
 
 export const slugify = (s: string) =>
   (s ?? '')
@@ -103,4 +104,22 @@ export function nextRestockTime(now = new Date(), timeZone = 'America/Toronto'):
   let delta = 4 * 60 - localMin;
   if (delta <= 0) delta += 1440;
   return new Date(now.getTime() + delta * 60_000);
+}
+
+/**
+ * The columns a NEW location of this store type starts with (prep time, radius, minimum order, scheduling, kitchen display).
+ * Owners and admins can change every one of them afterwards; only creation uses these.
+ */
+export function storeTypeDefaults(type?: StoreType | string | null) {
+  const p = profileOf(type);
+  return {
+    storeType: p.type,
+    prepTimeMin: p.defaults.prepTimeMin,
+    pickupPrepTimeMin: p.defaults.pickupPrepTimeMin,
+    deliveryRadiusKm: p.defaults.deliveryRadiusKm,
+    minimumOrder: p.defaults.minimumOrder,
+    scheduleLeadMin: p.defaults.scheduleLeadMin,
+    maxOrdersPerSlot: p.defaults.maxOrdersPerSlot,
+    kdsEnabled: p.kdsDefault,
+  };
 }

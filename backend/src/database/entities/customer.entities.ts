@@ -157,9 +157,9 @@ export class Cart extends BaseEntity {
   @Column({ type: 'uuid', nullable: true })
   restaurantId: string | null;
 
-  /** [{ menuItemId, quantity, modifierOptionIds: string[], notes }] */
+  /** [{ menuItemId, quantity, modifierOptionIds: string[], notes, substitution }] (substitution: retail only, what to do when the store does not have the product) */
   @Column({ type: 'jsonb', default: [] })
-  items: { lineId?: string; menuItemId: string; quantity: number; modifierOptionIds?: string[]; notes?: string }[];
+  items: { lineId?: string; menuItemId: string; quantity: number; modifierOptionIds?: string[]; notes?: string; substitution?: 'ALLOW' | 'REFUND' }[];
 
   @Column({ type: 'varchar', nullable: true })
   promoCode: string | null;
