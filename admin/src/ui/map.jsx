@@ -1,8 +1,38 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import L from "leaflet";
 import { MapContainer, Marker, Polygon, Polyline, Popup, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { escapeHtml, safeColor } from "../lib/safe";
+import { http } from "../lib/api";
+
+// Which maps provider draws the tiles (Mapbox / Google, chosen by a Super Admin on System > Integrations) comes from the API. Only public keys are sent;
+// without a usable key the free OpenStreetMap tiles are drawn, exactly as before.
+const OSM_TILES = { provider: "osm", url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', tileSize: 256, maxZoom: 19 };
+const CONFIG_TTL_MS = 5 * 60_000;
+let mapsConfig = null; // { at, promise }
+
+/** The tile settings (cached for a few minutes; the Integrations page resets it right after a switch). */
+export function loadMapTiles() {
+  if (!mapsConfig || Date.now() - mapsConfig.at > CONFIG_TTL_MS) {
+    mapsConfig = { at: Date.now(), promise: http.get("/admin/maps/config").then((c) => (c?.tiles?.url ? c.tiles : OSM_TILES)).catch(() => OSM_TILES) };
+  }
+  return mapsConfig.promise;
+}
+export function resetMapTiles() {
+  mapsConfig = null;
+}
+
+function useMapTiles() {
+  const [tiles, setTiles] = useState(null);
+  useEffect(() => {
+    let on = true;
+    loadMapTiles().then((t) => on && setTiles(t));
+    return () => {
+      on = false;
+    };
+  }, []);
+  return tiles;
+}
 
 export const DEFAULT_CENTER = [43.589, -79.6441]; // Mississauga
 
@@ -66,6 +96,7 @@ function ClickHandler({ onClick }) {
  *  fit: auto fit bounds to everything (default true when items exist)
  */
 export function MapView({ markers = [], polygons = [], lines = [], height = 420, center = DEFAULT_CENTER, zoom = 12, fit = true, onClick, className = "", children }) {
+  const tiles = useMapTiles();
   const pts = useMemo(() => {
     const p = [];
     markers.forEach((m) => m.lat != null && m.lng != null && p.push([m.lat, m.lng]));
@@ -76,7 +107,7 @@ export function MapView({ markers = [], polygons = [], lines = [], height = 420,
   return (
     <div className={`radius-12 overflow-hidden border ${className}`} style={{ height }}>
       <MapContainer center={center} zoom={zoom} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
-        <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        {tiles && <TileLayer key={tiles.url} url={tiles.url} attribution={tiles.attribution} tileSize={tiles.tileSize || 256} maxZoom={tiles.maxZoom || 19} detectRetina={tiles.url.includes("{r}")} />}
         {fit && pts.length > 0 && <FitBounds points={pts} />}
         {onClick && <ClickHandler onClick={onClick} />}
         {polygons.map((g) => (

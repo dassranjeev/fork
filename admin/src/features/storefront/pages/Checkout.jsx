@@ -25,7 +25,7 @@ function Section({ n, title, children, hint }) {
   );
 }
 
-/** "Add a delivery address" dialog. With address search (Mapbox through the FORKSY API) the street, city, postal code and map position are filled from a suggestion; without it the demo areas are the fallback. */
+/** "Add a delivery address" dialog. With address search (the maps provider through the FORKSY API) the street, city, postal code and map position are filled from a suggestion; without it the demo areas are the fallback. */
 function AddressDialog({ open, onClose, onSaved }) {
   const loc = useSfLocation();
   const first = DEMO_LOCATIONS.find((l) => loc && l.lat === loc.lat && l.lng === loc.lng) || DEMO_LOCATIONS[0];

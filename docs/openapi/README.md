@@ -5,7 +5,7 @@ allowed values, the error format, and, for most read routes, the shape of the an
 
 | File | What |
 |---|---|
-| [`openapi.json`](openapi.json) | The API description (917 operations, 285 request schemas). Use this one |
+| [`openapi.json`](openapi.json) | The API description (920 operations, 287 request schemas). Use this one |
 | [`openapi.yaml`](openapi.yaml) | The same content as YAML |
 | [`openapi.responses.json`](openapi.responses.json) | Input of the export: response shapes observed on demo data (see below). Not for clients |
 

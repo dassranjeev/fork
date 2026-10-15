@@ -5054,6 +5054,17 @@ components:
         sortOrder:
           type: number
       type: object
+    UpdateGoogleDto:
+      properties:
+        apiKey:
+          maxLength: 100
+          nullable: true
+          type: string
+        browserKey:
+          maxLength: 100
+          nullable: true
+          type: string
+      type: object
     UpdateGroupDto:
       properties:
         itemIds:
@@ -5236,6 +5247,19 @@ components:
           maxLength: 300
           nullable: true
           type: string
+        style:
+          maxLength: 100
+          type: string
+      type: object
+    UpdateMapsDto:
+      properties:
+        provider:
+          enum:
+            - mapbox
+            - google
+          type: string
+        roadDistances:
+          type: boolean
       type: object
     UpdateMemberDto:
       properties:
@@ -23652,22 +23676,47 @@ paths:
           content:
             application/json:
               example:
+                google:
+                  configured: true
+                  keys:
+                    apiKey:
+                      masked: '********1234'
+                      set: true
+                      source: settings
+                    browserKey:
+                      masked: '********0123'
+                      set: true
+                      source: settings
+                  lastTest: null
+                  warnings: []
                 mapbox:
                   bbox: -80.35,43.35,-78.9,44.2
-                  configured: false
+                  configured: true
                   country: ca
                   keys:
                     accessToken:
-                      masked: ''
-                      set: false
-                      source: none
+                      masked: '********7890'
+                      set: true
+                      source: settings
                     publicToken:
-                      masked: ''
-                      set: false
-                      source: none
+                      masked: '********7890'
+                      set: true
+                      source: settings
                   lastTest: null
                   proximity: -79.6441,43.589
+                  style: mapbox/streets-v12
                   tokenKind: <redacted>
+                  warnings: []
+                maps:
+                  addressSearch: true
+                  note: Switching the provider takes effect at once. The keys of the other provider stay saved.
+                  provider: mapbox
+                  providers:
+                    - mapbox
+                    - google
+                  roadDistances: false
+                  roadDistancesActive: false
+                  tiles: mapbox
                   warnings: []
                 note: Secrets are encrypted at rest and are never returned by this API; only whether they are set and their last 4 characters.
                 others:
@@ -23685,14 +23734,6 @@ paths:
                     partial: false
                     parts:
                       - name: Server key
-                        set: false
-                        source: none
-                  googleMaps:
-                    configured: false
-                    label: Google Maps
-                    partial: false
-                    parts:
-                      - name: API key
                         set: false
                         source: none
                   sendgrid:
@@ -23744,9 +23785,56 @@ paths:
                     events:
                       - payment_intent.succeeded
                       - payment_intent.amount_capturable_updated
-                    url: http://localhost:4000/api/v1/webhooks/stripe
+                    url: http://localhost:4200/api/v1/webhooks/stripe
               schema:
                 properties:
+                  google:
+                    properties:
+                      configured:
+                        type: boolean
+                      keys:
+                        properties:
+                          apiKey:
+                            properties:
+                              masked:
+                                type: string
+                              set:
+                                type: boolean
+                              source:
+                                type: string
+                            required:
+                              - masked
+                              - set
+                              - source
+                            type: object
+                          browserKey:
+                            properties:
+                              masked:
+                                type: string
+                              set:
+                                type: boolean
+                              source:
+                                type: string
+                            required:
+                              - masked
+                              - set
+                              - source
+                            type: object
+                        required:
+                          - apiKey
+                          - browserKey
+                        type: object
+                      lastTest:
+                        nullable: true
+                      warnings:
+                        items: {}
+                        type: array
+                    required:
+                      - configured
+                      - keys
+                      - lastTest
+                      - warnings
+                    type: object
                   mapbox:
                     properties:
                       bbox:
@@ -23791,6 +23879,8 @@ paths:
                         nullable: true
                       proximity:
                         type: string
+                      style:
+                        type: string
                       tokenKind:
                         type: string
                       warnings:
@@ -23803,7 +23893,39 @@ paths:
                       - keys
                       - lastTest
                       - proximity
+                      - style
                       - tokenKind
+                      - warnings
+                    type: object
+                  maps:
+                    properties:
+                      addressSearch:
+                        type: boolean
+                      note:
+                        type: string
+                      provider:
+                        type: string
+                      providers:
+                        items:
+                          type: string
+                        type: array
+                      roadDistances:
+                        type: boolean
+                      roadDistancesActive:
+                        type: boolean
+                      tiles:
+                        type: string
+                      warnings:
+                        items: {}
+                        type: array
+                    required:
+                      - addressSearch
+                      - note
+                      - provider
+                      - providers
+                      - roadDistances
+                      - roadDistancesActive
+                      - tiles
                       - warnings
                     type: object
                   note:
@@ -23840,35 +23962,6 @@ paths:
                           - parts
                         type: object
                       fcm:
-                        properties:
-                          configured:
-                            type: boolean
-                          label:
-                            type: string
-                          partial:
-                            type: boolean
-                          parts:
-                            items:
-                              properties:
-                                name:
-                                  type: string
-                                set:
-                                  type: boolean
-                                source:
-                                  type: string
-                              required:
-                                - name
-                                - set
-                                - source
-                              type: object
-                            type: array
-                        required:
-                          - configured
-                          - label
-                          - partial
-                          - parts
-                        type: object
-                      googleMaps:
                         properties:
                           configured:
                             type: boolean
@@ -23958,7 +24051,6 @@ paths:
                     required:
                       - certn
                       - fcm
-                      - googleMaps
                       - sendgrid
                       - twilio
                     type: object
@@ -24062,12 +24154,37 @@ paths:
                       - webhook
                     type: object
                 required:
+                  - google
                   - mapbox
+                  - maps
                   - note
                   - others
                   - stripe
                 type: object
           description: Response shape observed on demo data (a field that was empty in every demo row may be typed loosely or be missing)
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      security:
+        - bearer: []
+      tags:
+        - Admin / integrations
+  /api/v1/admin/integrations/google:
+    put:
+      operationId: AdminIntegrationsController_updateGoogle
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGoogleDto'
+        required: true
+      responses:
+        '200':
+          description: ''
         default:
           content:
             application/json:
@@ -24087,6 +24204,29 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/UpdateMapboxDto'
+        required: true
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      security:
+        - bearer: []
+      tags:
+        - Admin / integrations
+  /api/v1/admin/integrations/maps:
+    put:
+      operationId: AdminIntegrationsController_updateMaps
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMapsDto'
         required: true
       responses:
         '200':
@@ -24901,6 +25041,68 @@ paths:
         - bearer: []
       tags:
         - Admin / live-map
+  /api/v1/admin/maps/config:
+    get:
+      operationId: AdminMapsController_config
+      parameters: []
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                addressSearch: true
+                provider: mapbox
+                roadDistances: false
+                tiles:
+                  attribution: '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  maxZoom: 20
+                  provider: mapbox
+                  tileSize: 256
+                  url: https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/{z}/{x}/{y}{r}?access_token=pk.fakepublic12345.fakepublic67890
+              schema:
+                properties:
+                  addressSearch:
+                    type: boolean
+                  provider:
+                    type: string
+                  roadDistances:
+                    type: boolean
+                  tiles:
+                    properties:
+                      attribution:
+                        type: string
+                      maxZoom:
+                        type: integer
+                      provider:
+                        type: string
+                      tileSize:
+                        type: integer
+                      url:
+                        type: string
+                    required:
+                      - attribution
+                      - maxZoom
+                      - provider
+                      - tileSize
+                      - url
+                    type: object
+                required:
+                  - addressSearch
+                  - provider
+                  - roadDistances
+                  - tiles
+                type: object
+          description: Response shape observed on demo data (a field that was empty in every demo row may be typed loosely or be missing)
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      security:
+        - bearer: []
+      tags:
+        - Admin / maps
   /api/v1/admin/notification-matrix:
     get:
       operationId: NotificationMatrixController_get
@@ -72908,6 +73110,7 @@ tags:
   - name: Admin / integrations
   - name: Admin / integrations/stripe
   - name: Admin / live-map
+  - name: Admin / maps
   - name: Admin / notification-matrix
   - name: Admin / notification-templates
   - name: Admin / notifications
@@ -73022,6 +73225,7 @@ x-tagGroups:
       - Admin / integrations
       - Admin / integrations/stripe
       - Admin / live-map
+      - Admin / maps
       - Admin / notification-matrix
       - Admin / notification-templates
       - Admin / notifications

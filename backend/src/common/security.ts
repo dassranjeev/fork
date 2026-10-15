@@ -84,7 +84,7 @@ export interface SafetyInput {
   publicUrl: string;
   /** ALLOW_MOCK_PAYMENTS is set (development mock payments) */
   allowMockPayments: boolean;
-  /** STRIPE_API_BASE / MAPBOX_API_BASE (fake servers for tests) are set */
+  /** STRIPE_API_BASE / MAPBOX_API_BASE / GOOGLE_API_BASE (fake servers for tests) are set */
   fakeProviderBases: boolean;
   enforce2fa: boolean;
   seedSuperAdminPassword: string;
@@ -108,7 +108,7 @@ export function productionProblems(i: SafetyInput): string[] {
   }
   if (!/^https:\/\//i.test(i.publicUrl) || /localhost|127\.0\.0\.1/i.test(i.publicUrl)) p.push('PUBLIC_URL must be the public https URL (not localhost / http)');
   if (i.allowMockPayments) p.push('ALLOW_MOCK_PAYMENTS is set (the mock payment provider is a development tool and must not exist in production)');
-  if (i.fakeProviderBases) p.push('STRIPE_API_BASE / MAPBOX_API_BASE are set (they point the API at fake servers; remove them in production)');
+  if (i.fakeProviderBases) p.push('STRIPE_API_BASE / MAPBOX_API_BASE / GOOGLE_API_BASE are set (they point the API at fake servers; remove them in production)');
   // Stripe keys may live in the environment OR in System > Integrations (database): they are checked after the database is up, see stripeProductionProblems()
   if (!i.enforce2fa) p.push('ENFORCE_2FA is not true (staff and restaurant owners must use two-factor authentication in production)');
   if ((i.dataEncryptionKey ?? '').length < 32) p.push('DATA_ENCRYPTION_KEY is missing or shorter than 32 chars (it encrypts TOTP seeds at rest; keep it separate from JWT_SECRET)');

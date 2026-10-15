@@ -5,8 +5,8 @@ import { http } from "../lib/api";
 const sessionId = () => (window.crypto?.randomUUID ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}-adm`);
 
 /**
- * "Find address" helper for the admin forms: types an address, shows Mapbox suggestions (through the authenticated
- * GET /admin/geocode/* routes; the Mapbox token stays on the server) and calls onPick({ line1, city, province, postalCode, lat, lng, label }).
+ * "Find address" helper for the admin forms: types an address, shows suggestions from the active maps provider, Mapbox or Google (through the authenticated
+ * GET /admin/geocode/* routes; the provider key stays on the server) and calls onPick({ line1, city, province, postalCode, lat, lng, label }).
  * Renders nothing useful (a short hint) when address search is not configured.
  */
 export function AddressFinder({ onPick, label = "Find address", placeholder = "Type a street address to find its map position", proximity }) {
@@ -67,7 +67,7 @@ export function AddressFinder({ onPick, label = "Find address", placeholder = "T
     }
   };
 
-  if (off) return <div className="text-secondary-light text-xs mb-12" data-testid="finder-off">Address search is not configured (System &gt; Integrations &gt; Mapbox). Click the map to place the pin.</div>;
+  if (off) return <div className="text-secondary-light text-xs mb-12" data-testid="finder-off">Address search is not configured (System &gt; Integrations &gt; Maps). Click the map to place the pin.</div>;
   return (
     <div className="mb-16 position-relative" data-testid="address-finder">
       <label className="form-label fw-semibold text-sm">{label}</label>

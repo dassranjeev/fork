@@ -60,7 +60,7 @@ restaurant keeps its own lifecycle status (`APPLIED`, `DOCS_REVIEW`, `MENU_SETUP
 
 **Instant.** The restaurant is `LIVE` and accepting orders right after the application, with the default commission tier, and its owner may
 edit the menu straight away (menu editing is granted). The application form does not send map coordinates, so FORKSY tries to place a pin from
-the street address (Mapbox, when configured) and finds the delivery zone from it. **Without a pin a live restaurant cannot be found by customers**
+the street address (the active maps provider, when configured) and finds the delivery zone from it. **Without a pin a live restaurant cannot be found by customers**
 until a staff member sets its location on the restaurant page. Stored: merchant `UNVERIFIED` / `INSTANT`.
 
 **Manual.** Unchanged SOP-01 (documents, commission tier, menu review, test order, go-live). A staff go-live is the manual verification and is

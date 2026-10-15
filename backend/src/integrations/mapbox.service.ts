@@ -1,32 +1,23 @@
 import { BadGatewayException, BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { SettingsService } from '../settings/settings.service';
 import { KeySource } from './stripe-client.service';
+import { AutocompleteResult, GeoAddress, GeoSuggestion, RetrieveResult, ReverseResult, RouteResult, TestOutcome, TileConfig } from './maps.types';
+
+export type { GeoAddress, GeoSuggestion } from './maps.types';
 
 export interface MapboxConfig {
   token: string;
   tokenSource: KeySource;
   publicToken: string;
+  /** "username/style_id" of the map style drawn in the browser, e.g. mapbox/streets-v12 */
+  style: string;
   country: string;
   bbox: string;
   proximity: string;
 }
 
-export interface GeoAddress {
-  line1: string;
-  city: string;
-  province: string;
-  postalCode: string;
-  lat: number;
-  lng: number;
-  label: string;
-}
-
-export interface GeoSuggestion {
-  id: string;
-  label: string;
-  line1: string;
-  secondary: string;
-}
+export const MAPBOX_STYLE_RE = /^[A-Za-z0-9_-]{1,40}\/[A-Za-z0-9_-]{1,60}$/;
+export const DEFAULT_MAPBOX_STYLE = 'mapbox/streets-v12';
 
 export const MAPBOX_TOKEN_RE = /^(sk|pk)\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}$/;
 export const MAPBOX_PUBLIC_TOKEN_RE = /^pk\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}$/;
@@ -42,7 +33,8 @@ const MAX_CACHE = 2000;
  * the web / mobile apps call FORKSY's own /public/geocode/* routes, this service calls Mapbox.
  * Without a token every method answers { enabled:false } so clients fall back to manual entry / demo areas.
  * MAPBOX_API_BASE points it at a fake server (development / tests only, ignored in production).
- * Routing / ETA are NOT done with Mapbox (geocoding only).
+ * Besides address search it answers the two other Mapbox jobs of MapsService: driving routes (Directions API, server token) and the map tile
+ * URL for browsers (Styles API, PUBLIC pk. token only).
  */
 @Injectable()
 export class MapboxService {
@@ -60,6 +52,7 @@ export class MapboxService {
       token,
       tokenSource: typeof s === 'string' && s.trim() ? 'settings' : env ? 'env' : 'none',
       publicToken: pub,
+      style: ((this.settings.get<string>('integrations.mapbox.style', DEFAULT_MAPBOX_STYLE) || DEFAULT_MAPBOX_STYLE) as string).trim(),
       country: String(this.settings.get<string>('integrations.mapbox.country', 'ca') || 'ca').toLowerCase(),
       bbox: String(this.settings.get<string>('integrations.mapbox.bbox', '') ?? '').trim(),
       proximity: String(this.settings.get<string>('integrations.mapbox.proximity', '') ?? '').trim(),
@@ -128,7 +121,7 @@ export class MapboxService {
   }
 
   // ------------------------------------------------------------------ public operations
-  async autocomplete(q: string, opts: { proximity?: string; sessionToken: string }): Promise<{ enabled: boolean; suggestions: GeoSuggestion[]; error?: string }> {
+  async autocomplete(q: string, opts: { proximity?: string; sessionToken: string }): Promise<AutocompleteResult> {
     if (!this.enabled) return { enabled: false, suggestions: [] };
     const key = `s|${q.toLowerCase()}|${opts.proximity ?? ''}`;
     const hit = this.cached<GeoSuggestion[]>(key);
@@ -151,7 +144,7 @@ export class MapboxService {
     }
   }
 
-  async retrieve(id: string, sessionToken: string): Promise<{ enabled: boolean; address?: GeoAddress; error?: string }> {
+  async retrieve(id: string, sessionToken: string): Promise<RetrieveResult> {
     if (!this.enabled) return { enabled: false };
     const key = `r|${id}`;
     const hit = this.cached<GeoAddress>(key);
@@ -168,7 +161,7 @@ export class MapboxService {
     }
   }
 
-  async reverse(lat: number, lng: number): Promise<{ enabled: boolean; address?: GeoAddress | null; error?: string }> {
+  async reverse(lat: number, lng: number): Promise<ReverseResult> {
     if (!this.enabled) return { enabled: false };
     const key = `v|${lat.toFixed(5)},${lng.toFixed(5)}`;
     const hit = this.cached<GeoAddress | null>(key);
@@ -181,6 +174,32 @@ export class MapboxService {
     } catch (e: any) {
       return this.softFail(e);
     }
+  }
+
+  /** Driving distance and time between two points (Mapbox Directions API, no live traffic, so the same trip always answers the same). Throws when Mapbox cannot answer. */
+  async route(from: { lat: number; lng: number }, to: { lat: number; lng: number }): Promise<RouteResult> {
+    if (!this.enabled) throw new BadGatewayException('MAPBOX_OFF');
+    const coords = `${from.lng.toFixed(6)},${from.lat.toFixed(6)};${to.lng.toFixed(6)},${to.lat.toFixed(6)}`;
+    const j = await this.call(`/directions/v5/mapbox/driving/${coords}`, { overview: 'false', alternatives: 'false', steps: 'false' });
+    const r = j?.routes?.[0];
+    const m = Number(r?.distance);
+    const s = Number(r?.duration);
+    if (!Number.isFinite(m) || !Number.isFinite(s) || m < 0) throw new BadGatewayException('Mapbox found no route');
+    return { km: m / 1000, minutes: Math.max(1, Math.round(s / 60)), source: 'mapbox' };
+  }
+
+  /** Map tiles for browsers: needs the PUBLIC (pk.) token; null when there is none (the caller falls back to the OpenStreetMap tiles). */
+  tileConfig(): TileConfig | null {
+    const c = this.config();
+    if (!c.publicToken || !MAPBOX_PUBLIC_TOKEN_RE.test(c.publicToken)) return null;
+    const style = MAPBOX_STYLE_RE.test(c.style) ? c.style : DEFAULT_MAPBOX_STYLE;
+    return {
+      provider: 'mapbox',
+      url: `${this.base()}/styles/v1/${style}/tiles/256/{z}/{x}/{y}{r}?access_token=${c.publicToken}`,
+      attribution: '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      tileSize: 256,
+      maxZoom: 20,
+    };
   }
 
   private softFail(e: any): any {
@@ -215,7 +234,7 @@ export class MapboxService {
 
   // ------------------------------------------------------------------ admin "Test connection"
   /** One forward geocode request. Never returns the token. */
-  async test(): Promise<{ ok: boolean; reason?: string; sample?: string; latencyMs?: number; country: string; bbox: string; tokenKind: string }> {
+  async test(): Promise<TestOutcome & { country: string; bbox: string; tokenKind: string }> {
     const cfg = this.config();
     const tokenKind = cfg.token.startsWith('sk.') ? 'secret (sk.)' : cfg.token.startsWith('pk.') ? 'public (pk.)' : cfg.token ? 'unknown' : 'none';
     const base = { country: cfg.country, bbox: cfg.bbox, tokenKind };
@@ -225,7 +244,15 @@ export class MapboxService {
       const j = await this.call('/search/searchbox/v1/suggest', { q: '1 City Centre Dr Mississauga', session_token: 'forksy-connection-test', limit: 1, types: 'address', ...this.searchParams() });
       const n = (j?.suggestions ?? []).length;
       if (!n) return { ok: false, reason: 'Mapbox answered but found no address for the test search (check the country / bounding box settings)', latencyMs: Date.now() - t0, ...base };
-      return { ok: true, sample: String(j.suggestions[0].full_address ?? j.suggestions[0].name ?? ''), latencyMs: Date.now() - t0, ...base };
+      // routing uses another scope of the token (Directions): report it separately, it does not fail the address search test
+      let routing: { ok: boolean; km?: number; minutes?: number; reason?: string };
+      try {
+        const r = await this.route({ lat: 43.5931, lng: -79.6413 }, { lat: 43.6114, lng: -79.6296 });
+        routing = { ok: true, km: Math.round(r.km * 100) / 100, minutes: r.minutes };
+      } catch (e: any) {
+        routing = { ok: false, reason: e?.message === 'MAPBOX_AUTH' ? 'The token cannot use the Directions API (road distance and time fall back to the estimate)' : String(e?.message ?? 'Directions request failed') };
+      }
+      return { ok: true, sample: String(j.suggestions[0].full_address ?? j.suggestions[0].name ?? ''), latencyMs: Date.now() - t0, routing, ...base };
     } catch (e: any) {
       const reason = e?.message === 'MAPBOX_AUTH' ? 'Mapbox rejected the access token (invalid, expired, or it lacks the Search scope)' : String(e?.message ?? 'Mapbox request failed');
       return { ok: false, reason, latencyMs: Date.now() - t0, ...base };

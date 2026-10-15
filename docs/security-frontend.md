@@ -63,7 +63,7 @@ send the same policy as a header and add `frame-ancestors 'none'` (not allowed i
 
 ### nginx
 ```nginx
-add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://api.example.com; font-src 'self' data:; connect-src 'self' https://api.example.com wss://api.example.com; media-src 'self' blob: https://api.example.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'; frame-ancestors 'none'; worker-src 'self' blob:; upgrade-insecure-requests" always;
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://api.mapbox.com https://tile.googleapis.com https://api.example.com; font-src 'self' data:; connect-src 'self' https://api.example.com wss://api.example.com; media-src 'self' blob: https://api.example.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'; frame-ancestors 'none'; worker-src 'self' blob:; upgrade-insecure-requests" always;
 add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
 add_header X-Frame-Options "DENY" always;
 add_header X-Content-Type-Options "nosniff" always;
@@ -80,7 +80,7 @@ location / { try_files $uri /index.html; }
 ### Cloudflare (Transform Rules -> Modify Response Header, or `_headers` on Pages)
 ```
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://api.example.com; font-src 'self' data:; connect-src 'self' https://api.example.com wss://api.example.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://api.mapbox.com https://tile.googleapis.com https://api.example.com; font-src 'self' data:; connect-src 'self' https://api.example.com wss://api.example.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'; frame-ancestors 'none'
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
@@ -103,7 +103,7 @@ The Stripe Payment Element (card form, Apple / Google Pay, 3-D Secure) is Stripe
 | `connect-src` | add to `REACT_APP_CSP_CONNECT`: `https://api.stripe.com https://m.stripe.network https://r.stripe.com` |
 | `img-src` | add to `REACT_APP_CSP_IMG`: `https://*.stripe.com` |
 
-There is still no `unsafe-inline` / `unsafe-eval` in `script-src`. Mapbox needs NO CSP entry: the website calls only the FORKSY API for address search. The same `index.html` serves the admin console,
+There is still no `unsafe-inline` / `unsafe-eval` in `script-src`. The maps providers add only two image origins to `img-src` (`https://api.mapbox.com`, `https://tile.googleapis.com`, map tiles are plain images, and only the public Mapbox token / the Google browser key appear in those URLs). Address search needs NO CSP entry: the website calls only the FORKSY API for address search. The same `index.html` serves the admin console,
 the portal and the storefront, so the Stripe origins apply to all three (only the storefront loads Stripe.js). `admin/test/xss-smoke.mjs` asserts the policy: `script-src` = `'self'` + Stripe.js,
 `frame-src` = Stripe frames only, no other third-party `connect-src`, and the usual "no third-party requests / no unexpected violations" sweeps (including `/order/wallet` and `/order/payouts/return`).
 Note: `REACT_APP_CSP_*` are read when the dev server / build starts; restart `npm start` after changing them. If the two new variables are missing the policy keeps a literal `%REACT_APP_CSP_SCRIPT%` token and the smoke test fails on purpose.

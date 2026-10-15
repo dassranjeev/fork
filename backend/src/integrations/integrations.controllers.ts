@@ -6,7 +6,9 @@ import { AdminController, Permission, PublicController } from '../common/decorat
 import { Action, Module as Mod } from '../common/enums';
 import { SettingsService } from '../settings/settings.service';
 import { IntegrationsService } from './integrations.service';
-import { BBOX_RE, COUNTRY_RE, MapboxService, MAPBOX_PUBLIC_TOKEN_RE, MAPBOX_TOKEN_RE, PROXIMITY_RE } from './mapbox.service';
+import { GOOGLE_KEY_RE } from './google-maps.service';
+import { BBOX_RE, COUNTRY_RE, MAPBOX_PUBLIC_TOKEN_RE, MAPBOX_STYLE_RE, MAPBOX_TOKEN_RE, PROXIMITY_RE } from './mapbox.service';
+import { MapsService } from './maps.service';
 import { StripeClientService, STRIPE_PUBLISHABLE_RE, STRIPE_SECRET_RE, STRIPE_WEBHOOK_RE } from './stripe-client.service';
 
 const orEmpty = (re: RegExp) => new RegExp(`^(?:|${re.source.replace(/^\^/, '').replace(/\$$/, '')})$`);
@@ -24,9 +26,22 @@ export class UpdateStripeDto {
 export class UpdateMapboxDto {
   @IsOptional() @IsString() @MaxLength(300) @Matches(orEmpty(MAPBOX_TOKEN_RE), { message: 'accessToken must look like sk.... or pk....' }) accessToken?: string | null;
   @IsOptional() @IsString() @MaxLength(300) @Matches(orEmpty(MAPBOX_PUBLIC_TOKEN_RE), { message: 'publicToken must look like pk....' }) publicToken?: string | null;
+  @IsOptional() @IsString() @MaxLength(100) @Matches(orEmpty(MAPBOX_STYLE_RE), { message: 'style must look like username/style_id, e.g. mapbox/streets-v12' }) style?: string;
   @IsOptional() @IsString() @MaxLength(60) @Matches(COUNTRY_RE, { message: 'country: ISO 3166 alpha-2 codes, comma separated, e.g. ca' }) country?: string;
   @IsOptional() @IsString() @MaxLength(80) @Matches(orEmpty(BBOX_RE), { message: 'bbox must be "minLng,minLat,maxLng,maxLat"' }) bbox?: string;
   @IsOptional() @IsString() @MaxLength(40) @Matches(orEmpty(PROXIMITY_RE), { message: 'proximity must be "lng,lat"' }) proximity?: string;
+}
+
+/** Google Maps keys: the server key does address search, routes and creates the tile session; the browser key (restrict it to your website addresses) is only used in the map tile URL. */
+export class UpdateGoogleDto {
+  @IsOptional() @IsString() @MaxLength(100) @Matches(orEmpty(GOOGLE_KEY_RE), { message: 'apiKey must look like AIza... (39 characters)' }) apiKey?: string | null;
+  @IsOptional() @IsString() @MaxLength(100) @Matches(orEmpty(GOOGLE_KEY_RE), { message: 'browserKey must look like AIza... (39 characters)' }) browserKey?: string | null;
+}
+
+/** Which maps provider is in use, and whether real road distances / drive times are used for deliveries. */
+export class UpdateMapsDto {
+  @IsOptional() @IsIn(['mapbox', 'google']) provider?: string;
+  @IsOptional() @Transform(({ obj }) => obj.roadDistances) @IsBoolean() roadDistances?: boolean;
 }
 
 /** System > Integrations: status of every key (never a secret), validated updates (Super Admin), test connection. */
@@ -54,6 +69,21 @@ export class AdminIntegrationsController {
     return this.svc.updateMapbox(dto, req);
   }
 
+  @Put('google')
+  @Permission(Mod.SETTINGS, Action.EDIT)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  updateGoogle(@Body() dto: UpdateGoogleDto, @Req() req: any) {
+    return this.svc.updateGoogle(dto, req);
+  }
+
+  /** Switch the maps provider (Mapbox / Google) and the road-distance switch. Super Admin only; takes effect at once. */
+  @Put('maps')
+  @Permission(Mod.SETTINGS, Action.EDIT)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  updateMaps(@Body() dto: UpdateMapsDto, @Req() req: any) {
+    return this.svc.updateMaps(dto, req);
+  }
+
   @Post(':name/test')
   @Permission(Mod.SETTINGS, Action.EDIT)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
@@ -62,7 +92,7 @@ export class AdminIntegrationsController {
   }
 }
 
-// ------------------------------------------------------------------ geocoding (Mapbox proxy)
+// ------------------------------------------------------------------ geocoding (proxy to the active maps provider)
 const SESSION_RE = /^[A-Za-z0-9-]{8,64}$/;
 const ID_RE = /^[A-Za-z0-9_\-=.:+]{4,500}$/;
 
@@ -93,25 +123,25 @@ const cleanCoord = (v: unknown, name: string, max: number): number => {
 
 /** Shared by the public and the admin routes. */
 export class GeocodeHandlers {
-  constructor(protected mapbox: MapboxService) {}
+  constructor(protected maps: MapsService) {}
 
   autocomplete(q: string, proximity: string | undefined, sessionToken: string) {
-    return this.mapbox.autocomplete(cleanQuery(q), { proximity: cleanProximity(proximity), sessionToken: cleanSession(sessionToken) });
+    return this.maps.autocomplete(cleanQuery(q), { proximity: cleanProximity(proximity), sessionToken: cleanSession(sessionToken) });
   }
   retrieve(id: string, sessionToken: string) {
     if (typeof id !== 'string' || !ID_RE.test(id)) throw new BadRequestException('id is not valid');
-    return this.mapbox.retrieve(id, cleanSession(sessionToken));
+    return this.maps.retrieve(id, cleanSession(sessionToken));
   }
   reverse(lat: string, lng: string) {
-    return this.mapbox.reverse(cleanCoord(lat, 'lat', 90), cleanCoord(lng, 'lng', 180));
+    return this.maps.reverse(cleanCoord(lat, 'lat', 90), cleanCoord(lng, 'lng', 180));
   }
 }
 
-/** No auth: the customer website / apps search addresses here. The Mapbox token never leaves the server. { enabled:false } = fall back to manual entry. */
+/** No auth: the customer website / apps search addresses here. The provider key (Mapbox or Google) never leaves the server. { enabled:false } = fall back to manual entry. */
 @PublicController('geocode')
 export class PublicGeocodeController extends GeocodeHandlers {
-  constructor(mapbox: MapboxService) {
-    super(mapbox);
+  constructor(maps: MapsService) {
+    super(maps);
   }
 
   @Get('autocomplete')
@@ -136,8 +166,8 @@ export class PublicGeocodeController extends GeocodeHandlers {
 /** Same lookups for the Admin Console (restaurant location, zones...). Any signed-in staff member. */
 @AdminController('geocode')
 export class AdminGeocodeController extends GeocodeHandlers {
-  constructor(mapbox: MapboxService) {
-    super(mapbox);
+  constructor(maps: MapsService) {
+    super(maps);
   }
 
   @Get('autocomplete')
@@ -159,10 +189,22 @@ export class AdminGeocodeController extends GeocodeHandlers {
   }
 }
 
+/** The map the Admin Console draws: the active provider and its tile URL (public keys only) or the OpenStreetMap fallback. Any signed-in staff member. */
+@AdminController('maps')
+export class AdminMapsController {
+  constructor(private maps: MapsService) {}
+
+  @Get('config')
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  config() {
+    return this.maps.clientConfig();
+  }
+}
+
 /** Public: how should the website pay? (publishable key only; never a secret) */
 @PublicController('payments')
 export class PublicPaymentsConfigController {
-  constructor(private stripe: StripeClientService, private settings: SettingsService) {}
+  constructor(private stripe: StripeClientService, private settings: SettingsService, private maps: MapsService) {}
 
   @Get('config')
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
@@ -178,11 +220,7 @@ export class PublicPaymentsConfigController {
       walletEnabled: this.settings.get<boolean>('payments.walletEnabled', true),
       giftCardsEnabled: this.settings.get<boolean>('payments.giftCardsEnabled', true),
       topUp: { min: Number(this.settings.get('payments.topUpMin', 5)), max: Number(this.settings.get('payments.topUpMax', 500)) },
-      addressSearch: this.mapboxEnabled,
+      addressSearch: this.maps.enabled,
     };
-  }
-
-  private get mapboxEnabled(): boolean {
-    return !!(this.settings.get<string>('integrations.mapbox.accessToken', '') || process.env.MAPBOX_ACCESS_TOKEN);
   }
 }

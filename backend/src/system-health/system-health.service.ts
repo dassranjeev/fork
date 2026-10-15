@@ -216,7 +216,15 @@ export class SystemHealthService {
         const st = s.stripe;
         if (!st.configured) out.push({ key: 'stripe', label: 'Stripe payments', level: 'warn', detail: 'Not configured: customers cannot pay (System > Integrations)' });
         else out.push({ key: 'stripe', label: 'Stripe payments', level: st.mixedModes ? 'crit' : 'ok', detail: `${String(st.mode).toUpperCase()} mode${st.mixedModes ? ', secret and publishable keys are different modes' : ''}${st.warnings?.length && !st.mixedModes ? `, ${st.warnings.length} warning(s) on the Integrations page` : ''}` });
-        out.push({ key: 'mapbox', label: 'Mapbox address search', level: 'ok', detail: s.mapbox.configured ? 'Configured' : 'Not configured (optional: the demo areas are used)', off: !s.mapbox.configured });
+        const mp = (s as any).maps;
+        const providerConfigured = mp.provider === 'google' ? s.google.configured : s.mapbox.configured;
+        out.push({
+          key: 'maps',
+          label: `Maps (${mp.provider === 'google' ? 'Google' : 'Mapbox'})`,
+          level: 'ok',
+          detail: providerConfigured ? `Address search on, maps from ${mp.tiles === 'osm' ? 'OpenStreetMap' : mp.provider === 'google' ? 'Google' : 'Mapbox'}, ${mp.roadDistancesActive ? 'real road distances' : 'estimated distances'}` : 'Not configured (optional: customers type the address, the maps use OpenStreetMap)',
+          off: !providerConfigured,
+        });
         out.push({ key: 'email', label: 'Email (SendGrid)', level: 'ok', detail: s.others.sendgrid.configured ? 'Configured' : 'Not configured (emails are not sent)', off: !s.others.sendgrid.configured });
         out.push({ key: 'sms', label: 'SMS (Twilio)', level: 'ok', detail: s.others.twilio.configured ? 'Configured' : 'Not configured (SMS is not sent)', off: !s.others.twilio.configured });
       } catch (e: any) {

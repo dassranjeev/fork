@@ -30,7 +30,7 @@ function productionGate() {
     corsOrigins: (process.env.CORS_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     publicUrl: process.env.PUBLIC_URL ?? '',
     allowMockPayments: !!process.env.ALLOW_MOCK_PAYMENTS,
-    fakeProviderBases: !!(process.env.STRIPE_API_BASE || process.env.MAPBOX_API_BASE),
+    fakeProviderBases: !!(process.env.STRIPE_API_BASE || process.env.MAPBOX_API_BASE || process.env.GOOGLE_API_BASE),
     enforce2fa: process.env.ENFORCE_2FA === 'true',
     seedSuperAdminPassword: process.env.SEED_SUPERADMIN_PASSWORD ?? '',
     dbPassword: process.env.DB_PASSWORD ?? '',

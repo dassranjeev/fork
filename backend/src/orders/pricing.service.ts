@@ -19,7 +19,8 @@ import {
 import { ACTIVE_ORDER_STATUSES, FulfilmentMode, OrderStatus, OrderType, RestaurantServiceMode } from '../common/enums';
 import { fulfilmentAvailability } from '../common/service-mode';
 import { IPricingService, IPromotionsService, PromotionEvaluation, Quote, QuoteInput, QuoteLine } from '../common/contracts';
-import { haversineKm, roadEstimate } from '../common/geo.util';
+import { haversineKm } from '../common/geo.util';
+import { MapsService } from '../integrations/maps.service';
 import { AvailabilityService, daypartOf, GeoService, zonedParts } from '../core/core.module';
 import { SettingsService } from '../settings/settings.service';
 import { WalletService } from './wallet.service';
@@ -37,6 +38,7 @@ export class PricingService implements IPricingService {
     private availability: AvailabilityService,
     private geo: GeoService,
     private wallet: WalletService,
+    private maps: MapsService,
     @InjectRepository(Restaurant) private restaurants: Repository<Restaurant>,
     @InjectRepository(MenuItem) private menuItems: Repository<MenuItem>,
     @InjectRepository(MenuCategory) private categories: Repository<MenuCategory>,
@@ -114,7 +116,8 @@ export class PricingService implements IPricingService {
       if (!deliveryZone) throw new BadRequestException('Sorry, this address is outside our delivery area');
       if (restaurant.lat != null && restaurant.lng != null) {
         const straight = haversineKm(restaurant.lat, restaurant.lng, a.lat, a.lng);
-        const est = roadEstimate(restaurant.lat, restaurant.lng, a.lat, a.lng);
+        // the road distance and drive time: the maps provider when "real road distances" is on (remembered, so the quote, the payment and the order agree), else the built-in estimate
+        const est = await this.maps.route({ lat: restaurant.lat, lng: restaurant.lng }, { lat: a.lat, lng: a.lng });
         distanceKm = Math.round(est.km * 1000) / 1000;
         driveMinutes = est.minutes;
         // radius: restaurant's own limit, capped by the zone rules (busy mode may shrink it)

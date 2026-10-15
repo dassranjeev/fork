@@ -199,7 +199,7 @@ console adapters) log a warning at boot and are impossible when `NODE_ENV=produc
 
 * In-memory throttling/lockout (single instance) – see scaling note.
 * The Stripe on-page payment flow (PaymentIntent + Payment Element, webhooks, Connect payouts) is implemented and proven against a fake Stripe server only; it needs a run with the owner's TEST keys (docs/payments.md). 3-D Secure is handled in the browser by Stripe.js; the server refuses an order whose intent is not `succeeded` (the card has not been charged: 409 `PAYMENT_ACTION_REQUIRED` / 400 `PAYMENT_NOT_CONFIRMED`), and refunds a charge whose order cannot be placed.
-* Stripe / Mapbox keys are stored encrypted in the settings table (needs `DATA_ENCRYPTION_KEY`); the production gate refuses `ALLOW_MOCK_PAYMENTS`, `STRIPE_API_BASE` / `MAPBOX_API_BASE`, and missing or non-live Stripe keys.
+* Stripe / Mapbox / Google Maps keys are stored encrypted in the settings table (needs `DATA_ENCRYPTION_KEY`); the production gate refuses `ALLOW_MOCK_PAYMENTS`, `STRIPE_API_BASE` / `MAPBOX_API_BASE` / `GOOGLE_API_BASE`, and missing or non-live Stripe keys.
 * Staff city/zone scoping is enforced on analytics, orders and order chat only, not on every module.
 * Admin-created staff / restaurant members still receive a one-time temporary password in the API response (the console displays it); an email set-password link with forced change would remove this.
 * Uploaded documents are public-by-URL (see Files above).

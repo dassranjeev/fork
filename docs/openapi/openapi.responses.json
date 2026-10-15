@@ -14451,6 +14451,49 @@
               "webhook"
             ]
           },
+          "maps": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string"
+              },
+              "providers": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "addressSearch": {
+                "type": "boolean"
+              },
+              "roadDistances": {
+                "type": "boolean"
+              },
+              "roadDistancesActive": {
+                "type": "boolean"
+              },
+              "tiles": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              },
+              "warnings": {
+                "type": "array",
+                "items": {}
+              }
+            },
+            "required": [
+              "addressSearch",
+              "note",
+              "provider",
+              "providers",
+              "roadDistances",
+              "roadDistancesActive",
+              "tiles",
+              "warnings"
+            ]
+          },
           "mapbox": {
             "type": "object",
             "properties": {
@@ -14504,6 +14547,9 @@
                   "publicToken"
                 ]
               },
+              "style": {
+                "type": "string"
+              },
               "country": {
                 "type": "string"
               },
@@ -14531,55 +14577,82 @@
               "keys",
               "lastTest",
               "proximity",
+              "style",
               "tokenKind",
+              "warnings"
+            ]
+          },
+          "google": {
+            "type": "object",
+            "properties": {
+              "configured": {
+                "type": "boolean"
+              },
+              "keys": {
+                "type": "object",
+                "properties": {
+                  "apiKey": {
+                    "type": "object",
+                    "properties": {
+                      "set": {
+                        "type": "boolean"
+                      },
+                      "source": {
+                        "type": "string"
+                      },
+                      "masked": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "masked",
+                      "set",
+                      "source"
+                    ]
+                  },
+                  "browserKey": {
+                    "type": "object",
+                    "properties": {
+                      "set": {
+                        "type": "boolean"
+                      },
+                      "source": {
+                        "type": "string"
+                      },
+                      "masked": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "masked",
+                      "set",
+                      "source"
+                    ]
+                  }
+                },
+                "required": [
+                  "apiKey",
+                  "browserKey"
+                ]
+              },
+              "warnings": {
+                "type": "array",
+                "items": {}
+              },
+              "lastTest": {
+                "nullable": true
+              }
+            },
+            "required": [
+              "configured",
+              "keys",
+              "lastTest",
               "warnings"
             ]
           },
           "others": {
             "type": "object",
             "properties": {
-              "googleMaps": {
-                "type": "object",
-                "properties": {
-                  "label": {
-                    "type": "string"
-                  },
-                  "configured": {
-                    "type": "boolean"
-                  },
-                  "partial": {
-                    "type": "boolean"
-                  },
-                  "parts": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "name": {
-                          "type": "string"
-                        },
-                        "set": {
-                          "type": "boolean"
-                        },
-                        "source": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "name",
-                        "set",
-                        "source"
-                      ]
-                    }
-                  }
-                },
-                "required": [
-                  "configured",
-                  "label",
-                  "partial",
-                  "parts"
-                ]
-              },
               "twilio": {
                 "type": "object",
                 "properties": {
@@ -14752,7 +14825,6 @@
             "required": [
               "certn",
               "fcm",
-              "googleMaps",
               "sendgrid",
               "twilio"
             ]
@@ -14762,7 +14834,9 @@
           }
         },
         "required": [
+          "google",
           "mapbox",
+          "maps",
           "note",
           "others",
           "stripe"
@@ -14796,7 +14870,7 @@
           "currency": "cad",
           "platformCountry": "CA",
           "webhook": {
-            "url": "http://localhost:4000/api/v1/webhooks/stripe",
+            "url": "http://localhost:4200/api/v1/webhooks/stripe",
             "events": [
               "payment_intent.succeeded",
               "payment_intent.amount_capturable_updated"
@@ -14808,20 +14882,34 @@
           ],
           "lastTest": null
         },
+        "maps": {
+          "provider": "mapbox",
+          "providers": [
+            "mapbox",
+            "google"
+          ],
+          "addressSearch": true,
+          "roadDistances": false,
+          "roadDistancesActive": false,
+          "tiles": "mapbox",
+          "note": "Switching the provider takes effect at once. The keys of the other provider stay saved.",
+          "warnings": []
+        },
         "mapbox": {
-          "configured": false,
+          "configured": true,
           "keys": {
             "accessToken": {
-              "set": false,
-              "source": "none",
-              "masked": ""
+              "set": true,
+              "source": "settings",
+              "masked": "********7890"
             },
             "publicToken": {
-              "set": false,
-              "masked": "",
-              "source": "none"
+              "set": true,
+              "masked": "********7890",
+              "source": "settings"
             }
           },
+          "style": "mapbox/streets-v12",
           "country": "ca",
           "bbox": "-80.35,43.35,-78.9,44.2",
           "proximity": "-79.6441,43.589",
@@ -14829,19 +14917,24 @@
           "warnings": [],
           "lastTest": null
         },
-        "others": {
-          "googleMaps": {
-            "label": "Google Maps",
-            "configured": false,
-            "partial": false,
-            "parts": [
-              {
-                "name": "API key",
-                "set": false,
-                "source": "none"
-              }
-            ]
+        "google": {
+          "configured": true,
+          "keys": {
+            "apiKey": {
+              "set": true,
+              "source": "settings",
+              "masked": "********1234"
+            },
+            "browserKey": {
+              "set": true,
+              "source": "settings",
+              "masked": "********0123"
+            }
           },
+          "warnings": [],
+          "lastTest": null
+        },
+        "others": {
           "twilio": {
             "label": "Twilio (SMS)",
             "configured": false,
@@ -15548,6 +15641,68 @@
           "lastLocationAt": "2026-10-02T16:21:36.657Z"
         }
       ]
+    },
+    "GET /api/v1/admin/maps/config": {
+      "as": "admin",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "addressSearch": {
+            "type": "boolean"
+          },
+          "roadDistances": {
+            "type": "boolean"
+          },
+          "tiles": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "attribution": {
+                "type": "string"
+              },
+              "tileSize": {
+                "type": "integer"
+              },
+              "maxZoom": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "attribution",
+              "maxZoom",
+              "provider",
+              "tileSize",
+              "url"
+            ]
+          }
+        },
+        "required": [
+          "addressSearch",
+          "provider",
+          "roadDistances",
+          "tiles"
+        ]
+      },
+      "example": {
+        "provider": "mapbox",
+        "addressSearch": true,
+        "roadDistances": false,
+        "tiles": {
+          "provider": "mapbox",
+          "url": "https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/{z}/{x}/{y}{r}?access_token=pk.fakepublic12345.fakepublic67890",
+          "attribution": "&copy; <a href=\"https://www.mapbox.com/about/maps/\">Mapbox</a> &copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>",
+          "tileSize": 256,
+          "maxZoom": 20
+        }
+      }
     },
     "GET /api/v1/admin/notification-matrix": {
       "as": "admin",

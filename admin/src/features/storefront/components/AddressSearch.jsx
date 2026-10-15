@@ -5,7 +5,7 @@ import { Ri, Spinner } from "./ui";
 
 /**
  * Address autocomplete (ARIA combobox): debounced typing, Up / Down / Enter / Escape, click or tap. `onPick(address)` receives
- * { line1, city, province, postalCode, lat, lng, label } from the FORKSY API (which asks Mapbox). The parent only renders this
+ * { line1, city, province, postalCode, lat, lng, label } from the FORKSY API (which asks the maps provider). The parent only renders this
  * when address search is enabled.
  */
 export default function AddressSearch({ onPick, proximity, label = "Search your address", placeholder = "Start typing your street address", testId = "addr-search" }) {
