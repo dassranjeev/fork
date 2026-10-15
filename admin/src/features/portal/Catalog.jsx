@@ -7,6 +7,7 @@ import { usePagedList } from "../../lib/hooks";
 import { fmtDateTime, money } from "../../lib/format";
 import { useAction, useApi } from "./shared";
 import { usePortal } from "./context";
+import { PhotoThumb } from "./ItemPhotos";
 
 /**
  * The catalog of a grocery / convenience / specialty store (docs/store-types.md): a paged, searchable product list (a supermarket has thousands of products),
@@ -227,7 +228,9 @@ export default function CatalogTab({ menu, reload, onEdit, onAdd, onEightySix, c
       title: "Product",
       sortable: true,
       render: (it) => (
-        <div>
+        <div className="d-flex align-items-center gap-3">
+          <PhotoThumb item={it} />
+          <div>
           <div className="fw-semibold">
             {it.name}
             {it.minAge > 0 && <Badge tone="danger" className="ms-2">{it.minAge}+</Badge>}
@@ -239,6 +242,7 @@ export default function CatalogTab({ menu, reload, onEdit, onAdd, onEightySix, c
           </div>
           <div className="text-secondary-light text-xs">{[it.brand, it.packSize].filter(Boolean).join(" · ") || "—"}</div>
           {(it.sku || it.barcode) && <div className="text-secondary-light text-xs font-monospace">{[it.sku, it.barcode].filter(Boolean).join(" · ")}</div>}
+          </div>
         </div>
       ),
     },

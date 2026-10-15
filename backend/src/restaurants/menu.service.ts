@@ -14,6 +14,7 @@ import {
   TaxClass,
 } from '../database/entities';
 import { DayPart, DocStatus, RestaurantDocType } from '../common/enums';
+import { cleanGallery, cleanImageUrl } from '../common/image-url';
 import { MIN_AGES } from '../common/store-types';
 import { clampPaging, like, pageMeta } from '../common/pagination';
 import { SettingsService } from '../settings/settings.service';
@@ -227,8 +228,19 @@ export class MenuService {
     for (const x of d ?? []) if (!DAYPARTS.includes(x)) throw new BadRequestException(`Unknown daypart ${x} (use ${DAYPARTS.join(', ')})`);
   }
 
+  /**
+   * The photos of an item after this change: the featured one and the gallery, cleaned (see common/image-url.ts). A value that is not sent keeps what the item has.
+   * Setting a new featured photo removes it from the gallery (it would show twice); sending a gallery never contains the featured photo.
+   */
+  private photos(dto: Partial<ItemDto>, existing?: MenuItem): { imageUrl: string | null; galleryUrls: string[] } {
+    const imageUrl = dto.imageUrl === undefined ? existing?.imageUrl ?? null : dto.imageUrl === null || dto.imageUrl === '' ? null : cleanImageUrl(dto.imageUrl);
+    const gallery = dto.galleryUrls === undefined ? existing?.galleryUrls ?? [] : dto.galleryUrls;
+    return { imageUrl, galleryUrls: cleanGallery(gallery, imageUrl) };
+  }
+
   private async validateItem(restaurantId: string, dto: Partial<ItemDto>) {
     this.checkDayparts(dto.dayparts);
+    this.photos(dto);
     if (dto.categoryId && !(await this.categories.exist({ where: { id: dto.categoryId, restaurantId } }))) throw new BadRequestException('Unknown categoryId');
     if (dto.stationId && !(await this.stations.exist({ where: { id: dto.stationId, restaurantId } }))) throw new BadRequestException('Unknown stationId');
     if (dto.taxClassCode && !(await this.taxClasses.exist({ where: { code: dto.taxClassCode } }))) throw new BadRequestException(`Unknown tax class ${dto.taxClassCode}`);
@@ -326,7 +338,7 @@ export class MenuService {
         categoryId: dto.categoryId ?? null,
         name: dto.name,
         description: dto.description ?? null,
-        imageUrl: dto.imageUrl ?? null,
+        ...this.photos(dto),
         price: dto.price,
         pickupPrice: dto.pickupPrice ?? null,
         taxClassCode: dto.taxClassCode ?? 'HST_ON',
@@ -365,9 +377,11 @@ export class MenuService {
     if (!item) throw new NotFoundException('Menu item not found');
     await this.validateItem(restaurantId, dto);
     const catalog = await this.catalogFields(restaurantId, dto, item);
+    const before = { imageUrl: item.imageUrl, galleryUrls: item.galleryUrls } as MenuItem; // what the item had, for the photos that were not sent
     const { groupIds, ...rest } = dto;
     for (const [k, v] of Object.entries(rest)) if (v !== undefined) (item as any)[k] = v;
     Object.assign(item, catalog); // the validated / normalised catalog values win over the raw ones above
+    Object.assign(item, this.photos(dto, before)); // the cleaned photos win too
     if (dto.comboItems && dto.isCombo === undefined) item.isCombo = dto.comboItems.length > 0;
     if (dto.available === true) item.restockAt = null;
     await this.items.save(item);
@@ -848,7 +862,7 @@ export class MenuService {
           prepTimeMin: col(r, 'prep_time_min') ? parseInt(col(r, 'prep_time_min'), 10) : null,
           station: col(r, 'station'),
           available: col(r, 'available') ? !/^(false|0|no)$/i.test(col(r, 'available')) : true,
-          imageUrl: col(r, 'image_url') || null,
+          imageUrl: col(r, 'image_url') ? cleanImageUrl(col(r, 'image_url'), 'image_url') : null,
           isPopular: /^(true|1|yes)$/i.test(col(r, 'popular')),
           groups: this.parseGroupsCell(col(r, 'modifier_groups')),
         });
@@ -910,7 +924,7 @@ export class MenuService {
         prepTimeMin: p.prepTimeMin,
         stationId: station?.id ?? null,
         available: p.available,
-        imageUrl: p.imageUrl,
+        ...(p.imageUrl ? { imageUrl: p.imageUrl } : {}),
         isPopular: p.isPopular,
       };
       let item: MenuItem;

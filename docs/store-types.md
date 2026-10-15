@@ -83,6 +83,23 @@ automatically, the shop window is computed from the number.
   barcode refuses the whole file.
 * Menu editing is still a permission FORKSY staff grants per store; counting stock (above) is not.
 
+## Photos of menu items and products
+
+Every dish or product can have **one featured photo** (`imageUrl`: cards, the item window, the cart) and a **gallery of up to 8 more** (`galleryUrls`, in order). Portal: **Menu** (**Catalog** for a
+store) > Add / Edit > **Photos**: add the featured photo, add several gallery photos at once (or drop files on the box), make a gallery photo the featured one (the old featured takes its place),
+move photos earlier or later, remove them. The list shows the featured photo as a small picture with `+N` for the gallery. JPG, PNG, WebP or GIF up to 8 MB each; the website shows them as a
+gallery in the item window (previous / next, arrow keys, small pictures to jump to one).
+
+* How it works: the page uploads each file with `POST /uploads` (the server checks the real file type, stores it under a random name and returns its `url`), then saves the addresses with
+  `POST/PATCH /restaurant/menu/items`: `imageUrl` (`null` removes it) and `galleryUrls` (the whole list, `[]` clears it). A field that is not sent keeps what the item has.
+* Rules: an address is one of our uploads (`/uploads/<name>.jpg|png|webp|gif`, relative or with the host) or an `https://` picture address; `javascript:`, `data:`, `ftp:`, protocol-relative addresses,
+  logins in the address and HEIC / PDF uploads are refused (400). The gallery never repeats a photo and never contains the featured photo (setting a new featured photo takes it out of the gallery);
+  more than 8 is a 400.
+* The customer website gets `imageUrl` and `galleryUrls` on every product / dish (store page, catalog, product details); the cart line shows the featured photo.
+* CSV import/export carries the featured photo only (`image_url`, checked like above); a blank cell never removes a photo that is there. Photos that were uploaded and later removed from an item stay
+  on the server's disk (clean-up of unused uploads is not part of this version); there is no resizing or thumbnail making, so keep phone photos under a few MB.
+* Tests: `backend/test/store-types-e2e.mjs` section J, the address rules in `backend/test/store-types.test.ts`.
+
 ## Checkout
 
 * The cart line takes `substitution`: `ALLOW` (default: the store may replace it) or `REFUND` (refund it, no replacement).

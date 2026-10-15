@@ -137,7 +137,7 @@ Requires `restaurants:approve`. Issues a short-lived (1 h) access token, **no re
 | POST `/items` | managers | `ItemDto` (price, pickupPrice, taxClassCode, allergens, dietaryTags, dayparts, isCombo/comboItems, stationId, prepTimeMin, groupIds... and the catalog fields `sku, barcode, brand, packSize, sellBy, weightUnit, stepSize, trackStock, stockQty, lowStockThreshold, maxPerOrder, minAge, temperature`: 409 for a repeated SKU, 400 `LICENCE_REQUIRED` for `minAge` > 0 without an approved liquor / tobacco licence) | item + modifierGroups |
 | PATCH `/items/reorder` | managers | `ReorderDto` | `{ok}` |
 | GET `/items/:id` | any | - | item + modifierGroups |
-| PATCH `/items/:id` | managers | `UpdateItemDto` | item |
+| PATCH `/items/:id` | managers | `UpdateItemDto` (a field that is not sent keeps its value; `imageUrl` = featured photo, `null` removes it; `galleryUrls` = up to 8 more photos, `[]` clears it, see docs/store-types.md "Photos") | item (with `imageUrl`, `galleryUrls`) |
 | DELETE `/items/:id` | managers | - | `{ok}` |
 | POST `/items/:id/groups` | managers | `SetGroupsDto{groupIds}` | item |
 | POST `/items/:id/86` | managers, CASHIER, KITCHEN | `EightySixDto{restockAt?,untilTomorrow?,hours?}` | item (available:false) |

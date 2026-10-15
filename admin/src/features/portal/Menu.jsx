@@ -5,6 +5,7 @@ import { fmtDateTime, money } from "../../lib/format";
 import { Async, PortalPage, useAction, useApi, usePortalFetch, useRealtimeReload } from "./shared";
 import { usePortal } from "./context";
 import CatalogTab from "./Catalog";
+import ItemPhotos, { PhotoThumb } from "./ItemPhotos";
 
 // ------------------------------------------------------------------ 86 / restock
 function EightySixModal({ target, onClose, onDone }) {
@@ -86,6 +87,8 @@ function ItemModal({ item, menu, open, onClose, onSaved, defaultCategoryId }) {
         ? {
             name: item.name,
             description: item.description || "",
+            imageUrl: item.imageUrl || null,
+            galleryUrls: item.galleryUrls || [],
             categoryId: item.categoryId || "",
             price: item.price,
             pickupPrice: item.pickupPrice ?? "",
@@ -97,7 +100,7 @@ function ItemModal({ item, menu, open, onClose, onSaved, defaultCategoryId }) {
             active: item.active !== false,
             groupIds: (item.modifierGroups || []).map((g) => g.id),
           }
-        : { name: "", description: "", categoryId: defaultCategoryId || menu.categories[0]?.id || "", price: "", pickupPrice: "", stationId: "", prepTimeMin: "", allergens: [], dietaryTags: [], isPopular: false, active: true, groupIds: [] }),
+        : { name: "", description: "", imageUrl: null, galleryUrls: [], categoryId: defaultCategoryId || menu.categories[0]?.id || "", price: "", pickupPrice: "", stationId: "", prepTimeMin: "", allergens: [], dietaryTags: [], isPopular: false, active: true, groupIds: [] }),
       ...catalogDefaults(item),
     });
   }, [open, item, menu, defaultCategoryId, retail]);
@@ -111,6 +114,8 @@ function ItemModal({ item, menu, open, onClose, onSaved, defaultCategoryId }) {
     const body = {
       name: f.name.trim(),
       description: f.description || null,
+      imageUrl: f.imageUrl || null,
+      galleryUrls: f.galleryUrls || [],
       categoryId: f.categoryId || null,
       price: Number(f.price),
       pickupPrice: f.pickupPrice === "" ? null : Number(f.pickupPrice),
@@ -149,6 +154,9 @@ function ItemModal({ item, menu, open, onClose, onSaved, defaultCategoryId }) {
         <TextInput col={8} label="Name" required value={f.name} onChange={set("name")} />
         <Select col={4} label={retail ? "Department" : "Category"} value={f.categoryId} onChange={set("categoryId")} options={menu.categories.map((c) => ({ value: c.id, label: c.name }))} placeholder="Uncategorised" />
         <TextArea label="Description" value={f.description} onChange={set("description")} rows={2} />
+        <div className="col-12">
+          <ItemPhotos value={{ imageUrl: f.imageUrl, galleryUrls: f.galleryUrls }} onChange={(p) => setF((x) => ({ ...x, imageUrl: p.imageUrl, galleryUrls: p.galleryUrls }))} />
+        </div>
         <MoneyInput col={4} label={weighed && showCatalog ? `Price per ${unit}` : "Delivery price"} required value={f.price} onChange={set("price")} />
         <MoneyInput col={4} label="Pickup price" hint="Leave empty to use the delivery price" value={f.pickupPrice} onChange={set("pickupPrice")} />
         {!retail && <NumberInput col={4} label="Prep time (min)" hint="Empty = store default" value={f.prepTimeMin} onChange={set("prepTimeMin")} min={0} />}
@@ -258,8 +266,13 @@ function ItemsTab({ menu, reload }) {
                   {items.map((it) => (
                     <tr key={it.id}>
                       <td>
-                        <div className="fw-semibold">{it.name}</div>
-                        {it.description && <div className="text-secondary-light text-xs text-truncate" style={{ maxWidth: 320 }}>{it.description}</div>}
+                        <div className="d-flex align-items-center gap-3">
+                          <PhotoThumb item={it} />
+                          <div>
+                            <div className="fw-semibold">{it.name}</div>
+                            {it.description && <div className="text-secondary-light text-xs text-truncate" style={{ maxWidth: 320 }}>{it.description}</div>}
+                          </div>
+                        </div>
                       </td>
                       <td className="text-end">{money(it.price)}</td>
                       <td className="text-end">{it.pickupPrice != null && Number(it.pickupPrice) !== Number(it.price) ? money(it.pickupPrice) : <span className="text-secondary-light">same</span>}</td>

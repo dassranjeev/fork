@@ -545,8 +545,13 @@ export class MenuItem extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
+  /** the featured photo: shown on cards, in the item dialog and in the cart */
   @Column({ type: 'varchar', nullable: true })
   imageUrl: string | null;
+
+  /** more photos of the item (gallery), shown after the featured one: at most 8, never the featured photo itself */
+  @Column({ type: 'jsonb', default: [] })
+  galleryUrls: string[];
 
   @MoneyColumn()
   price: number;
