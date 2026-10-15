@@ -7,13 +7,15 @@
  * Needs a running API with the seeded demo data (API=http://localhost:4000/api/v1 by default) and docs/openapi/openapi.json (the list of routes).
  * It signs in as a Super Admin, a restaurant owner, a driver and a customer, calls every GET route with the account type that route belongs to
  * (ids for path parameters are collected from the list endpoints it has already called), and infers a JSON Schema plus a short example from each JSON answer.
- * Result: docs/openapi/openapi.responses.json, merged into openapi.json by `npm run openapi:export`.
+ * Result: backend/assets/openapi.responses.json (next to the code, so the running server's /docs page shows it too), merged into openapi.json by
+ * `npm run openapi:export`.
  *
- * Only GET is called (nothing is written, sent or paid). Examples come from DEMO data, are cut short (2 list items), and values under keys such as
+ * Only GET is called, plus a few read-only POST probes whose answers a client must know (the demo customer's cart is filled and PRICED, the checkout
+ * quote and the cart answers are recorded, the cart is emptied again): nothing is ordered, sent or paid. Examples come from DEMO data, are cut short (2 list items), and values under keys such as
  * token / secret / password / hash are replaced. Shapes are inferred from the demo data: a field that is empty in every demo row can be missing or
  * typed too loosely, so treat the result as a very good starting point, not a contract.
  *
- * Optional env: API, ADMIN_EMAIL, OWNER_EMAIL, DRIVER_EMAIL, CUSTOMER_EMAIL, OPENAPI_DIR.
+ * Optional env: API, ADMIN_EMAIL, OWNER_EMAIL, DRIVER_EMAIL, CUSTOMER_EMAIL, OPENAPI_DIR, OPENAPI_RESPONSES_FILE.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -21,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DIR = path.resolve(process.env.OPENAPI_DIR || path.join(here, '..', '..', 'docs', 'openapi'));
+const RESPONSES = path.resolve(process.env.OPENAPI_RESPONSES_FILE || path.join(here, '..', 'assets', 'openapi.responses.json'));
 const API = (process.env.API || 'http://localhost:4000/api/v1').replace(/\/$/, '');
 const ORIGIN = new URL(API).origin;
 const ACCOUNTS = {
@@ -129,7 +132,7 @@ const SKIP = /\/(export|download|csv|pdf|photo|image|qr|invoice-file|file|stream
 const gets = [];
 // /admin/system/* answers with this machine's hostname, process ids and addresses: never put those into a published file (shapes: docs/system-health.md)
 const MACHINE_SPECIFIC = /^\/api\/v1\/admin\/system\//;
-for (const [p, item] of Object.entries(spec.paths)) if (item.get && !SKIP.test(p) && !MACHINE_SPECIFIC.test(p)) gets.push({ path: p, op: item.get, key: `GET ${p}` });
+for (const [p, item] of Object.entries(spec.paths)) if (item.get && !SKIP.test(p) && !MACHINE_SPECIFIC.test(p) && p !== '/api/v1/customer/cart') gets.push({ path: p, op: item.get, key: `GET ${p}` });
 
 const roleOf = (p) => {
   const s = p.replace(/^\/api\/v1\//, '');
@@ -274,9 +277,52 @@ async function attempt(g) {
   return 'ok';
 }
 
+async function send(method, url, body, role) {
+  const headers = { 'content-type': 'application/json', ...(role && tokens[role] ? { authorization: `Bearer ${tokens[role]}` } : {}) };
+  const r = await fetch(API + url, { method, headers, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(25000) });
+  return { status: r.status, json: await r.json().catch(() => null) };
+}
+
+/** keeps what several probes of one route have in common (a field missing in one answer becomes optional) */
+function record(key, status, json, as) {
+  if (!json) return;
+  const schema = infer(json);
+  const prev = result[key];
+  result[key] = { as, status, schema: prev ? merge(prev.schema, schema) : schema, example: example(json) }; // the latest example wins (the grocery one: it shows the most fields)
+}
+
+/**
+ * Read-only POST probes: the demo customer fills the cart and has it priced, once at a restaurant and once at a grocery store (weighed products, an age-restricted
+ * product), so the answers of POST /customer/cart/replace and POST /customer/checkout/quote are described with the fields of both kinds of store. The cart is emptied
+ * at the end. Nothing is ordered or paid.
+ */
+async function probes() {
+  if (!tokens.customer) return;
+  const stores = await get(`${API}/public/stores?lat=43.5925&lng=-79.6428&limit=50`, null);
+  const list = stores.json?.data ?? [];
+  for (const store of [list.find((s) => !s.retail && s.isOpen), list.find((s) => s.retail && s.isOpen)]) {
+    if (!store) continue;
+    const cat = await get(`${API}/public/stores/${store.slug}/catalog?limit=100&inStock=true`, null);
+    const items = (cat.json?.data ?? []).filter((i) => i.available && (i.modifierGroups ?? []).every((g) => !g.required));
+    const pick = [items.find((i) => i.sellBy === 'WEIGHT'), items.find((i) => i.ageRestricted), ...items.filter((i) => i.sellBy !== 'WEIGHT' && !i.ageRestricted).slice(0, 3)].filter(Boolean);
+    if (!pick.length) continue;
+    const rep = await send('POST', '/customer/cart/replace', { restaurantId: cat.json.store.id, items: pick.map((i) => ({ menuItemId: i.id, quantity: 2, ...(i.sellBy === 'WEIGHT' ? { substitution: 'REFUND' } : {}) })) }, 'customer');
+    record('POST /api/v1/customer/cart/replace', 201, rep.json, 'customer');
+    const q = await send('POST', '/customer/checkout/quote', { type: 'PICKUP', ageConfirmed: true }, 'customer');
+    if (q.status < 300) record('POST /api/v1/customer/checkout/quote', 201, q.json, 'customer');
+    else console.warn(`  (quote probe at ${store.slug}: HTTP ${q.status} ${JSON.stringify(q.json).slice(0, 100)})`);
+    // the cart as a GET sees it, while it is filled
+    const cart = await get(`${API}/customer/cart`, 'customer');
+    if (cart.status === 200) record('GET /api/v1/customer/cart', 200, cart.json, 'customer');
+  }
+  await send('DELETE', '/customer/cart', undefined, 'customer');
+}
+
 console.log(`signing in (${API}) ...`);
 for (const role of Object.keys(ACCOUNTS)) await login(role);
 console.log(`signed in as: ${Object.keys(tokens).join(', ') || 'nobody'}; ${gets.length} GET routes`);
+await probes();
+console.log(`POST probes done: ${Object.keys(result).filter((k) => k.startsWith('POST')).join(', ') || 'none'}`);
 
 let pending = gets;
 const outcome = {};
@@ -299,13 +345,14 @@ for (let pass = 1; pass <= 5 && pending.length; pass++) {
   pending = still;
 }
 
+fs.mkdirSync(path.dirname(RESPONSES), { recursive: true });
 fs.writeFileSync(
-  path.join(DIR, 'openapi.responses.json'),
-  JSON.stringify({ note: 'Response shapes inferred from GET answers on seeded DEMO data by backend/scripts/openapi-observe.mjs. Merged into openapi.json by `npm run openapi:export`.', operations: Object.fromEntries(Object.keys(result).sort().map((k) => [k, result[k]])) }, null, 2) + '\n',
+  RESPONSES,
+  JSON.stringify({ note: 'Response shapes inferred from GET answers (and a few read-only POST probes) on seeded DEMO data by backend/scripts/openapi-observe.mjs. Merged into openapi.json by `npm run openapi:export` and shown by the running server at /docs.', operations: Object.fromEntries(Object.keys(result).sort().map((k) => [k, result[k]])) }, null, 2) + '\n',
 );
 const count = (f) => Object.values(outcome).filter(f).length;
 console.log('\n=== coverage');
-console.log(`GET routes: ${gets.length} | with an observed response: ${report.ok} (${Math.round((report.ok / gets.length) * 100)}%)`);
+console.log(`GET routes: ${gets.length} | with an observed response: ${report.ok} (${Math.round((report.ok / gets.length) * 100)}%) | plus ${Object.keys(result).filter((k) => k.startsWith('POST')).length} POST probes`);
 console.log(`not observed: no id/parameter available ${count((x) => x === 'noParam')}, answered 4xx ${count((x) => /^status 4/.test(x))}, non-JSON ${count((x) => /^non-json/.test(x))}, server errors ${report.serverErrors.length}, no token ${count((x) => x === 'noToken')}`);
 console.log('statuses seen:', JSON.stringify(report.byStatus));
 if (report.serverErrors.length) console.log('SERVER ERRORS (5xx on demo data: worth a look):\n  ' + report.serverErrors.join('\n  '));
@@ -315,4 +362,4 @@ if (process.env.VERBOSE) {
   console.log('ANSWERED 4xx / NON-JSON:');
   for (const g of gets) if (/^(status|non-json)/.test(outcome[g.key] || '')) console.log(`  ${g.key}  -> ${outcome[g.key]}`);
 }
-console.log(`written: ${path.join(DIR, 'openapi.responses.json')}`);
+console.log(`written: ${RESPONSES}`);

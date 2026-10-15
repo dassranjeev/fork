@@ -17,7 +17,7 @@ on the URL, and the API refuses them on every route and on the websocket. Custom
 | API instances | One row per running API process: status, requests/s, share of traffic, p95, 5xx, CPU, memory, event-loop delay, sockets, database pool, **Drain / Resume** |
 | Load balancing | Verdict on how evenly traffic is spread, a **live balance test**, and the scale-out readiness list |
 | Database | Connections of the maximum, round trip, size, longest running query, lock waits, cache hit ratio, idle-in-transaction |
-| Dependencies and configuration | Database, clock drift, migrations, uploads folder, Stripe, Mapbox, email, SMS, TLS certificate expiry, proxy headers |
+| Dependencies and configuration | Database, clock drift, migrations, uploads folder, Stripe, maps (the active provider), email, SMS, TLS certificate expiry, proxy headers |
 | Busiest routes | Last 5 minutes, all instances: most requested, slowest, most errors (route patterns only) |
 
 The page updates itself every 2 seconds over a websocket. If the socket is blocked it says "Polling every 5 s" and keeps working. **Pause** freezes

@@ -7,7 +7,9 @@
  *   GET /search/searchbox/v1/suggest?q&session_token&limit&types&country&bbox&proximity&language&access_token
  *   GET /search/searchbox/v1/retrieve/{mapbox_id}?session_token&access_token
  *   GET /search/searchbox/v1/reverse?longitude&latitude&limit&types&country&access_token
- * Plus  GET /_fake/stats (request counters: proves the FORKY cache) and POST /_fake/reset.
+ *   GET /directions/v5/mapbox/driving/{lng,lat;lng,lat}?overview&alternatives&steps&access_token   (distance = 1.5 x the straight line, 40 km/h)
+ *   GET /styles/v1/{user}/{style}/tiles/256/{z}/{x}/{y}[@2x]?access_token                          (a 1x1 PNG)
+ * Plus  GET /_fake/stats (request counters: proves the FORKY cache), POST /_fake/reset and GET /_fake/fail-directions?n=2 (the next n Directions calls answer 503).
  * A token containing "invalid" is rejected with 401, exactly like Mapbox rejects a bad token.
  */
 import http from 'node:http';
@@ -41,17 +43,33 @@ const ctx = (p) => ({
 const placeFormatted = (p) => `${p.city}, Ontario ${p.postcode}, Canada`;
 const full = (p) => `${p.number} ${p.street}, ${placeFormatted(p)}`;
 
-let stats = { suggest: 0, retrieve: 0, reverse: 0, unauthorized: 0 };
+const zero = () => ({ suggest: 0, retrieve: 0, reverse: 0, directions: 0, tiles: 0, unauthorized: 0 });
+let stats = zero();
+let failDirections = 0;
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+const hav = (a, b) => { const R = 6371; const rad = (d) => (d * Math.PI) / 180; const dLat = rad(b[1] - a[1]); const dLng = rad(b[0] - a[0]); const x = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a[1])) * Math.cos(rad(b[1])) * Math.sin(dLng / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x)); };
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
   const q = url.searchParams;
   const send = (status, body) => { res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify(body)); };
   if (url.pathname === '/_fake/stats') return send(200, stats);
-  if (url.pathname === '/_fake/reset') { stats = { suggest: 0, retrieve: 0, reverse: 0, unauthorized: 0 }; return send(200, { ok: true }); }
+  if (url.pathname === '/_fake/reset') { stats = zero(); failDirections = 0; return send(200, { ok: true }); }
+  if (url.pathname === '/_fake/fail-directions') { failDirections = Number(q.get('n') || 1); return send(200, { failDirections }); }
   const token = q.get('access_token') || '';
   if (!/^(sk|pk)\./.test(token) || /invalid/i.test(token)) { stats.unauthorized++; return send(401, { message: 'Not Authorized - Invalid Token' }); }
 
+  const tile = /^\/styles\/v1\/([^/]+)\/([^/]+)\/tiles\/256\/(\d+)\/(\d+)\/(\d+)(@2x)?$/.exec(url.pathname);
+  if (tile) { stats.tiles++; res.writeHead(200, { 'content-type': 'image/png' }); return res.end(PNG); }
+  const dir = /^\/directions\/v5\/mapbox\/driving\/(.+)$/.exec(url.pathname);
+  if (dir) {
+    stats.directions++;
+    if (failDirections > 0) { failDirections--; return send(503, { message: 'Service Unavailable' }); }
+    const pts = decodeURIComponent(dir[1]).split(';').map((s) => s.split(',').map(Number));
+    if (pts.length !== 2 || pts.some((p) => p.length !== 2 || p.some((n) => !Number.isFinite(n)))) return send(422, { code: 'InvalidInput', message: 'Invalid coordinates' });
+    const meters = Math.round(hav(pts[0], pts[1]) * 1.5 * 1000);
+    return send(200, { code: 'Ok', routes: [{ distance: meters, duration: Math.round(meters / 11.1), weight: 1, weight_name: 'routability' }], waypoints: [] });
+  }
   if (url.pathname === '/search/searchbox/v1/suggest') {
     stats.suggest++;
     const norm = (s) => String(s).toLowerCase().replace(/[,.]/g, ' ').replace(/\s+/g, ' ').trim();

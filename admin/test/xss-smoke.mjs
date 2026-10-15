@@ -239,7 +239,7 @@ async function sweepAccount(browser, acc, session, mode) {
   const csp = mode === "csp";
   const ctx = await newContext(browser, session, { csp });
   const state = { mode, acct: acc.name, dialogs: [], pageErrors: [], csp: [], xss: false };
-  const allowedHosts = new Set([new URL(BASE).host, new URL(API).host, "tile.openstreetmap.org"]);
+  const allowedHosts = new Set([new URL(BASE).host, new URL(API).host, "tile.openstreetmap.org", "api.mapbox.com", "tile.googleapis.com"]);
   state.foreign = new Set();
   const page = await openPage(ctx, state, (p) =>
     p.on("request", (r) => {

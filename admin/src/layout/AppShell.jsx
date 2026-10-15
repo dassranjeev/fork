@@ -5,17 +5,21 @@ import ThemeToggleButton from "../helper/ThemeToggleButton";
 import { useAuth } from "../lib/auth";
 import { disconnectSocket } from "../lib/socket";
 import { fullName } from "../lib/format";
+import { usePortal } from "../features/portal/context";
 import { Avatar } from "../ui";
 import NotifyRoot from "../features/notifications/NotifyRoot";
 import NotificationBell from "../features/notifications/NotificationBell";
 import PushBanner from "../features/notifications/PushBanner";
 import AlarmBanner from "../features/notifications/AlarmBanner";
 
+// the Accept / Reject popup for new orders (restaurant portal only): loaded on demand so the other surfaces do not carry it
+const NewOrderPopup = React.lazy(() => import("../features/notifications/NewOrderPopup"));
+
 /** Sidebar order of sections. Feature menus declare `section`; unknown sections go last. */
 export const SECTION_ORDER = [
   "MAIN",
   "ADMIN & SUPER ADMIN",
-  "RESTAURANTS",
+  "BUSINESSES",
   "DRIVERS",
   "CUSTOMERS",
   "OPERATIONS",
@@ -161,6 +165,9 @@ function Shell({ menu, home = "/", portal = "admin", topbarLeft, extraNav }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [quick, setQuick] = useState("");
+  // a grocery-type store sees "Catalog" instead of "Menu" and no kitchen display (menu entries: retailLabel, hideForRetail)
+  const portalCtx = usePortal();
+  const retail = portal === "restaurant" && !!portalCtx.retail;
 
   useEffect(() => setMobile(false), [pathname]);
   useEffect(() => setOpenKey(null), [pathname]);
@@ -177,6 +184,8 @@ function Shell({ menu, home = "/", portal = "admin", topbarLeft, extraNav }) {
     const filtered = menu
       .map((it) => {
         if (!allowed(it)) return null;
+        if (retail && it.hideForRetail) return null;
+        if (retail && it.retailLabel) it = { ...it, label: it.retailLabel };
         if (it.children) {
           const children = it.children.filter(allowed);
           if (!children.length) return null;
@@ -191,7 +200,7 @@ function Shell({ menu, home = "/", portal = "admin", topbarLeft, extraNav }) {
     return Object.keys(bySection)
       .sort((a, b) => (SECTION_ORDER.indexOf(a) + 1 || 99) - (SECTION_ORDER.indexOf(b) + 1 || 99))
       .map((s) => ({ section: s, items: bySection[s] }));
-  }, [menu, can, isSuper, restaurantRole]);
+  }, [menu, can, isSuper, restaurantRole, retail]);
 
   const doLogout = async () => {
     disconnectSocket();
@@ -319,6 +328,11 @@ function Shell({ menu, home = "/", portal = "admin", topbarLeft, extraNav }) {
         </div>
 
         {portal === "restaurant" && <AlarmBanner />}
+        {portal === "restaurant" && (
+          <React.Suspense fallback={null}>
+            <NewOrderPopup />
+          </React.Suspense>
+        )}
 
         <div className="dashboard-main-body">
           <PushBanner portal={portal} />

@@ -4,13 +4,14 @@ import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CurrentUser, RestaurantController } from '../common/decorators';
-import { FulfilmentMode, OrderStatus } from '../common/enums';
+import { ActorType, FulfilmentMode, OrderStatus } from '../common/enums';
 import { AuthUser } from '../common/auth.types';
 import { Order, OrderEvent } from '../database/entities';
 import { like, paginateQb } from '../common/pagination';
 import { OrdersService } from '../orders/orders.service';
+import { RetailService } from '../orders/retail.service';
 import { resolveRestaurantId, restaurantActor, restaurantOrderView } from './restaurants.util';
-import { AcceptOrderDto, ExtendPrepDto, HandoffDto, OrdersQuery, RejectOrderDto, RemoveItemDto } from './dto';
+import { AcceptOrderDto, ExtendPrepDto, HandoffDto, OrdersQuery, PickItemDto, RejectOrderDto, RemoveItemDto } from './dto';
 
 const OPEN_STATUSES = [OrderStatus.PLACED, OrderStatus.ACCEPTED, OrderStatus.DRIVER_ASSIGNED, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.PICKED_UP, OrderStatus.ON_THE_WAY];
 
@@ -27,6 +28,7 @@ export class RestaurantOrdersController {
     @InjectRepository(Order) private orders: Repository<Order>,
     @InjectRepository(OrderEvent) private events: Repository<OrderEvent>,
     private ordersService: OrdersService,
+    private retail: RetailService,
   ) {}
 
   private rid(user: AuthUser, restaurantId?: string) {
@@ -108,6 +110,20 @@ export class RestaurantOrdersController {
   ) {
     await this.orderFor(this.rid(user, restaurantId), id);
     return this.ordersService.removeItem(id, itemId, restaurantActor(user), dto.reason ?? 'Item unavailable');
+  }
+
+  /**
+   * Picking list of a grocery / retail order, one product at a time: PICKED (weighed products need actualWeight), OUT_OF_STOCK (refunded at once) or
+   * REPLACED (another product; the customer pays the lower price). The customer is told and the timeline records it. If every product turns out to be
+   * out of stock the empty order is cancelled and fully refunded.
+   */
+  @Post(':id/items/:itemId/pick')
+  async pick(@CurrentUser() user: AuthUser, @Param('id') id: string, @Param('itemId') itemId: string, @Body() dto: PickItemDto, @Query('restaurantId') restaurantId?: string) {
+    const rid = this.rid(user, restaurantId);
+    await this.orderFor(rid, id);
+    const done = await this.retail.pick(id, rid, itemId, dto, { type: ActorType.RESTAURANT, id: user.id, name: user.name });
+    if (done.allRemoved) await this.ordersService.transition(id, OrderStatus.CANCELLED, restaurantActor(user), { reason: 'Every product in the order is out of stock' });
+    return restaurantOrderView(await this.orderFor(rid, id));
   }
 
   @Post(':id/extend-prep')

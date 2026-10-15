@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { SF_KEYS, errorCode, errorDetails, errorMessage, sfHttp, sfStore } from "./sfApi";
+import { isWeighed, unitPriceOf, weightText } from "./retail";
 import { useSfAuth } from "./SfAuth";
 import { useSfConfirm, useToast } from "../components/ui";
 
@@ -25,19 +26,27 @@ export const emptyCart = (guest = true) => ({
   issues: [],
   valid: true,
   meetsMinimum: true,
+  requiresIdCheck: false,
+  minAge: 0,
+  basket: null,
 });
 
-const signature = (l) => `${l.menuItemId}|${(l.modifiers || []).map((m) => m.optionId).sort().join(",")}|${(l.notes || "").trim()}`;
+// a line of the same product with another "if it is not available" choice is its own line (the API keeps them apart too)
+const signature = (l) => `${l.menuItemId}|${(l.modifiers || []).map((m) => m.optionId).sort().join(",")}|${(l.notes || "").trim()}|${l.substitution || ""}`;
 const newKey = () => `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
+/** The most one line can hold: the product's own limit (stock, per-order limit) and the store's per-line limit (50 for restaurants, 99 for grocery). */
+const lineCap = (l, rest) => Math.min(l.maxQuantity ?? 99, rest?.maxQtyPerLine ?? (rest?.retail ? 99 : 50));
+
 function finalise(cart) {
-  const lines = cart.lines.map((l) => ({ ...l, lineTotal: round2(l.unitPrice * l.quantity) }));
+  const lines = cart.lines.map((l) => ({ ...l, lineTotal: round2(l.unitPrice * l.quantity), ...(isWeighed(l) ? { weightLabel: `~${weightText(l, l.quantity)}` } : {}) }));
   const subtotal = round2(lines.reduce((s, l) => s + l.lineTotal, 0));
   const minimum = cart.restaurant?.minimumOrder || 0;
   const meetsMinimum = subtotal >= minimum;
   const issues = [...(cart.issues || []).filter((i) => i.code !== "BELOW_MINIMUM")];
   if (!meetsMinimum) issues.push({ code: "BELOW_MINIMUM", message: `Minimum order is $${minimum.toFixed(2)}` });
-  return { ...cart, lines, subtotal, itemCount: lines.reduce((n, l) => n + l.quantity, 0), meetsMinimum, issues };
+  const restricted = lines.filter((l) => l.minAge > 0);
+  return { ...cart, lines, subtotal, itemCount: lines.reduce((n, l) => n + l.quantity, 0), meetsMinimum, issues, requiresIdCheck: restricted.length > 0, minAge: Math.max(0, ...restricted.map((l) => l.minAge)) };
 }
 
 function readGuest() {
@@ -67,6 +76,17 @@ function fromServer(v) {
       notes: l.notes || "",
       valid: l.valid !== false,
       problem: l.problem || null,
+      // grocery fields (weights, stock, age limit, substitution); restaurants send the harmless defaults
+      brand: l.brand || null,
+      packSize: l.packSize || null,
+      sellBy: l.sellBy || "UNIT",
+      weightUnit: l.weightUnit || null,
+      stepSize: l.stepSize ?? null,
+      weightLabel: l.weightLabel || null,
+      minAge: l.minAge || 0,
+      temperature: l.temperature || null,
+      substitution: l.substitution || null,
+      maxQuantity: l.maxQuantity ?? null,
     })),
     itemCount: v.itemCount || 0,
     subtotal: v.subtotal || 0,
@@ -74,10 +94,13 @@ function fromServer(v) {
     issues: v.issues || [],
     valid: v.valid !== false,
     meetsMinimum: v.meetsMinimum !== false,
+    requiresIdCheck: !!v.requiresIdCheck,
+    minAge: v.minAge || 0,
+    basket: v.basket || null,
   };
 }
 
-const toServerItems = (lines) => lines.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity, modifierOptionIds: (l.modifiers || []).map((m) => m.optionId), notes: l.notes ? l.notes.slice(0, 300) : undefined }));
+const toServerItems = (lines) => lines.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity, modifierOptionIds: (l.modifiers || []).map((m) => m.optionId), notes: l.notes ? l.notes.slice(0, 300) : undefined, substitution: l.substitution || undefined }));
 
 /** Compact restaurant record kept with the guest cart (only what the cart / checkout need). */
 export function cartRestaurant(r) {
@@ -91,6 +114,10 @@ export function cartRestaurant(r) {
     serviceMode: r.serviceMode,
     deliveryAvailable: !!r.deliveryAvailable,
     pickupAvailable: !!r.pickupAvailable,
+    storeType: r.storeType || null,
+    storeTypeLabel: r.storeTypeLabel || null,
+    retail: !!r.retail,
+    maxQtyPerLine: r.store?.limits?.maxQtyPerLine || null,
   };
 }
 
@@ -211,15 +238,16 @@ export function SfCartProvider({ children }) {
 
   /**
    * Add an item. item = menu item ({id,name,price,imageUrl}); restaurant = the page's restaurant; options = chosen
-   * modifier options [{optionId,name,priceDelta,groupName}]. Resolves true when the item is in the cart.
+   * modifier options [{optionId,name,priceDelta,groupName}]; substitution = "ALLOW" | "REFUND" (grocery: what to do when the store does not have it).
+   * For a product sold by weight `quantity` counts steps (0.5 kg each). Resolves true when the item is in the cart.
    */
   const addItem = useCallback(
-    async ({ restaurant, item, quantity = 1, options = [], notes = "" }) => {
+    async ({ restaurant, item, quantity = 1, options = [], notes = "", substitution }) => {
       const rest = cartRestaurant(restaurant);
       const cur = cartRef.current;
       const note = notes.trim().slice(0, 300);
       if (loggedInRef.current) {
-        const body = { menuItemId: item.id, quantity, modifierOptionIds: options.map((o) => o.optionId), notes: note || undefined, restaurantId: rest.id };
+        const body = { menuItemId: item.id, quantity, modifierOptionIds: options.map((o) => o.optionId), notes: note || undefined, restaurantId: rest.id, substitution: substitution || undefined };
         setBusy(true);
         try {
           let v;
@@ -256,11 +284,32 @@ export function SfCartProvider({ children }) {
         if (!ok) return false;
         base = emptyCart(true);
       }
-      const unitPrice = round2(Number(item.price) + options.reduce((s, o) => s + Number(o.priceDelta || 0), 0));
-      const line = { id: newKey(), menuItemId: item.id, name: item.name, imageUrl: item.imageUrl || null, quantity, unitPrice, modifiers: options, notes: note, valid: true, problem: null };
+      // a weighed product is priced per step (0.5 kg), a piece per piece
+      const unitPrice = round2(unitPriceOf(item) + options.reduce((s, o) => s + Number(o.priceDelta || 0), 0));
+      const line = {
+        id: newKey(),
+        menuItemId: item.id,
+        name: item.name,
+        imageUrl: item.imageUrl || null,
+        quantity,
+        unitPrice,
+        modifiers: options,
+        notes: note,
+        valid: true,
+        problem: null,
+        brand: item.brand || null,
+        packSize: item.packSize || null,
+        sellBy: item.sellBy || "UNIT",
+        weightUnit: item.weightUnit || null,
+        stepSize: item.stepSize ?? null,
+        minAge: item.minAge || 0,
+        temperature: item.temperature || null,
+        substitution: substitution || null,
+        maxQuantity: item.maxQuantity ?? null,
+      };
       const lines = [...base.lines];
       const same = lines.findIndex((l) => signature(l) === signature(line));
-      if (same >= 0) lines[same] = { ...lines[same], quantity: Math.min(50, lines[same].quantity + quantity) };
+      if (same >= 0) lines[same] = { ...lines[same], quantity: Math.min(lineCap(lines[same], rest), lines[same].quantity + quantity) };
       else lines.push(line);
       setGuest({ ...base, restaurant: rest, lines });
       return true;
@@ -268,18 +317,28 @@ export function SfCartProvider({ children }) {
     [confirm, setGuest, toast]
   );
 
-  const setQuantity = useCallback(
-    async (line, quantity) => {
+  /** Change one cart line: its quantity (<= 0 removes it; steps for weighed products) and / or its substitution choice. */
+  const updateLine = useCallback(
+    async (line, patch) => {
+      const rest = cartRef.current.restaurant;
       if (loggedInRef.current) {
-        if (quantity <= 0) return serverCall(() => sfHttp.del(`/customer/cart/items/${line.id}`));
-        return serverCall(() => sfHttp.patch(`/customer/cart/items/${line.id}`, { quantity: Math.min(50, quantity) }));
+        if (patch.quantity != null && patch.quantity <= 0) return serverCall(() => sfHttp.del(`/customer/cart/items/${line.id}`));
+        const body = {};
+        if (patch.quantity != null) body.quantity = Math.min(lineCap(line, rest), patch.quantity);
+        if (patch.substitution) body.substitution = patch.substitution;
+        return serverCall(() => sfHttp.patch(`/customer/cart/items/${line.id}`, body));
       }
       const cur = cartRef.current;
-      const lines = quantity <= 0 ? cur.lines.filter((l) => l.id !== line.id) : cur.lines.map((l) => (l.id === line.id ? { ...l, quantity: Math.min(50, quantity) } : l));
+      const lines =
+        patch.quantity != null && patch.quantity <= 0
+          ? cur.lines.filter((l) => l.id !== line.id)
+          : cur.lines.map((l) => (l.id === line.id ? { ...l, ...(patch.quantity != null ? { quantity: Math.min(lineCap(l, rest), patch.quantity) } : {}), ...(patch.substitution ? { substitution: patch.substitution } : {}) } : l));
       return setGuest({ ...cur, lines, restaurant: lines.length ? cur.restaurant : null });
     },
     [serverCall, setGuest]
   );
+  const setQuantity = useCallback((line, quantity) => updateLine(line, { quantity }), [updateLine]);
+  const setSubstitution = useCallback((line, substitution) => updateLine(line, { substitution }), [updateLine]);
 
   const clear = useCallback(async () => {
     if (loggedInRef.current) return serverCall(() => sfHttp.del("/customer/cart"));
@@ -351,8 +410,8 @@ export function SfCartProvider({ children }) {
   }, [setGuest]);
 
   const value = useMemo(
-    () => ({ cart, busy, ready, loggedIn, panelOpen, openPanel: () => setPanelOpen(true), closePanel: () => setPanelOpen(false), addItem, setQuantity, clear, setPromo, refresh, afterOrder, mergeAssistantCart, detachAssistantCart }),
-    [cart, busy, ready, loggedIn, panelOpen, addItem, setQuantity, clear, setPromo, refresh, afterOrder, mergeAssistantCart, detachAssistantCart]
+    () => ({ cart, busy, ready, loggedIn, panelOpen, openPanel: () => setPanelOpen(true), closePanel: () => setPanelOpen(false), addItem, setQuantity, setSubstitution, clear, setPromo, refresh, afterOrder, mergeAssistantCart, detachAssistantCart }),
+    [cart, busy, ready, loggedIn, panelOpen, addItem, setQuantity, setSubstitution, clear, setPromo, refresh, afterOrder, mergeAssistantCart, detachAssistantCart]
   );
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

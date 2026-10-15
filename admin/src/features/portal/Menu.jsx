@@ -4,6 +4,7 @@ import { Badge, BoolBadge, Button, Card, EmptyState, FormModal, IconButton, Mult
 import { fmtDateTime, money } from "../../lib/format";
 import { Async, PortalPage, useAction, useApi, usePortalFetch, useRealtimeReload } from "./shared";
 import { usePortal } from "./context";
+import CatalogTab from "./Catalog";
 
 // ------------------------------------------------------------------ 86 / restock
 function EightySixModal({ target, onClose, onDone }) {
@@ -36,14 +37,52 @@ function EightySixModal({ target, onClose, onDone }) {
 }
 
 // ------------------------------------------------------------------ item editor
+const MIN_AGE_OPTIONS = [
+  { value: 0, label: "No age limit" },
+  { value: 18, label: "18+" },
+  { value: 19, label: "19+ (alcohol and tobacco in Ontario)" },
+  { value: 21, label: "21+" },
+];
+const TEMP_OPTIONS = [
+  { value: "AMBIENT", label: "Room temperature" },
+  { value: "CHILLED", label: "Chilled" },
+  { value: "FROZEN", label: "Frozen" },
+];
+const TAX_OPTIONS = [
+  { value: "HST_ON", label: "Standard (HST 13%)" },
+  { value: "ZERO_RATED", label: "Zero-rated (basic groceries)" },
+];
+
+const catalogDefaults = (item) => ({
+  sku: item?.sku || "",
+  barcode: item?.barcode || "",
+  brand: item?.brand || "",
+  packSize: item?.packSize || "",
+  sellBy: item?.sellBy || "UNIT",
+  weightUnit: item?.weightUnit || "KG",
+  stepSize: item?.sellBy === "WEIGHT" ? Number(item.stepSize) : 0.5,
+  trackStock: !!item?.trackStock,
+  stockQty: item?.trackStock && item?.stockQty != null ? Number(item.stockQty) : "",
+  lowStockThreshold: item?.lowStockThreshold != null ? Number(item.lowStockThreshold) : "",
+  maxPerOrder: item?.maxPerOrder ?? "",
+  minAge: item?.minAge || 0,
+  temperature: item?.temperature || "AMBIENT",
+  taxClassCode: item?.taxClassCode || "HST_ON",
+});
+
+/** Add / edit a dish or a product. The catalog part (SKU, barcode, weight, stock, age limit, temperature) is always there for grocery-type stores and one click away for the others. */
 function ItemModal({ item, menu, open, onClose, onSaved, defaultCategoryId }) {
   const api = useApi();
   const { busy, run } = useAction();
+  const { location } = usePortal();
+  const retail = !!location?.retail;
   const [f, setF] = useState(null);
+  const [showCatalog, setShowCatalog] = useState(false);
   React.useEffect(() => {
     if (!open) return;
-    setF(
-      item
+    setShowCatalog(retail || !!(item && (item.sku || item.barcode || item.trackStock || item.minAge > 0 || item.sellBy === "WEIGHT")));
+    setF({
+      ...(item
         ? {
             name: item.name,
             description: item.description || "",
@@ -58,11 +97,15 @@ function ItemModal({ item, menu, open, onClose, onSaved, defaultCategoryId }) {
             active: item.active !== false,
             groupIds: (item.modifierGroups || []).map((g) => g.id),
           }
-        : { name: "", description: "", categoryId: defaultCategoryId || menu.categories[0]?.id || "", price: "", pickupPrice: "", stationId: "", prepTimeMin: "", allergens: [], dietaryTags: [], isPopular: false, active: true, groupIds: [] }
-    );
-  }, [open, item, menu, defaultCategoryId]);
+        : { name: "", description: "", categoryId: defaultCategoryId || menu.categories[0]?.id || "", price: "", pickupPrice: "", stationId: "", prepTimeMin: "", allergens: [], dietaryTags: [], isPopular: false, active: true, groupIds: [] }),
+      ...catalogDefaults(item),
+    });
+  }, [open, item, menu, defaultCategoryId, retail]);
   if (!open || !f) return null;
   const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
+  const weighed = f.sellBy === "WEIGHT";
+  const unit = String(f.weightUnit || "KG").toLowerCase();
+  const numOrNull = (v) => (v === "" || v === null || v === undefined ? null : Number(v));
   const submit = async () => {
     if (!f.name.trim() || f.price === "") return;
     const body = {
@@ -71,28 +114,46 @@ function ItemModal({ item, menu, open, onClose, onSaved, defaultCategoryId }) {
       categoryId: f.categoryId || null,
       price: Number(f.price),
       pickupPrice: f.pickupPrice === "" ? null : Number(f.pickupPrice),
-      stationId: f.stationId || null,
-      prepTimeMin: f.prepTimeMin === "" ? null : Number(f.prepTimeMin),
       allergens: f.allergens,
       dietaryTags: f.dietaryTags,
       isPopular: f.isPopular,
       active: f.active,
       groupIds: f.groupIds,
+      ...(retail ? {} : { stationId: f.stationId || null, prepTimeMin: f.prepTimeMin === "" ? null : Number(f.prepTimeMin) }),
+      ...(showCatalog
+        ? {
+            sku: f.sku.trim() || null,
+            barcode: f.barcode.trim() || null,
+            brand: f.brand.trim() || null,
+            packSize: f.packSize.trim() || null,
+            sellBy: f.sellBy,
+            weightUnit: f.weightUnit,
+            ...(weighed ? { stepSize: Number(f.stepSize) } : {}),
+            trackStock: f.trackStock,
+            ...(f.trackStock ? { stockQty: Number(f.stockQty) } : {}),
+            lowStockThreshold: numOrNull(f.lowStockThreshold),
+            maxPerOrder: numOrNull(f.maxPerOrder),
+            minAge: Number(f.minAge) || 0,
+            temperature: f.temperature,
+            ...(retail ? { taxClassCode: f.taxClassCode } : {}),
+          }
+        : {}),
     };
-    const r = await run("save", () => (item ? api.patch(`/restaurant/menu/items/${item.id}`, body) : api.post("/restaurant/menu/items", body)), item ? "Item saved" : "Item created");
+    const noun = retail ? "Product" : "Item";
+    const r = await run("save", () => (item ? api.patch(`/restaurant/menu/items/${item.id}`, body) : api.post("/restaurant/menu/items", body)), item ? `${noun} saved` : `${noun} created`);
     if (r.ok) onSaved();
   };
   return (
-    <FormModal open onClose={onClose} title={item ? `Edit ${item.name}` : "New item"} onSubmit={submit} busy={!!busy} size="lg" disabled={!f.name.trim() || f.price === ""}>
+    <FormModal open onClose={onClose} title={item ? `Edit ${item.name}` : retail ? "New product" : "New item"} onSubmit={submit} busy={!!busy} size="lg" disabled={!f.name.trim() || f.price === ""}>
       <div className="row">
         <TextInput col={8} label="Name" required value={f.name} onChange={set("name")} />
-        <Select col={4} label="Category" value={f.categoryId} onChange={set("categoryId")} options={menu.categories.map((c) => ({ value: c.id, label: c.name }))} placeholder="Uncategorised" />
+        <Select col={4} label={retail ? "Department" : "Category"} value={f.categoryId} onChange={set("categoryId")} options={menu.categories.map((c) => ({ value: c.id, label: c.name }))} placeholder="Uncategorised" />
         <TextArea label="Description" value={f.description} onChange={set("description")} rows={2} />
-        <MoneyInput col={4} label="Delivery price" required value={f.price} onChange={set("price")} />
+        <MoneyInput col={4} label={weighed && showCatalog ? `Price per ${unit}` : "Delivery price"} required value={f.price} onChange={set("price")} />
         <MoneyInput col={4} label="Pickup price" hint="Leave empty to use the delivery price" value={f.pickupPrice} onChange={set("pickupPrice")} />
-        <NumberInput col={4} label="Prep time (min)" hint="Empty = store default" value={f.prepTimeMin} onChange={set("prepTimeMin")} min={0} />
-        <Select col={6} label="Kitchen station" value={f.stationId} onChange={set("stationId")} options={menu.stations.map((s) => ({ value: s.id, label: s.name }))} placeholder="None" />
-        <div className="col-md-6 pt-28 d-flex gap-4">
+        {!retail && <NumberInput col={4} label="Prep time (min)" hint="Empty = store default" value={f.prepTimeMin} onChange={set("prepTimeMin")} min={0} />}
+        {!retail && <Select col={6} label="Kitchen station" value={f.stationId} onChange={set("stationId")} options={menu.stations.map((s) => ({ value: s.id, label: s.name }))} placeholder="None" />}
+        <div className={`${retail ? "col-md-4 pt-28" : "col-md-6 pt-28"} d-flex gap-4`}>
           <Switch label="Active" checked={f.active} onChange={set("active")} className="mb-0" />
           <Switch label="Popular" checked={f.isPopular} onChange={set("isPopular")} className="mb-0" />
         </div>
@@ -100,6 +161,33 @@ function ItemModal({ item, menu, open, onClose, onSaved, defaultCategoryId }) {
         <TagsInput col={6} label="Dietary tags" value={f.dietaryTags} onChange={set("dietaryTags")} className="mt-16" suggestions={["vegetarian", "vegan", "halal", "gluten-free", "spicy"]} />
       </div>
       {menu.modifierGroups.length > 0 && <MultiCheck label="Modifier groups" cols={2} options={menu.modifierGroups.map((g) => ({ value: g.id, label: g.name }))} value={f.groupIds} onChange={set("groupIds")} />}
+      {!showCatalog ? (
+        <button type="button" className="btn btn-link px-0" onClick={() => setShowCatalog(true)} data-testid="show-catalog">
+          Stock, weight, age limit and product codes…
+        </button>
+      ) : (
+        <div className="border-top pt-16 mt-8" data-testid="catalog-fields">
+          <div className="fw-semibold mb-12">Product details</div>
+          <div className="row">
+            <TextInput col={4} label="SKU" hint="Your own product code, unique in the store" value={f.sku} onChange={set("sku")} />
+            <TextInput col={4} label="Barcode" hint="UPC / EAN, 6 to 14 digits" value={f.barcode} onChange={set("barcode")} />
+            <TextInput col={4} label="Brand" value={f.brand} onChange={set("brand")} />
+            <TextInput col={4} label="Pack size" hint='For example "500 g" or "12 x 355 ml"' value={f.packSize} onChange={set("packSize")} />
+            <Select col={4} label="Sold" allowEmpty={false} value={f.sellBy} onChange={set("sellBy")} options={[{ value: "UNIT", label: "By the piece" }, { value: "WEIGHT", label: "By weight (weighed when picked)" }]} />
+            {weighed && <Select col={2} label="Weight unit" allowEmpty={false} value={f.weightUnit} onChange={set("weightUnit")} options={[{ value: "KG", label: "kg" }, { value: "LB", label: "lb" }]} />}
+            {weighed && <NumberInput col={2} label={`Step (${unit})`} hint={`Customers order in steps: 0.5 = half a ${unit}`} value={f.stepSize} onChange={set("stepSize")} min={0.05} step={0.05} />}
+            <div className="col-md-4 pt-28">
+              <Switch label="Count the stock" checked={f.trackStock} onChange={set("trackStock")} className="mb-0" />
+            </div>
+            {f.trackStock && <NumberInput col={4} label={`On the shelf${weighed ? ` (${unit})` : ""}`} value={f.stockQty} onChange={set("stockQty")} min={0} step={weighed ? 0.1 : 1} />}
+            {f.trackStock && <NumberInput col={4} label="Low stock alert at" hint="You are told when an order takes it down to this" value={f.lowStockThreshold} onChange={set("lowStockThreshold")} min={0} />}
+            <NumberInput col={4} label="Most per order" hint="Empty = no limit" value={f.maxPerOrder} onChange={set("maxPerOrder")} min={1} />
+            <Select col={4} label="Age limit" allowEmpty={false} hint="Customers confirm their age; the driver checks ID at the door. Needs your liquor / tobacco licence uploaded." value={f.minAge} onChange={(v) => set("minAge")(Number(v))} options={MIN_AGE_OPTIONS} />
+            <Select col={4} label="Keep" allowEmpty={false} value={f.temperature} onChange={set("temperature")} options={TEMP_OPTIONS} />
+            {retail && <Select col={4} label="Tax" allowEmpty={false} hint="Basic groceries are zero-rated; snacks, drinks and household goods are not" value={f.taxClassCode} onChange={set("taxClassCode")} options={TAX_OPTIONS} />}
+          </div>
+        </div>
+      )}
     </FormModal>
   );
 }
@@ -228,6 +316,42 @@ function ItemsTab({ menu, reload }) {
   );
 }
 
+// ------------------------------------------------------------------ products tab of a grocery-type store (paged, see Catalog.jsx)
+function RetailItemsTab({ menu, reload }) {
+  const { isManager: mgr } = usePortal();
+  const canEdit = mgr && menu.access?.canEdit !== false;
+  const [edit, setEdit] = useState(null);
+  const [eighty, setEighty] = useState(null);
+  const [tick, setTick] = useState(0);
+  const refreshed = () => {
+    setTick((n) => n + 1);
+    reload();
+  };
+  return (
+    <>
+      <CatalogTab key={tick} menu={menu} reload={reload} canEdit={canEdit} onEdit={(item) => setEdit({ item })} onAdd={() => setEdit({ item: null })} onEightySix={setEighty} />
+      <ItemModal
+        open={!!edit}
+        item={edit?.item}
+        menu={menu}
+        onClose={() => setEdit(null)}
+        onSaved={() => {
+          setEdit(null);
+          refreshed();
+        }}
+      />
+      <EightySixModal
+        target={eighty}
+        onClose={() => setEighty(null)}
+        onDone={() => {
+          setEighty(null);
+          refreshed();
+        }}
+      />
+    </>
+  );
+}
+
 // ------------------------------------------------------------------ categories tab
 function CategoryModal({ cat, open, onClose, onSaved }) {
   const api = useApi();
@@ -251,7 +375,7 @@ function CategoryModal({ cat, open, onClose, onSaved }) {
   );
 }
 
-function CategoriesTab({ menu, reload }) {
+function CategoriesTab({ menu, reload, retail }) {
   const api = useApi();
   const confirm = useConfirm();
   const { run } = useAction();
@@ -268,10 +392,10 @@ function CategoriesTab({ menu, reload }) {
   };
   const del = async (c) => {
     const others = cats.filter((x) => x.id !== c.id);
-    const has = (c.items || []).length > 0;
+    const has = (c.itemCount ?? (c.items || []).length) > 0;
     const res = await confirm({
       title: `Delete ${c.name}?`,
-      message: has ? `Its ${c.items.length} items need a new home.` : undefined,
+      message: has ? `Its ${c.itemCount ?? c.items.length} ${retail ? "products" : "items"} need a new home.` : undefined,
       danger: true,
       confirmText: "Delete",
       prompt: has ? { label: "Move items to", type: "select", required: true, options: others.map((o) => ({ value: o.id, label: o.name })) } : undefined,
@@ -285,20 +409,20 @@ function CategoriesTab({ menu, reload }) {
       {canEdit && (
         <div className="d-flex justify-content-end mb-20">
           <Button icon="solar:add-circle-outline" onClick={() => setEdit({ cat: null })}>
-            Add category
+            {retail ? "Add department" : "Add category"}
           </Button>
         </div>
       )}
       <Card noPadding>
         {cats.length === 0 ? (
-          <EmptyState title="No categories" text="Categories group your items on the menu." />
+          <EmptyState title={retail ? "No departments" : "No categories"} text={retail ? "Departments (produce, dairy, frozen...) group your products." : "Categories group your items on the menu."} />
         ) : (
           <ul className="list-unstyled mb-0">
             {cats.map((c, i) => (
               <li key={c.id} className="d-flex align-items-center justify-content-between gap-3 px-20 py-12 border-bottom">
                 <div>
                   <div className="fw-semibold">{c.name}</div>
-                  <div className="text-secondary-light text-sm">{(c.items || []).length} items</div>
+                  <div className="text-secondary-light text-sm">{c.itemCount ?? (c.items || []).length} {retail ? "products" : "items"}</div>
                 </div>
                 <div className="d-flex align-items-center gap-2">
                   <BoolBadge value={c.active !== false} yes="Visible" no="Hidden" />
@@ -543,8 +667,9 @@ function MenuAccessBanner({ access, reload }) {
 }
 
 export default function Menu() {
-  const state = usePortalFetch("/restaurant/menu", { includeInactive: "true" });
-  const { isManager } = usePortal();
+  const { isManager, retail } = usePortal();
+  // a grocery-type store loads its products page by page: the menu call only brings the structure (departments with their counts)
+  const state = usePortalFetch("/restaurant/menu", retail ? { includeInactive: "true", items: "false" } : { includeInactive: "true" });
   const [tab, setTab] = useState("items");
   useRealtimeReload(state.reload, ["menu.access_changed"]);
   const api = useApi();
@@ -555,23 +680,23 @@ export default function Menu() {
       const url = URL.createObjectURL(new Blob([r.data.csv], { type: "text/csv" }));
       const a = document.createElement("a");
       a.href = url;
-      a.download = "menu.csv";
+      a.download = retail ? "catalog.csv" : "menu.csv";
       a.click();
       URL.revokeObjectURL(url);
     }
   };
   const tabs = useMemo(
     () => (menu) => [
-      { key: "items", label: "Items", badge: menu.counts?.items, content: <ItemsTab menu={menu} reload={state.reload} /> },
-      { key: "categories", label: "Categories", badge: menu.counts?.categories, hidden: !isManager, content: <CategoriesTab menu={menu} reload={state.reload} /> },
-      { key: "groups", label: "Modifier groups", badge: menu.counts?.modifierGroups, content: <GroupsTab menu={menu} reload={state.reload} /> },
+      { key: "items", label: retail ? "Products" : "Items", badge: menu.counts?.items, content: retail ? <RetailItemsTab menu={menu} reload={state.reload} /> : <ItemsTab menu={menu} reload={state.reload} /> },
+      { key: "categories", label: retail ? "Departments" : "Categories", badge: menu.counts?.categories, hidden: !isManager, content: <CategoriesTab menu={menu} reload={state.reload} retail={retail} /> },
+      { key: "groups", label: retail ? "Options" : "Modifier groups", badge: menu.counts?.modifierGroups, content: <GroupsTab menu={menu} reload={state.reload} /> },
     ],
-    [isManager, state.reload]
+    [isManager, retail, state.reload]
   );
   return (
     <PortalPage
-      title="Menu"
-      subtitle={isManager ? undefined : "Mark items out of stock (86) or back in stock"}
+      title={retail ? "Catalog" : "Menu"}
+      subtitle={isManager ? undefined : retail ? "Count stock and pause products" : "Mark items out of stock (86) or back in stock"}
       actions={
         isManager && (
           <Button variant="outline" icon="solar:download-minimalistic-outline" loading={isBusy("csv")} onClick={exportCsv}>

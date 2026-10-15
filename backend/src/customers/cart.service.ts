@@ -4,6 +4,7 @@ import { DataSource, In } from 'typeorm';
 import { Cart, MenuCategory, MenuItem, MenuItemModifierGroup, ModifierGroup, ModifierOption, Restaurant } from '../database/entities';
 import { RestaurantServiceMode, RestaurantStatus } from '../common/enums';
 import { fulfilmentAvailability } from '../common/service-mode';
+import { basketOf, estimatedWeight, profileOf, stepOf, stockUse, unitPriceOf, weightLabel } from '../common/store-types';
 import { AvailabilityService, daypartOf, zonedParts } from '../core/core.module';
 import { newId, round2 } from './util';
 
@@ -12,6 +13,8 @@ export interface CartItemInput {
   quantity: number;
   modifierOptionIds?: string[];
   notes?: string;
+  /** groceries: ALLOW a replacement (default) or REFUND when the store does not have it */
+  substitution?: 'ALLOW' | 'REFUND';
 }
 
 type CartLine = NonNullable<Cart['items']>[number];
@@ -19,7 +22,7 @@ type CartLine = NonNullable<Cart['items']>[number];
 export interface CartIssue {
   lineId: string | null;
   menuItemId: string | null;
-  code: 'ITEM_REMOVED' | 'ITEM_UNAVAILABLE' | 'NOT_SERVED_NOW' | 'MODIFIER_UNAVAILABLE' | 'RESTAURANT_UNAVAILABLE' | 'BELOW_MINIMUM';
+  code: 'ITEM_REMOVED' | 'ITEM_UNAVAILABLE' | 'INSUFFICIENT_STOCK' | 'NOT_SERVED_NOW' | 'MODIFIER_UNAVAILABLE' | 'RESTAURANT_UNAVAILABLE' | 'BELOW_MINIMUM';
   message: string;
 }
 
@@ -86,26 +89,51 @@ export class CartService {
     if (!r || r.status !== RestaurantStatus.LIVE) throw new BadRequestException('This restaurant is not accepting orders right now');
   }
 
-  private normalise(i: { menuItemId: string; quantity: number; modifierOptionIds?: string[]; notes?: string }, lineId?: string): CartLine {
+  private normalise(i: { menuItemId: string; quantity: number; modifierOptionIds?: string[]; notes?: string; substitution?: 'ALLOW' | 'REFUND' }, lineId?: string): CartLine {
     return {
       lineId: lineId ?? newId(),
       menuItemId: i.menuItemId,
       quantity: Math.floor(i.quantity),
       modifierOptionIds: [...new Set(i.modifierOptionIds ?? [])].sort(),
       notes: i.notes?.trim() ? i.notes.trim().slice(0, 300) : undefined,
+      substitution: i.substitution === 'REFUND' ? 'REFUND' : undefined, // ALLOW is the default and is not stored
     };
   }
 
   private sameLine(a: CartLine, b: CartLine) {
-    return a.menuItemId === b.menuItemId && JSON.stringify(a.modifierOptionIds ?? []) === JSON.stringify(b.modifierOptionIds ?? []) && (a.notes ?? '') === (b.notes ?? '');
+    return a.menuItemId === b.menuItemId && JSON.stringify(a.modifierOptionIds ?? []) === JSON.stringify(b.modifierOptionIds ?? []) && (a.notes ?? '') === (b.notes ?? '') && (a.substitution ?? 'ALLOW') === (b.substitution ?? 'ALLOW');
   }
 
-  private async prepareLine(restaurantId: string, input: CartItemInput, bundles?: Map<string, ItemBundle>) {
-    if (!(input.quantity >= 1 && input.quantity <= 50)) throw new BadRequestException('Quantity must be between 1 and 50');
+  /** the most one cart line may hold: 50 for restaurants, 99 for grocery stores (see common/store-types.ts) */
+  private qtyCap(storeType?: string | null) {
+    return profileOf(storeType).limits.maxQtyPerLine;
+  }
+
+  /** stock and per-order limits of ONE line (the quote checks the whole basket again) */
+  private assertQuantity(item: MenuItem, quantity: number, storeType?: string | null) {
+    const cap = this.qtyCap(storeType);
+    if (!(quantity >= 1 && quantity <= cap)) throw new BadRequestException(`Quantity must be between 1 and ${cap}`);
+    if (item.maxPerOrder && quantity > item.maxPerOrder) {
+      throw new BadRequestException({ message: `You can order at most ${item.maxPerOrder} of "${item.name}"`, code: 'MAX_PER_ORDER', details: { menuItemId: item.id, max: item.maxPerOrder } });
+    }
+    if (item.trackStock) {
+      const left = Number(item.stockQty ?? 0);
+      if (left <= 0) throw new BadRequestException({ message: `"${item.name}" is sold out`, code: 'INSUFFICIENT_STOCK', details: { menuItemId: item.id, available: 0 } });
+      if (stockUse(item, quantity) > left + 1e-9) {
+        const label = item.sellBy === 'WEIGHT' ? `${left} ${String(item.weightUnit).toLowerCase()}` : String(left);
+        throw new BadRequestException({ message: `Only ${label} of "${item.name}" left`, code: 'INSUFFICIENT_STOCK', details: { menuItemId: item.id, available: left } });
+      }
+    }
+  }
+
+  private async prepareLine(restaurantId: string, input: CartItemInput, bundles?: Map<string, ItemBundle>, storeType?: string | null) {
+    const cap = this.qtyCap(storeType);
+    if (!(input.quantity >= 1 && input.quantity <= cap)) throw new BadRequestException(`Quantity must be between 1 and ${cap}`);
     const b = (bundles ?? (await this.bundles([input.menuItemId]))).get(input.menuItemId);
     if (!b || b.item.restaurantId !== restaurantId) throw new NotFoundException('Menu item not found at this restaurant');
     if (!b.item.active) throw new NotFoundException('Menu item not found at this restaurant');
     if (!b.item.available) throw new BadRequestException(`"${b.item.name}" is currently unavailable`);
+    this.assertQuantity(b.item, Math.floor(input.quantity), storeType);
     this.validateSelection(b, input.modifierOptionIds ?? []);
     return this.normalise(input);
   }
@@ -116,12 +144,16 @@ export class CartService {
     await this.assertRestaurantOrderable(r);
     const bundles = await this.bundles([...new Set(dto.items.map((i) => i.menuItemId))]);
     const lines: CartLine[] = [];
+    const maxLines = profileOf(r!.storeType).limits.maxLines;
     for (const it of dto.items) {
-      const line = await this.prepareLine(dto.restaurantId, it, bundles);
+      const line = await this.prepareLine(dto.restaurantId, it, bundles, r!.storeType);
       const existing = lines.find((l) => this.sameLine(l, line));
-      if (existing) existing.quantity = Math.min(50, existing.quantity + line.quantity);
-      else lines.push(line);
+      if (existing) {
+        existing.quantity = Math.min(this.qtyCap(r!.storeType), existing.quantity + line.quantity);
+        this.assertQuantity(bundles.get(existing.menuItemId)!.item, existing.quantity, r!.storeType);
+      } else lines.push(line);
     }
+    if (lines.length > maxLines) throw new BadRequestException(`A cart can hold at most ${maxLines} different items`);
     const cart = await this.getOrCreate(customerId);
     cart.restaurantId = lines.length ? dto.restaurantId : null;
     cart.items = lines;
@@ -146,7 +178,7 @@ export class CartService {
     if (dto.restaurantId && dto.restaurantId !== restaurantId) throw new BadRequestException('Menu item does not belong to that restaurant');
     const rest = await this.ds.getRepository(Restaurant).findOne({ where: { id: restaurantId } });
     await this.assertRestaurantOrderable(rest);
-    const line = await this.prepareLine(restaurantId, dto, new Map([[dto.menuItemId, bundle]]));
+    const line = await this.prepareLine(restaurantId, dto, new Map([[dto.menuItemId, bundle]]), rest!.storeType);
     const cart = await this.getOrCreate(customerId);
     if (cart.restaurantId && cart.restaurantId !== restaurantId && cart.items.length) {
       if (!dto.replaceCart) {
@@ -163,26 +195,32 @@ export class CartService {
     }
     cart.restaurantId = restaurantId;
     const existing = cart.items.find((l) => this.sameLine(l, line));
-    if (existing) existing.quantity = Math.min(50, existing.quantity + line.quantity);
-    else cart.items = [...cart.items, line];
+    if (existing) {
+      existing.quantity = Math.min(this.qtyCap(rest!.storeType), existing.quantity + line.quantity);
+      this.assertQuantity(bundle.item, existing.quantity, rest!.storeType);
+    } else {
+      if (cart.items.length >= profileOf(rest!.storeType).limits.maxLines) throw new BadRequestException(`A cart can hold at most ${profileOf(rest!.storeType).limits.maxLines} different items`);
+      cart.items = [...cart.items, line];
+    }
     await this.repo().save(cart);
     return this.view(customerId);
   }
 
-  async updateItem(customerId: string, lineId: string, dto: { quantity?: number; modifierOptionIds?: string[]; notes?: string }) {
+  async updateItem(customerId: string, lineId: string, dto: { quantity?: number; modifierOptionIds?: string[]; notes?: string; substitution?: 'ALLOW' | 'REFUND' }) {
     const cart = await this.getOrCreate(customerId);
     const idx = cart.items.findIndex((l) => l.lineId === lineId);
     if (idx < 0) throw new NotFoundException('Cart line not found');
     if (dto.quantity !== undefined && dto.quantity <= 0) return this.removeItem(customerId, lineId);
     const cur = cart.items[idx];
-    const next = this.normalise({ menuItemId: cur.menuItemId, quantity: dto.quantity ?? cur.quantity, modifierOptionIds: dto.modifierOptionIds ?? cur.modifierOptionIds, notes: dto.notes !== undefined ? dto.notes : cur.notes }, lineId);
-    await this.prepareLine(cart.restaurantId!, next);
+    const next = this.normalise({ menuItemId: cur.menuItemId, quantity: dto.quantity ?? cur.quantity, modifierOptionIds: dto.modifierOptionIds ?? cur.modifierOptionIds, notes: dto.notes !== undefined ? dto.notes : cur.notes, substitution: dto.substitution ?? cur.substitution }, lineId);
+    const store = await this.ds.getRepository(Restaurant).findOne({ where: { id: cart.restaurantId! }, select: ['id', 'storeType'] });
+    await this.prepareLine(cart.restaurantId!, next, undefined, store?.storeType);
     const items = [...cart.items];
     items[idx] = next;
     // merge with an identical line if edits made them equal
     const dup = items.findIndex((l, i) => i !== idx && this.sameLine(l, next));
     if (dup >= 0) {
-      items[dup] = { ...items[dup], quantity: Math.min(50, items[dup].quantity + next.quantity) };
+      items[dup] = { ...items[dup], quantity: Math.min(this.qtyCap(store?.storeType), items[dup].quantity + next.quantity) };
       items.splice(idx, 1);
     }
     cart.items = items;
@@ -220,7 +258,7 @@ export class CartService {
 
   async describe(cart: Pick<Cart, 'restaurantId' | 'items' | 'promoCode'>) {
     if (!cart.restaurantId || !cart.items.length) {
-      return { restaurant: null, lines: [], itemCount: 0, subtotal: 0, promoCode: cart.promoCode ?? null, issues: [] as CartIssue[], valid: true, meetsMinimum: true };
+      return { restaurant: null, lines: [], itemCount: 0, subtotal: 0, promoCode: cart.promoCode ?? null, requiresIdCheck: false, minAge: 0, basket: null, issues: [] as CartIssue[], valid: true, meetsMinimum: true };
     }
     const rest = await this.ds.getRepository(Restaurant).findOne({ where: { id: cart.restaurantId } });
     const bundles = await this.bundles([...new Set(cart.items.map((i) => i.menuItemId))]);
@@ -267,16 +305,54 @@ export class CartService {
           problem = problem ?? 'NOT_SERVED_NOW';
           issues.push({ lineId, menuItemId: b.item.id, code: 'NOT_SERVED_NOW', message: `"${b.item.name}" is not served at this time of day` });
         }
+        if (b.item.trackStock) {
+          const left = Number(b.item.stockQty ?? 0);
+          if (left <= 0) {
+            problem = problem ?? 'ITEM_UNAVAILABLE';
+            issues.push({ lineId, menuItemId: b.item.id, code: 'ITEM_UNAVAILABLE', message: `"${b.item.name}" is sold out` });
+          } else if (stockUse(b.item, l.quantity) > left + 1e-9) {
+            problem = problem ?? 'INSUFFICIENT_STOCK';
+            issues.push({ lineId, menuItemId: b.item.id, code: 'INSUFFICIENT_STOCK', message: `Only ${b.item.sellBy === 'WEIGHT' ? `${left} ${String(b.item.weightUnit).toLowerCase()}` : left} of "${b.item.name}" left` });
+          }
+        }
       }
-      const unitPrice = round2(b.item.price + mods.reduce((s, m) => s + m.priceDelta, 0));
+      // weighed products: one unit is one step (price per kg x step weight)
+      const unitPrice = round2(unitPriceOf(b.item) + mods.reduce((s, m) => s + m.priceDelta, 0));
       const lineTotal = round2(unitPrice * l.quantity);
       subtotal += lineTotal;
-      return { lineId, menuItemId: b.item.id, name: b.item.name, imageUrl: b.item.imageUrl, quantity: l.quantity, unitPrice, lineTotal, modifiers: mods, notes: l.notes ?? null, valid: !problem, problem };
+      return {
+        lineId,
+        menuItemId: b.item.id,
+        name: b.item.name,
+        imageUrl: b.item.imageUrl,
+        quantity: l.quantity,
+        unitPrice,
+        lineTotal,
+        modifiers: mods,
+        notes: l.notes ?? null,
+        valid: !problem,
+        problem,
+        // retail facts (plain dishes carry the defaults)
+        sku: b.item.sku ?? null,
+        brand: b.item.brand ?? null,
+        packSize: b.item.packSize ?? null,
+        sellBy: (b.item.sellBy ?? 'UNIT') as 'UNIT' | 'WEIGHT',
+        weightUnit: b.item.sellBy === 'WEIGHT' ? b.item.weightUnit : null,
+        stepSize: b.item.sellBy === 'WEIGHT' ? stepOf(b.item) : null,
+        estimatedWeight: b.item.sellBy === 'WEIGHT' ? estimatedWeight(b.item, l.quantity) : null,
+        weightLabel: weightLabel(b.item, l.quantity),
+        minAge: b.item.minAge ?? 0,
+        temperature: b.item.temperature ?? 'AMBIENT',
+        substitution: (l.substitution ?? 'ALLOW') as 'ALLOW' | 'REFUND',
+        maxQuantity: b.item.trackStock ? Math.max(0, Math.min(this.qtyCap(rest?.storeType), b.item.maxPerOrder ?? 99, Math.floor(b.item.sellBy === 'WEIGHT' ? Number(b.item.stockQty ?? 0) / stepOf(b.item) : Number(b.item.stockQty ?? 0)))) : Math.min(this.qtyCap(rest?.storeType), b.item.maxPerOrder ?? 99),
+      };
     });
     subtotal = round2(subtotal);
     const minimum = rest?.minimumOrder ?? 0;
     const meetsMinimum = subtotal >= minimum;
     if (!meetsMinimum) issues.push({ lineId: null, menuItemId: null, code: 'BELOW_MINIMUM', message: `Minimum order is $${minimum.toFixed(2)}` });
+    const sp = profileOf(rest?.storeType);
+    const minAge = lines.reduce((m, l) => Math.max(m, (l as any).minAge ?? 0), 0);
     return {
       restaurant: rest
         ? {
@@ -284,6 +360,9 @@ export class CartService {
             slug: rest.slug,
             name: rest.name,
             logoUrl: rest.logoUrl,
+            storeType: rest.storeType,
+            storeTypeLabel: sp.label,
+            retail: sp.retail,
             minimumOrder: minimum,
             isOpen: status.open,
             closedReason: status.open ? null : status.reason ?? null,
@@ -301,6 +380,10 @@ export class CartService {
       itemCount: cart.items.reduce((n, i) => n + i.quantity, 0),
       subtotal,
       promoCode: cart.promoCode ?? null,
+      /** age-restricted products in the cart: the customer must confirm their age at checkout and ID is checked at hand-over */
+      requiresIdCheck: minAge > 0,
+      minAge,
+      basket: basketOf(lines.filter((l) => l.valid).map((l: any) => ({ quantity: l.quantity, sellBy: l.sellBy, weightUnit: l.weightUnit, stepSize: l.stepSize, temperature: l.temperature }))),
       issues,
       valid: lines.every((l) => l.valid) && !issues.some((i) => i.code === 'RESTAURANT_UNAVAILABLE'),
       meetsMinimum,

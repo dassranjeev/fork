@@ -178,6 +178,7 @@ export class AvailabilityService {
   /** Is a menu item sellable at this instant (availability toggle + daypart)? */
   itemSellable(item: MenuItem, at = new Date(), tz = 'America/Toronto') {
     if (!item.active || !item.available) return false;
+    if (item.trackStock && (item.stockQty ?? 0) <= 0) return false; // sold out
     if (item.dayparts?.length) return item.dayparts.includes(daypartOf(zonedParts(at, tz).minutes));
     return true;
   }

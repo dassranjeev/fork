@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
+import { SUBSTITUTION_CHOICES, ageNotice, coldChain, isWeighed, perUnitPrice, stepPriceOf, stepText, stockBadge, weightText } from "../lib/retail";
 import { money } from "../lib/sfApi";
-import { Dialog, Pic, Ri, Spinner } from "./ui";
+import { Dialog, Notice, Pic, Ri, Spinner } from "./ui";
 import { QtyStepper } from "./CartPanel";
 
 /** Minimum / maximum picks for a modifier group. */
@@ -20,10 +21,16 @@ function initialSelection(item) {
   return sel;
 }
 
-export default function ItemDialog({ item, open, onClose, onAdd, disabledReason }) {
+/**
+ * retail: the item is a grocery product (adds the "if it is not available" choice); maxPerLine: the store's per-line limit;
+ * inCart: how many of this product the cart already holds (the product's limit counts them).
+ * A product sold by weight is ordered in steps (0.5 kg): the stepper shows the weight and the button the price of the line.
+ */
+export default function ItemDialog({ item, open, onClose, onAdd, disabledReason, retail = false, maxPerLine = 50, inCart = 0 }) {
   const [sel, setSel] = useState(() => (item ? initialSelection(item) : {}));
   const [notes, setNotes] = useState("");
   const [qty, setQty] = useState(1);
+  const [substitution, setSubstitution] = useState("ALLOW");
   const [busy, setBusy] = useState(false);
   const [touched, setTouched] = useState(false);
 
@@ -50,8 +57,16 @@ export default function ItemDialog({ item, open, onClose, onAdd, disabledReason 
       }
     }
   }
-  const unit = Number(item.price) + delta;
-  const blocked = !!disabledReason || item.available === false;
+  const weighed = isWeighed(item);
+  const stock = stockBadge(item);
+  const cold = coldChain(item);
+  // price of one unit: one piece, or one step of a weighed product (the product price is per kg / lb)
+  const unit = (weighed ? stepPriceOf(item) : Number(item.price)) + delta;
+  // what can still be added: the product's limit (stock, per-order limit) and the store's per-line limit, less what is already in the cart
+  const room = Math.max(0, Math.min(item.maxQuantity ?? maxPerLine, maxPerLine) - inCart);
+  const full = room <= 0 && item.available !== false;
+  const blocked = !!disabledReason || item.available === false || full;
+  const minAge = item.minAge || 0;
 
   const toggle = (g, o) => {
     const { max } = groupLimits(g);
@@ -68,7 +83,7 @@ export default function ItemDialog({ item, open, onClose, onAdd, disabledReason 
     setTouched(true);
     if (Object.keys(errors).length || blocked) return;
     setBusy(true);
-    const ok = await onAdd({ item, quantity: qty, options: chosen, notes });
+    const ok = await onAdd({ item, quantity: Math.min(qty, Math.max(1, room)), options: chosen, notes, substitution: retail ? substitution : undefined });
     setBusy(false);
     if (ok) onClose();
   };
@@ -80,22 +95,52 @@ export default function ItemDialog({ item, open, onClose, onAdd, disabledReason 
       title={item.name}
       footer={
         <div className="sf-itemfoot">
-          <QtyStepper value={qty} min={1} onChange={(q) => setQty(Math.max(1, q))} label={item.name} />
+          <QtyStepper
+            value={qty}
+            min={1}
+            max={Math.max(1, room)}
+            onChange={(q) => setQty(Math.min(Math.max(1, q), Math.max(1, room)))}
+            label={item.name}
+            display={weighed ? weightText(item, qty) : undefined}
+            step={weighed ? stepText(item) : "one"}
+            disabled={full}
+          />
           <button type="button" className="sf-btn sf-btn-primary flex-grow-1" onClick={submit} disabled={busy || blocked} data-testid="item-add">
-            {busy ? <Spinner size={16} /> : null} {blocked ? disabledReason || "Not available" : `Add to cart - ${money(unit * qty)}`}
+            {busy ? <Spinner size={16} /> : null} {full ? "Most allowed is in your cart" : blocked ? disabledReason || (retail && stock ? stock.text : "Not available") : `Add to cart - ${money(unit * qty)}`}
           </button>
         </div>
       }
     >
       {item.imageUrl && <Pic src={item.imageUrl} name={item.name} className="sf-item-hero" />}
+      {(item.brand || (item.packSize && !weighed)) && <p className="sf-muted mb-1" data-testid="item-brand">{[item.brand, !weighed && item.packSize].filter(Boolean).join(" - ")}</p>}
+      {weighed && (
+        <p className="mb-1" data-testid="item-weight-price">
+          <b>{perUnitPrice(item)}</b> <span className="sf-muted">sold in steps of {stepText(item)} ({money(stepPriceOf(item))} each)</span>
+        </p>
+      )}
       {item.description && <p>{item.description}</p>}
       <div className="sf-tags">
+        {stock && (retail || stock.tone === "warn") && <span className={`sf-tag sf-tag-${stock.tone}`}>{stock.text}</span>}
+        {cold && (
+          <span className="sf-tag sf-tag-cold">
+            <Ri name={cold.icon} /> {cold.text}
+          </span>
+        )}
+        {minAge > 0 && <span className="sf-tag sf-tag-warn">{minAge}+</span>}
         {(item.dietaryTags || []).map((t) => (
           <span key={t} className="sf-tag sf-tag-ok">{t}</span>
         ))}
         {(item.allergens || []).length > 0 && <span className="sf-tag sf-tag-warn">Contains: {item.allergens.join(", ")}</span>}
         {item.calories ? <span className="sf-tag">{item.calories} cal</span> : null}
       </div>
+      {minAge > 0 && (
+        <Notice tone="warn" icon="id-card-line">
+          <span data-testid="age-notice">{ageNotice(minAge)}</span>
+        </Notice>
+      )}
+      {weighed && <p className="sf-small sf-muted mt-2 mb-0">You are charged for the weight the store measures, up to the amount you choose. If it weighs less you get the difference back.</p>}
+      {item.maxPerOrder != null && item.maxPerOrder === item.maxQuantity && <p className="sf-small sf-muted mt-2 mb-0">Limit {item.maxPerOrder} per order.</p>}
+      {inCart > 0 && <p className="sf-small sf-muted mt-2 mb-0">{weighed ? `You already have ${weightText(item, inCart)} of this in your cart.` : `You already have ${inCart} of this in your cart.`}</p>}
       {(item.modifierGroups || []).map((g) => {
         const { min, max } = groupLimits(g);
         const err = touched && errors[g.id];
@@ -129,10 +174,21 @@ export default function ItemDialog({ item, open, onClose, onAdd, disabledReason 
           </fieldset>
         );
       })}
+      {retail && (
+        <fieldset className="sf-group" data-testid="substitution">
+          <legend>If it is not available</legend>
+          {SUBSTITUTION_CHOICES.map((c) => (
+            <label key={c.value} className={`sf-option ${substitution === c.value ? "on" : ""}`}>
+              <input type="radio" name="substitution" value={c.value} checked={substitution === c.value} onChange={() => setSubstitution(c.value)} data-testid={`substitution-${c.value}`} />
+              <span className="flex-grow-1">{c.label}</span>
+            </label>
+          ))}
+        </fieldset>
+      )}
       <label className="sf-label mt-3" htmlFor="item-notes">
         Special instructions <span className="sf-muted">(optional)</span>
       </label>
-      <textarea id="item-notes" className="sf-input" rows={2} maxLength={300} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Allergies, no onions..." />
+      <textarea id="item-notes" className="sf-input" rows={2} maxLength={300} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={retail ? "Ripeness, how to cut it, anything the picker should know" : "Allergies, no onions..."} />
       <div className="sf-small sf-muted text-end">{notes.length}/300</div>
     </Dialog>
   );

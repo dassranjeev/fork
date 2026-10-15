@@ -28,6 +28,10 @@ jobs:
         run: npx ts-node --transpile-only test/verification.test.ts
       - name: Money back (card charged at checkout is refunded on cancel / reject / refused order; unused payments; with fakes)
         run: npx ts-node --transpile-only test/payments-refund.test.ts
+      - name: Maps providers (Mapbox / Google switch, road distances, map tiles, search area; with a stubbed network)
+        run: npx ts-node --transpile-only test/maps.test.ts
+      - name: Store types (profiles, filters, weight and basket maths, status words, stock bookkeeping with a fake database)
+        run: npx ts-node --transpile-only test/store-types.test.ts
 
   # The production schema comes from migrations, so they must exactly match the entities: apply them to an empty database and
   # fail if TypeORM still sees a difference. Fix: npm run migration:generate -- src/database/migrations/<Name>  (commit the file)

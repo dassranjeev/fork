@@ -46,6 +46,7 @@ const TIERS: Partial<CommissionTier>[] = [
   { name: 'Standard', description: 'Default commission tier for new restaurants.', deliveryPct: 20, pickupPct: 8, ownDriverPct: 12, active: true, isDefault: true },
   { name: 'Premium', description: 'Reduced rates for high-volume / strategic partners.', deliveryPct: 18, pickupPct: 6, ownDriverPct: 10, active: true, isDefault: false },
   { name: 'Starter', description: 'Introductory tier for restaurants in their first months.', deliveryPct: 25, pickupPct: 10, ownDriverPct: 14, active: true, isDefault: false },
+  { name: 'Grocery & retail', description: 'Thinner rates for grocery, convenience and specialty food stores (baskets are large, margins are small). Used by every retail store without a tier of its own.', deliveryPct: 12, pickupPct: 4, ownDriverPct: 6, active: true, isDefault: false, defaultForStoreTypes: ['GROCERY', 'CONVENIENCE', 'SPECIALTY'] },
 ];
 
 /** 20+ cuisines, slugs stable so downstream seeds (restaurants) can look them up. */
@@ -54,6 +55,8 @@ const CUISINES = [
   'Vietnamese', 'Korean', 'Japanese', 'Caribbean', 'Middle Eastern', 'BBQ', 'Vegan', 'Breakfast', 'Sandwiches',
   'Desserts', 'Coffee & Tea', 'Seafood', 'Halal', 'Wings', 'Salads', 'Bubble Tea',
   'Convenience', 'Pakistani', 'Portuguese', 'Lebanese', 'Bakery', 'Punjabi',
+  // grocery and specialty food stores (store types GROCERY / CONVENIENCE / SPECIALTY, docs/store-types.md)
+  'Grocery', 'Supermarket', 'Asian Grocery', 'Halal Grocery', 'Indian Grocery', 'Butcher', 'Fish Market', 'Produce', 'Deli', 'Health Food', 'Organic',
 ];
 
 /** Idempotent: find by natural key, insert if missing. Foundational (city/tax/tier/cuisine/zone) data always seeds, regardless of opts.demo. */

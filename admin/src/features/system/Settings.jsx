@@ -9,7 +9,6 @@ import { fmtDateTime, titleCase } from "../../lib/format";
 const SELECT_OPTIONS = {
   "general.defaultLanguage": ["en", "fr"],
   "general.distanceUnit": ["km", "mi"],
-  "maps.provider": ["google", "mapbox"],
   "notifications.emailProvider": ["sendgrid", "ses", "smtp"],
   "notifications.pushProvider": ["fcm", "apns"],
   "notifications.smsProvider": ["twilio"],

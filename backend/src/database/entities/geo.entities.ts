@@ -214,4 +214,7 @@ export class CommissionTier extends BaseEntity {
 
   @Column({ default: false })
   isDefault: boolean;
+  /** Store types that use this tier when the location has no tier of its own (groceries run on thinner margins than restaurants). Empty = none. */
+  @Column({ type: 'jsonb', default: [] })
+  defaultForStoreTypes: string[];
 }

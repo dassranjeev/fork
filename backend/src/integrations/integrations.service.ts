@@ -5,7 +5,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Setting } from '../database/entities';
 import { AuditService } from '../audit/audit.service';
+import { GoogleMapsService } from './google-maps.service';
 import { MapboxService } from './mapbox.service';
+import { MapsService } from './maps.service';
 import { KeySource, modeOfKey, StripeClientService, StripeMode } from './stripe-client.service';
 
 /** Events the webhook handler processes. The admin must subscribe the Stripe endpoint to exactly these. */
@@ -46,8 +48,8 @@ export interface TestResult {
 }
 
 /**
- * Integrations admin backend: status of every external key (never the secrets), validated + audited updates of the Stripe and
- * Mapbox keys, and the "Test connection" probes. Secrets are sealed at rest by SettingsService (AES-256-GCM, DATA_ENCRYPTION_KEY).
+ * Integrations admin backend: status of every external key (never the secrets), validated + audited updates of the Stripe, Mapbox and
+ * Google Maps keys and of the maps provider switch, and the "Test connection" probes. Secrets are sealed at rest by SettingsService (AES-256-GCM, DATA_ENCRYPTION_KEY).
  */
 @Injectable()
 export class IntegrationsService {
@@ -58,6 +60,8 @@ export class IntegrationsService {
     private settings: SettingsService,
     private stripe: StripeClientService,
     private mapbox: MapboxService,
+    private google: GoogleMapsService,
+    private maps: MapsService,
     private audit: AuditService,
     private config: ConfigService,
     @InjectRepository(Setting) private repo: Repository<Setting>,
@@ -110,15 +114,55 @@ export class IntegrationsService {
         accessToken: view(c.token, c.tokenSource),
         publicToken: { set: !!c.publicToken, masked: mask(c.publicToken), source: (c.publicToken ? 'settings' : 'none') as KeySource },
       },
+      style: c.style,
       country: c.country,
       bbox: c.bbox,
       proximity: c.proximity,
       tokenKind: c.token.startsWith('sk.') ? 'secret' : c.token.startsWith('pk.') ? 'public' : c.token ? 'unknown' : 'none',
       warnings: [
         ...(c.token.startsWith('pk.') ? ['A public (pk.) token works for address search, but a secret (sk.) token with the Search scope is recommended for the server.'] : []),
+        ...(c.token && !c.publicToken ? ['No public (pk.) token: the maps of the admin screens use OpenStreetMap until one is added.'] : []),
         ...(process.env.MAPBOX_API_BASE && process.env.NODE_ENV !== 'production' ? [`MAPBOX_API_BASE is set: Mapbox calls go to ${process.env.MAPBOX_API_BASE} (fake server, development only).`] : []),
       ],
       lastTest: this.lastTests.mapbox ?? null,
+    };
+  }
+
+  googleStatus() {
+    const c = this.google.config();
+    return {
+      configured: !!c.key,
+      keys: {
+        apiKey: view(c.key, c.keySource),
+        browserKey: view(c.browserKey, c.browserKeySource),
+      },
+      warnings: [
+        ...(c.key && !c.browserKey ? ['No browser key: the maps of the admin screens use OpenStreetMap until one is added (address search and road distances do not need it).'] : []),
+        ...(process.env.GOOGLE_API_BASE && process.env.NODE_ENV !== 'production' ? [`GOOGLE_API_BASE is set: Google calls go to ${process.env.GOOGLE_API_BASE} (fake server, development only).`] : []),
+      ],
+      lastTest: this.lastTests.google ?? null,
+    };
+  }
+
+  /** Which provider is in use and what that gives right now. */
+  async mapsStatus() {
+    const provider = this.maps.provider();
+    const name = provider === 'google' ? 'Google' : 'Mapbox';
+    const tiles = await this.maps.tiles();
+    const warnings: string[] = [];
+    const chosen = provider === 'google' ? this.google.config().key : this.mapbox.config().token;
+    if (!chosen) warnings.push(`${name} has no key yet: address search is off (customers type the address), distances use the estimate and the maps use OpenStreetMap.`);
+    else if (tiles.provider === 'osm') warnings.push(`The maps of the admin screens use OpenStreetMap: ${provider === 'google' ? 'add the Google browser key (and enable the Map Tiles API)' : 'add a Mapbox public (pk.) token'} to use ${name} maps.`);
+    const road = this.settings.get<boolean>('integrations.maps.routingEnabled', false) === true;
+    return {
+      provider,
+      providers: ['mapbox', 'google'],
+      addressSearch: this.maps.enabled,
+      roadDistances: road,
+      roadDistancesActive: this.maps.routingEnabled,
+      tiles: tiles.provider,
+      note: 'Switching the provider takes effect at once. The keys of the other provider stay saved.',
+      warnings,
     };
   }
 
@@ -134,9 +178,10 @@ export class IntegrationsService {
   async status() {
     return {
       stripe: this.stripeStatus(),
+      maps: await this.mapsStatus(),
       mapbox: this.mapboxStatus(),
+      google: this.googleStatus(),
       others: {
-        googleMaps: this.other('Google Maps', [{ name: 'API key', setting: 'maps.googleApiKey', env: 'GOOGLE_MAPS_API_KEY' }]),
         twilio: this.other('Twilio (SMS)', [
           { name: 'Account SID', setting: 'notifications.twilioAccountSid', env: 'TWILIO_ACCOUNT_SID' },
           { name: 'Auth token', setting: 'notifications.twilioAuthToken', env: 'TWILIO_AUTH_TOKEN' },
@@ -203,7 +248,7 @@ export class IntegrationsService {
     return this.stripeStatus();
   }
 
-  async updateMapbox(dto: { accessToken?: string | null; publicToken?: string | null; country?: string; bbox?: string; proximity?: string }, req: any) {
+  async updateMapbox(dto: { accessToken?: string | null; publicToken?: string | null; style?: string; country?: string; bbox?: string; proximity?: string }, req: any) {
     this.assertSuper(req);
     const changed: string[] = [];
     const cleared: string[] = [];
@@ -219,6 +264,7 @@ export class IntegrationsService {
     };
     await set('accessToken', 'integrations.mapbox.accessToken', dto.accessToken);
     await set('publicToken', 'integrations.mapbox.publicToken', dto.publicToken);
+    await set('style', 'integrations.mapbox.style', dto.style);
     await set('country', 'integrations.mapbox.country', dto.country?.toLowerCase());
     if (dto.bbox !== undefined) {
       await this.write('integrations.mapbox.bbox', dto.bbox);
@@ -229,10 +275,53 @@ export class IntegrationsService {
       changed.push('proximity');
     }
     await this.settings.reload();
-    this.mapbox.clearCache();
+    this.maps.clearCaches();
     delete this.lastTests.mapbox;
     await this.audit.logReq(req, 'integrations.mapbox.update', 'integration', 'mapbox', undefined, { changed, cleared });
     return this.mapboxStatus();
+  }
+
+  async updateGoogle(dto: { apiKey?: string | null; browserKey?: string | null }, req: any) {
+    this.assertSuper(req);
+    const changed: string[] = [];
+    const cleared: string[] = [];
+    const set = async (field: string, key: string, v: any) => {
+      if (v === undefined) return;
+      if (v === null || v === '') {
+        await this.write(key, '');
+        cleared.push(field);
+      } else {
+        await this.write(key, v);
+        changed.push(field);
+      }
+    };
+    await set('apiKey', 'integrations.google.apiKey', dto.apiKey);
+    await set('browserKey', 'integrations.google.browserKey', dto.browserKey);
+    await this.settings.reload();
+    this.maps.clearCaches();
+    delete this.lastTests.google;
+    await this.audit.logReq(req, 'integrations.google.update', 'integration', 'google', undefined, { changed, cleared }); // values are never logged
+    return this.googleStatus();
+  }
+
+  async updateMaps(dto: { provider?: string; roadDistances?: boolean }, req: any) {
+    this.assertSuper(req);
+    const before = this.maps.provider();
+    const changed: string[] = [];
+    if (dto.provider !== undefined) {
+      await this.write('integrations.maps.provider', dto.provider === 'google' ? 'google' : 'mapbox');
+      changed.push('provider');
+    }
+    if (dto.roadDistances !== undefined) {
+      await this.write('integrations.maps.routingEnabled', dto.roadDistances === true);
+      changed.push('roadDistances');
+    }
+    await this.settings.reload();
+    this.maps.clearCaches();
+    const after = this.maps.provider();
+    await this.audit.logReq(req, 'integrations.maps.update', 'integration', 'maps', undefined, { changed, ...(before !== after ? { providerChange: { from: before, to: after } } : {}), ...(dto.roadDistances !== undefined ? { roadDistances: dto.roadDistances === true } : {}) });
+    if (before !== after) this.logger.warn(`Maps provider changed ${before} -> ${after} by ${req?.user?.email ?? 'admin'}`);
+    return this.mapsStatus();
   }
 
   // ------------------------------------------------------------------ test connection
@@ -241,6 +330,9 @@ export class IntegrationsService {
     if (name === 'stripe') res = await this.testStripe();
     else if (name === 'mapbox') {
       const r = await this.mapbox.test();
+      res = { checkedAt: new Date().toISOString(), ...r };
+    } else if (name === 'google') {
+      const r = await this.google.test();
       res = { checkedAt: new Date().toISOString(), ...r };
     } else throw new BadRequestException('Unknown integration');
     this.lastTests[name] = res;

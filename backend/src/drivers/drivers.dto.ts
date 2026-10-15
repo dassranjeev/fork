@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
@@ -335,6 +335,10 @@ export class DeliverDto extends StepDto {
   @IsOptional() @IsDateString() capturedAt?: string;
   /** exception path: complete with photo + reason; the delivery is marked WEAK_PROOF and reviewed */
   @IsOptional() @IsEnum(ProofExceptionReason) exceptionReason?: ProofExceptionReason;
+  /** order.requiresIdCheck: I checked the recipient's ID and they are old enough (strict boolean: the string "false" is not true) */
+  @IsOptional() @Transform(({ obj }) => obj.idChecked) @IsBoolean() idChecked?: boolean;
+  /** order.requiresIdCheck: the recipient could not show valid ID: the age-restricted products are not handed over and are refunded */
+  @IsOptional() @Transform(({ obj }) => obj.idRefused) @IsBoolean() idRefused?: boolean;
 }
 
 export class CallDto {

@@ -5,6 +5,7 @@ import { useFetch, useSubmit } from "../../lib/hooks";
 import { useAuth } from "../../lib/auth";
 import { http } from "../../lib/api";
 import { fmtDateTime } from "../../lib/format";
+import { resetMapTiles } from "../../ui/map";
 
 /** Where a key currently comes from, as a small badge. */
 function Source({ s }) {
@@ -160,14 +161,16 @@ function StripeCard({ s, reload, canChange }) {
   );
 }
 
-function MapboxCard({ m, reload, canChange }) {
-  const [f, setF] = useState({ accessToken: "", publicToken: "", country: null, bbox: null, proximity: null });
+const MAPBOX_EMPTY = { accessToken: "", publicToken: "", style: null, country: null, bbox: null, proximity: null };
+
+function MapboxCard({ m, reload, canChange, active }) {
+  const [f, setF] = useState(MAPBOX_EMPTY);
   const [clear, setClear] = useState({});
   const [test, setTest] = useState(null);
   const [testing, setTesting] = useState(false);
   const { busy, run } = useSubmit();
   const val = (k) => (f[k] === null ? m[k] ?? "" : f[k]);
-  const changed = f.accessToken || f.publicToken || f.country !== null || f.bbox !== null || f.proximity !== null || Object.values(clear).some(Boolean);
+  const changed = f.accessToken || f.publicToken || f.style !== null || f.country !== null || f.bbox !== null || f.proximity !== null || Object.values(clear).some(Boolean);
 
   const save = () => {
     const body = {};
@@ -175,8 +178,8 @@ function MapboxCard({ m, reload, canChange }) {
       if (clear[k]) body[k] = "";
       else if (f[k]) body[k] = f[k];
     }
-    for (const k of ["country", "bbox", "proximity"]) if (f[k] !== null) body[k] = f[k];
-    run(() => http.put("/admin/integrations/mapbox", body), { success: "Mapbox settings saved", onDone: () => { setF({ accessToken: "", publicToken: "", country: null, bbox: null, proximity: null }); setClear({}); setTest(null); reload(); } });
+    for (const k of ["style", "country", "bbox", "proximity"]) if (f[k] !== null) body[k] = f[k];
+    run(() => http.put("/admin/integrations/mapbox", body), { success: "Mapbox settings saved", onDone: () => { setF(MAPBOX_EMPTY); setClear({}); setTest(null); reload(); } });
   };
   const runTest = async () => {
     setTesting(true);
@@ -186,17 +189,19 @@ function MapboxCard({ m, reload, canChange }) {
   return (
     <Card
       title="Mapbox"
-      subtitle="Address search at checkout and in the admin (geocoding only)"
+      subtitle="Address search, road distances and the maps of the admin screens"
       actions={<div className="d-flex gap-2">
         <Button variant="light" icon="solar:plug-circle-outline" loading={testing} onClick={runTest} data-testid="mapbox-test">Test connection</Button>
         {canChange && <Button loading={busy} disabled={!changed} onClick={save} data-testid="mapbox-save">Save</Button>}
       </div>}
     >
+      {active && <div className="alert alert-success radius-8 py-8 text-sm" data-testid="mapbox-active">Mapbox is the maps provider in use.</div>}
       {m.warnings?.map((w, i) => <div key={i} className="alert alert-warning radius-8 py-8 text-sm">{w}</div>)}
-      <SecretField name="accessToken" label="Access token (server)" view={m.keys.accessToken} value={f.accessToken} onChange={(v) => setF((x) => ({ ...x, accessToken: v }))} cleared={clear.accessToken} onClear={() => setClear((c) => ({ ...c, accessToken: true }))} disabled={!canChange} placeholder="sk.... (Search scope) or pk...." hint="Used by the FORKY API only. Browsers never receive it." />
-      <SecretField name="publicToken" label="Public token (optional)" view={m.keys.publicToken} value={f.publicToken} onChange={(v) => setF((x) => ({ ...x, publicToken: v }))} cleared={clear.publicToken} onClear={() => setClear((c) => ({ ...c, publicToken: true }))} disabled={!canChange} placeholder="pk...." hint="Reserved for future browser maps." />
+      <SecretField name="accessToken" label="Access token (server)" view={m.keys.accessToken} value={f.accessToken} onChange={(v) => setF((x) => ({ ...x, accessToken: v }))} cleared={clear.accessToken} onClear={() => setClear((c) => ({ ...c, accessToken: true }))} disabled={!canChange} placeholder="sk.... (Search + Directions scopes) or pk...." hint="Used by the FORKY API only (address search and road distances). Browsers never receive it." />
+      <SecretField name="publicToken" label="Public token (for the maps)" view={m.keys.publicToken} value={f.publicToken} onChange={(v) => setF((x) => ({ ...x, publicToken: v }))} cleared={clear.publicToken} onClear={() => setClear((c) => ({ ...c, publicToken: true }))} disabled={!canChange} placeholder="pk...." hint="Loads the map tiles in the admin screens. In Mapbox, restrict it to your website addresses. Without it the maps use OpenStreetMap." />
       <div className="row">
-        <div className="col-md-4"><TextInput label="Search country" value={val("country")} onChange={(v) => setF((x) => ({ ...x, country: v }))} disabled={!canChange} hint="e.g. ca" /></div>
+        <div className="col-12"><TextInput label="Map style" value={val("style")} onChange={(v) => setF((x) => ({ ...x, style: v }))} disabled={!canChange} hint="username/style_id, e.g. mapbox/streets-v12" /></div>
+        <div className="col-md-4"><TextInput label="Search country" value={val("country")} onChange={(v) => setF((x) => ({ ...x, country: v }))} disabled={!canChange} hint="e.g. ca (both providers use this search area)" /></div>
         <div className="col-md-8"><TextInput label="Bounding box" value={val("bbox")} onChange={(v) => setF((x) => ({ ...x, bbox: v }))} disabled={!canChange} hint="minLng,minLat,maxLng,maxLat (Greater Toronto Area)" /></div>
         <div className="col-12"><TextInput label="Default proximity (Mississauga)" value={val("proximity")} onChange={(v) => setF((x) => ({ ...x, proximity: v }))} disabled={!canChange} hint="lng,lat: results nearer to this point rank first" /></div>
       </div>
@@ -204,6 +209,88 @@ function MapboxCard({ m, reload, canChange }) {
         <div className={`alert ${r.ok ? "alert-success" : "alert-danger"} radius-8 mb-0`} role="status" data-testid="mapbox-test-result">
           <div className="fw-semibold">{r.ok ? "Address search works" : "Address search failed"} <span className="text-xs fw-normal">({fmtDateTime(r.checkedAt)})</span></div>
           {r.ok ? <div className="text-sm">Found: {r.sample} <span className="text-secondary-light">({r.latencyMs} ms, {r.tokenKind} token)</span></div> : <div className="text-sm" data-testid="test-reason">{r.reason}</div>}
+          {r.ok && r.routing && <div className="text-sm" data-testid="mapbox-test-routing">{r.routing.ok ? `Road distances work (${r.routing.km} km, ${r.routing.minutes} min for the test trip)` : `Road distances: ${r.routing.reason}`}</div>}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/** Which maps provider is in use (Mapbox or Google) and whether deliveries use real road distances. Takes effect at once. */
+function MapsProviderCard({ m, reload, canChange }) {
+  const confirm = useConfirm();
+  const { busy, run } = useSubmit();
+  const name = (p) => (p === "google" ? "Google" : "Mapbox");
+  const choose = async (p) => {
+    if (p === m.provider) return;
+    if (!(await confirm({ title: `Switch the maps to ${name(p)}?`, message: "Address search, road distances and the maps of the admin screens use the new provider from now on. The keys of the other provider stay saved, so you can switch back at any time.", confirmText: `Use ${name(p)}` }))) return;
+    run(() => http.put("/admin/integrations/maps", { provider: p }), { success: `Maps now use ${name(p)}`, onDone: reload });
+  };
+  const setRoad = (v) => run(() => http.put("/admin/integrations/maps", { roadDistances: v }), { success: v ? "Real road distances are on" : "Road distances use the built-in estimate", onDone: reload });
+  return (
+    <Card title="Maps provider" subtitle="Switch between Mapbox and Google at any time">
+      <div className="d-flex gap-2 mb-16" role="radiogroup" aria-label="Maps provider" data-testid="maps-provider">
+        {["mapbox", "google"].map((p) => (
+          <button key={p} type="button" role="radio" aria-checked={m.provider === p} disabled={!canChange || busy} onClick={() => choose(p)} className={`btn radius-8 flex-fill ${m.provider === p ? "btn-primary-600" : "btn-outline-neutral-300 text-primary-light"}`} data-testid={`maps-provider-${p}`}>
+            {name(p)}{m.provider === p ? " (in use)" : ""}
+          </button>
+        ))}
+      </div>
+      <ul className="list-unstyled text-sm mb-16" data-testid="maps-summary">
+        <li className="d-flex justify-content-between"><span className="text-secondary-light">Address search</span><span>{m.addressSearch ? "On" : "Off (customers type the address)"}</span></li>
+        <li className="d-flex justify-content-between"><span className="text-secondary-light">Maps on the admin screens</span><span>{m.tiles === "osm" ? "OpenStreetMap" : name(m.tiles)}</span></li>
+        <li className="d-flex justify-content-between"><span className="text-secondary-light">Delivery distances and times</span><span>{m.roadDistancesActive ? "Real roads" : "Built-in estimate"}</span></li>
+      </ul>
+      <Switch label="Use real road distances and drive times" hint="Delivery fees and ETAs follow the road route from the provider instead of the built-in estimate (straight line x 1.3). Off by default: switching it on can change delivery fees." checked={!!m.roadDistances} onChange={setRoad} disabled={!canChange || busy} />
+      {m.roadDistances && !m.roadDistancesActive && <div className="alert alert-warning radius-8 py-8 text-sm mt-8">The switch is on, but the provider has no key yet: the estimate is still used.</div>}
+      {m.warnings?.map((w, i) => <div key={i} className="alert alert-warning radius-8 py-8 text-sm mt-8">{w}</div>)}
+      {!canChange && <div className="text-xs text-secondary-light mt-8">Only a Super Admin can change the maps provider.</div>}
+    </Card>
+  );
+}
+
+const GOOGLE_EMPTY = { apiKey: "", browserKey: "" };
+
+function GoogleCard({ g, reload, canChange, active }) {
+  const [f, setF] = useState(GOOGLE_EMPTY);
+  const [clear, setClear] = useState({});
+  const [test, setTest] = useState(null);
+  const [testing, setTesting] = useState(false);
+  const { busy, run } = useSubmit();
+  const changed = f.apiKey || f.browserKey || Object.values(clear).some(Boolean);
+  const save = () => {
+    const body = {};
+    for (const k of ["apiKey", "browserKey"]) {
+      if (clear[k]) body[k] = "";
+      else if (f[k]) body[k] = f[k];
+    }
+    run(() => http.put("/admin/integrations/google", body), { success: "Google Maps keys saved", onDone: () => { setF(GOOGLE_EMPTY); setClear({}); setTest(null); reload(); } });
+  };
+  const runTest = async () => {
+    setTesting(true);
+    try { setTest(await http.post("/admin/integrations/google/test")); } catch (e) { setTest({ ok: false, reason: e?.response?.data?.message || e.message, checkedAt: new Date().toISOString() }); } finally { setTesting(false); }
+  };
+  const r = test || g.lastTest;
+  return (
+    <Card
+      title="Google Maps"
+      subtitle="Kept ready: switch to it any time above"
+      actions={<div className="d-flex gap-2">
+        <Button variant="light" icon="solar:plug-circle-outline" loading={testing} onClick={runTest} data-testid="google-test">Test connection</Button>
+        {canChange && <Button loading={busy} disabled={!changed} onClick={save} data-testid="google-save">Save</Button>}
+      </div>}
+    >
+      {active && <div className="alert alert-success radius-8 py-8 text-sm" data-testid="google-active">Google is the maps provider in use.</div>}
+      {g.warnings?.map((w, i) => <div key={i} className="alert alert-warning radius-8 py-8 text-sm">{w}</div>)}
+      <SecretField name="googleApiKey" label="Server API key" view={g.keys.apiKey} value={f.apiKey} onChange={(v) => setF((x) => ({ ...x, apiKey: v }))} cleared={clear.apiKey} onClear={() => setClear((c) => ({ ...c, apiKey: true }))} disabled={!canChange} placeholder="AIza..." hint="Used by the FORKY API only: address search (Places API New + Geocoding API), road distances (Routes API) and the map session (Map Tiles API). Browsers never receive it." />
+      <SecretField name="googleBrowserKey" label="Browser key (for the maps)" view={g.keys.browserKey} value={f.browserKey} onChange={(v) => setF((x) => ({ ...x, browserKey: v }))} cleared={clear.browserKey} onClear={() => setClear((c) => ({ ...c, browserKey: true }))} disabled={!canChange} placeholder="AIza..." hint="A separate key that is restricted to your website addresses in the Google console and enabled for the Map Tiles API only. Without it the maps use OpenStreetMap." />
+      <div className="text-xs text-secondary-light mb-12">The search country, bounding box and default proximity are the ones on the Mapbox card: both providers search the same area.</div>
+      {r && (
+        <div className={`alert ${r.ok ? "alert-success" : "alert-danger"} radius-8 mb-0`} role="status" data-testid="google-test-result">
+          <div className="fw-semibold">{r.ok ? "Address search works" : "Address search failed"} <span className="text-xs fw-normal">({fmtDateTime(r.checkedAt)})</span></div>
+          {r.ok ? <div className="text-sm">Found: {r.sample} <span className="text-secondary-light">({r.latencyMs} ms)</span></div> : <div className="text-sm" data-testid="google-test-reason">{r.reason}</div>}
+          {r.ok && r.routing && <div className="text-sm">{r.routing.ok ? `Road distances work (${r.routing.km} km, ${r.routing.minutes} min for the test trip)` : `Road distances: ${r.routing.reason}`}</div>}
+          {r.ok && r.tiles && <div className="text-sm">{r.tiles.ok ? "Map tiles work" : `Map tiles: ${r.tiles.reason}`}</div>}
         </div>
       )}
     </Card>
@@ -295,18 +382,26 @@ function OtherCards({ others }) {
 export default function Integrations() {
   const { isSuper, can } = useAuth();
   const { data, loading, error, reload } = useFetch("/admin/integrations");
+  // a change to the maps provider or its keys changes the tiles the admin maps draw: forget the cached tile settings
+  const reloadMaps = () => {
+    resetMapTiles();
+    reload();
+  };
   if (loading && !data) return <Loading />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
   if (!data) return <EmptyState title="No data" />;
   return (
     <>
-      <PageHeader title="Integrations" subtitle="API keys for payments, address search and messaging. Secrets are encrypted and never shown again." crumbs={[{ label: "System" }, { label: "Integrations" }]} />
+      <PageHeader title="Integrations" subtitle="API keys for payments, maps and messaging. Secrets are encrypted and never shown again." crumbs={[{ label: "System" }, { label: "Integrations" }]} />
       <ModeBanner s={data.stripe} />
       <div className="row gy-4">
         <div className="col-xl-7"><StripeCard s={data.stripe} reload={reload} canChange={isSuper && can("settings", "edit")} /></div>
-        <div className="col-xl-5"><MapboxCard m={data.mapbox} reload={reload} canChange={isSuper && can("settings", "edit")} /></div>
+        <div className="col-xl-5"><MapsProviderCard m={data.maps} reload={reloadMaps} canChange={isSuper && can("settings", "edit")} /></div>
         <div className="col-12"><WebhookCard s={data.stripe} /></div>
         <div className="col-12"><EventsCard canReplay={isSuper} /></div>
+        <div className="col-12"><h6 className="mb-0">Maps providers</h6></div>
+        <div className="col-xl-6"><MapboxCard m={data.mapbox} reload={reloadMaps} canChange={isSuper && can("settings", "edit")} active={data.maps.provider === "mapbox"} /></div>
+        <div className="col-xl-6"><GoogleCard g={data.google} reload={reloadMaps} canChange={isSuper && can("settings", "edit")} active={data.maps.provider === "google"} /></div>
         <div className="col-12"><h6 className="mb-12">Other services</h6><OtherCards others={data.others} /></div>
       </div>
     </>

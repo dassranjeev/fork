@@ -1,6 +1,6 @@
 import { Column, Entity, Index, JoinColumn, ManyToMany, ManyToOne, JoinTable, Relation } from 'typeorm';
-import { BaseEntity, GeoColumn, MoneyColumn, PctColumn } from '../../common/base.entity';
-import { DayPart, DocStatus, MenuEditStatus, RestaurantDocType, RestaurantRole, RestaurantServiceMode, RestaurantStatus, VerificationMethod, VerificationStatus } from '../../common/enums';
+import { BaseEntity, GeoColumn, MoneyColumn, PctColumn, QtyColumn } from '../../common/base.entity';
+import { DayPart, DocStatus, MenuEditStatus, RestaurantDocType, RestaurantRole, RestaurantServiceMode, RestaurantStatus, StoreType, VerificationMethod, VerificationStatus } from '../../common/enums';
 import { User } from './identity.entities';
 import { City, CommissionTier, Zone } from './geo.entities';
 
@@ -127,6 +127,11 @@ export class Restaurant extends BaseEntity {
   @Index({ unique: true })
   @Column()
   slug: string;
+
+  /** What kind of business this is (restaurant, cafe, bakery, grocery, convenience, specialty): decides catalog / picking / checkout behaviour, see common/store-types.ts */
+  @Index()
+  @Column({ type: 'enum', enum: StoreType, default: StoreType.RESTAURANT })
+  storeType: StoreType;
 
   @Column({ type: 'text', nullable: true })
   description: string | null;
@@ -518,6 +523,9 @@ export class MenuCategory extends BaseEntity {
 }
 
 @Entity('menu_items')
+@Index('UQ_menu_items_restaurant_sku', ['restaurantId', 'sku'], { unique: true, where: '"sku" IS NOT NULL' })
+@Index('IDX_menu_items_restaurant_barcode', ['restaurantId', 'barcode'], { where: '"barcode" IS NOT NULL' })
+@Index('IDX_menu_items_barcode', ['barcode'], { where: '"barcode" IS NOT NULL' })
 export class MenuItem extends BaseEntity {
   @Index()
   @Column({ type: 'uuid' })
@@ -549,6 +557,56 @@ export class MenuItem extends BaseEntity {
 
   @Column({ type: 'varchar', nullable: true })
   taxClassCode: string | null;
+
+  // ---- catalog (grocery / retail; every field is optional and restaurants never need them) ----
+  /** the store's own product code; unique per store when set */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  sku: string | null;
+
+  /** UPC / EAN / GTIN (digits); lets the customer scan or search by barcode */
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  barcode: string | null;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  brand: string | null;
+
+  /** "500 g", "12 x 355 ml" */
+  @Column({ type: 'varchar', length: 60, nullable: true })
+  packSize: string | null;
+
+  /** UNIT: priced per piece. WEIGHT: `price` is per `weightUnit`, ordered in steps of `stepSize`, weighed when picked */
+  @Column({ type: 'varchar', length: 10, default: 'UNIT' })
+  sellBy: 'UNIT' | 'WEIGHT';
+
+  @Column({ type: 'varchar', length: 4, default: 'KG' })
+  weightUnit: 'KG' | 'LB';
+
+  /** weight of ONE step of a weighed item, in `weightUnit` (0.5 = half a kilo per step) */
+  @QtyColumn({ default: 1 })
+  stepSize: number;
+
+  /** Track the number on hand: sold out (and not orderable) at 0. null stock + trackStock=false = unlimited */
+  @Column({ default: false })
+  trackStock: boolean;
+
+  /** pieces on hand (UNIT) or weight on hand in `weightUnit` (WEIGHT). Only meaningful when trackStock */
+  @QtyColumn({ nullable: true })
+  stockQty: number | null;
+
+  /** the portal flags the product as low when stock falls to this */
+  @QtyColumn({ nullable: true })
+  lowStockThreshold: number | null;
+
+  /** most a customer may buy in one order (promotional / restricted goods) */
+  @Column({ type: 'int', nullable: true })
+  maxPerOrder: number | null;
+
+  /** 0 = no restriction; 18 / 19 / 21: the customer confirms the age at checkout and the driver / cashier checks ID at hand-over */
+  @Column({ default: 0 })
+  minAge: number;
+
+  @Column({ type: 'varchar', length: 10, default: 'AMBIENT' })
+  temperature: 'AMBIENT' | 'CHILLED' | 'FROZEN';
 
   @Column({ type: 'int', nullable: true })
   calories: number | null;

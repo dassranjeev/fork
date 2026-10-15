@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { http } from "../../lib/api";
 import { useFetch, useSubmit } from "../../lib/hooks";
-import { Badge, BoolBadge, Button, FormRow, IconButton, Modal, PercentInput, Select, Switch, TagsInput, TextArea, TextInput, useConfirm } from "../../ui";
+import { Badge, BoolBadge, Button, FormRow, IconButton, Modal, MultiCheck, PercentInput, Select, Switch, TagsInput, TextArea, TextInput, useConfirm } from "../../ui";
+import { STORE_TYPES, STORE_TYPE_LABEL } from "../restaurants/shared";
 import { CrudPage } from "./crud";
 
 function ApplyModal({ tier, tiers, onClose, onDone }) {
@@ -89,7 +90,7 @@ export default function CommissionTiers() {
       path="/admin/commission-tiers"
       module="pricing"
       itemName="tier"
-      initial={{ name: "", description: "", deliveryPct: 20, pickupPct: 8, ownDriverPct: 12, active: true, isDefault: false }}
+      initial={{ name: "", description: "", deliveryPct: 20, pickupPct: 8, ownDriverPct: 12, active: true, isDefault: false, defaultForStoreTypes: [] }}
       searchPlaceholder="Search tiers…"
       canDelete={(r) => !r.isDefault && !r.restaurantCount}
       columns={[
@@ -108,6 +109,7 @@ export default function CommissionTiers() {
         { key: "deliveryPct", title: "Delivery", render: (r) => `${r.deliveryPct}%` },
         { key: "pickupPct", title: "Pickup", render: (r) => `${r.pickupPct}%` },
         { key: "ownDriverPct", title: "Own driver", render: (r) => `${r.ownDriverPct}%` },
+        { key: "defaultForStoreTypes", title: "Default for", render: (r) => ((r.defaultForStoreTypes || []).length ? (r.defaultForStoreTypes || []).map((t) => <Badge key={t} tone="success" className="me-1">{STORE_TYPE_LABEL[t] || t}</Badge>) : <span className="text-secondary-light">—</span>) },
         { key: "restaurantCount", title: "Restaurants" },
         { key: "active", title: "Status", render: (r) => <BoolBadge value={r.active} yes="Active" no="Inactive" /> },
       ]}
@@ -119,6 +121,7 @@ export default function CommissionTiers() {
         ownDriverPct: Number(v.ownDriverPct),
         active: !!v.active,
         isDefault: !!v.isDefault,
+        defaultForStoreTypes: v.defaultForStoreTypes || [],
       })}
       rowActions={(row) => <IconButton icon="solar:users-group-rounded-outline" title="Bulk apply to restaurants" tone="success" onClick={() => setApplyTo(row)} />}
       renderForm={({ f }) => (
@@ -132,6 +135,14 @@ export default function CommissionTiers() {
           </FormRow>
           <Switch label="Active" {...f.bindCheck("active")} />
           <Switch label="Default tier" hint="Assigned to new restaurants." {...f.bindCheck("isDefault")} />
+          <MultiCheck
+            label="Used by these kinds of store"
+            hint="A location that has no tier of its own is charged by the tier made for its kind of store (groceries run on thinner margins than restaurants). Leave empty for none."
+            cols={2}
+            options={STORE_TYPES.map((t) => ({ value: t.value, label: t.label }))}
+            value={f.values.defaultForStoreTypes || []}
+            onChange={(x) => f.set("defaultForStoreTypes", x)}
+          />
         </>
       )}
     >

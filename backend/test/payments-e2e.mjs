@@ -749,7 +749,7 @@ async function integrationsTests() {
   section('A. Integrations API');
   let r = await api('GET', '/admin/integrations', S.admin);
   const dump = r.text;
-  check('GET /admin/integrations returns status for stripe, mapbox and the other keys', r.s === 200 && r.j.stripe && r.j.mapbox && r.j.others.twilio && r.j.others.sendgrid && r.j.others.fcm && r.j.others.certn && r.j.others.googleMaps, r.text.slice(0, 300));
+  check('GET /admin/integrations returns status for stripe, the maps (provider, mapbox, google) and the other keys', r.s === 200 && r.j.stripe && r.j.mapbox && r.j.google && r.j.maps?.provider && r.j.others.twilio && r.j.others.sendgrid && r.j.others.fcm && r.j.others.certn, r.text.slice(0, 300));
   check('no secret value appears anywhere in the response', !dump.includes(SK) && !dump.includes(WHSEC) && !dump.includes('fakeFAKEfake1234567890abcdef') && !dump.includes('pk.fakefakefake1234.fakefakefake5678'));
   check('secrets are shown masked: ******** + last 4', r.j.stripe.keys.secretKey.masked === '********7890' && r.j.stripe.keys.webhookSecret.masked === '********cdef' && r.j.mapbox.keys.accessToken.masked === '********5678', r.j.stripe.keys);
   check('mode TEST detected, webhook URL + event list given', r.j.stripe.mode === 'test' && /\/api\/v1\/webhooks\/stripe$/.test(r.j.stripe.webhook.url) && r.j.stripe.webhook.events.includes('charge.dispute.created') && r.j.stripe.webhook.events.length >= 14, r.j.stripe.webhook);

@@ -5,7 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule } from '@nestjs/swagger';
 import { API_PREFIX, API_PREFIX_EXCLUDE } from './common/api-prefix';
-import { buildOpenApiConfig, enrichOpenApi } from './common/openapi';
+import { buildOpenApiConfig, finalizeOpenApi } from './common/openapi';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
@@ -30,7 +30,7 @@ function productionGate() {
     corsOrigins: (process.env.CORS_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     publicUrl: process.env.PUBLIC_URL ?? '',
     allowMockPayments: !!process.env.ALLOW_MOCK_PAYMENTS,
-    fakeProviderBases: !!(process.env.STRIPE_API_BASE || process.env.MAPBOX_API_BASE),
+    fakeProviderBases: !!(process.env.STRIPE_API_BASE || process.env.MAPBOX_API_BASE || process.env.GOOGLE_API_BASE),
     enforce2fa: process.env.ENFORCE_2FA === 'true',
     seedSuperAdminPassword: process.env.SEED_SUPERADMIN_PASSWORD ?? '',
     dbPassword: process.env.DB_PASSWORD ?? '',
@@ -168,8 +168,18 @@ async function bootstrap() {
       res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; frame-ancestors 'none'");
       next();
     });
-    SwaggerModule.setup('docs', app, enrichOpenApi(SwaggerModule.createDocument(app, doc)), { swaggerOptions: { persistAuthorization: true } });
-    log.warn('Swagger UI is ENABLED at /docs (development only)');
+    // the page shows the SAME document as the exported file (docs/openapi): generated from the code plus the observed response shapes, and the file itself is
+    // served next to it: /docs/openapi.json and /docs/openapi.yaml (also /docs-json for tools that expect the Nest default)
+    const { doc: finalDoc, observed } = finalizeOpenApi(SwaggerModule.createDocument(app, doc));
+    SwaggerModule.setup('docs', app, finalDoc, {
+      jsonDocumentUrl: 'docs/openapi.json',
+      yamlDocumentUrl: 'docs/openapi.yaml',
+      customSiteTitle: 'FORKY API',
+      swaggerOptions: { persistAuthorization: true, docExpansion: 'none', filter: true, displayRequestDuration: true, tagsSorter: 'alpha' },
+    });
+    const server = app.getHttpAdapter();
+    server.get('/docs-json', (_req: any, res: any) => res.redirect(301, '/docs/openapi.json'));
+    log.warn(`Swagger UI is ENABLED at /docs (OpenAPI file: /docs/openapi.json and /docs/openapi.yaml; ${observed} routes with an observed response)`);
   }
 
   // ---- slowloris / slow-POST / connection exhaustion (must be set BEFORE listen) ---------------------

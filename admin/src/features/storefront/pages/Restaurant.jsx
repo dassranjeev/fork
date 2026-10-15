@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import Catalog from "../components/Catalog";
 import ItemDialog, { hasRequiredChoices, itemDisabled } from "../components/ItemDialog";
 import { availability, Rating } from "../components/RestaurantCard";
 import { ErrorBox, Loading, Notice, Pic, Ri, priceLevel, useToast } from "../components/ui";
 import { DAYS, fmtOpens, hoursText } from "../lib/fmt";
 import { locParams, useSfLocation } from "../lib/location";
+import { isWeighed, weightText } from "../lib/retail";
 import { errorMessage, errorStatus, money, sfHttp } from "../lib/sfApi";
 import { useSfCart } from "../lib/SfCart";
 
@@ -113,11 +115,17 @@ export default function Restaurant() {
   const todayIdx = DAYS.indexOf(todayName);
   const todayRows = (r.hours || []).filter((h) => h.dayOfWeek === todayIdx);
   const sameRestaurant = cart.restaurant?.id === r.id;
+  // grocery / convenience / specialty stores: a product catalog with departments instead of a full menu
+  const isRetail = !!(r.retail || r.store?.retail || data.menu?.mode === "CATALOG");
+  const maxPerLine = r.store?.limits?.maxQtyPerLine || (isRetail ? 99 : 50);
+  const inCartOf = (item) => (sameRestaurant ? cart.lines.filter((l) => l.menuItemId === item.id).reduce((n, l) => n + l.quantity, 0) : 0);
 
   const add = (payload) => addItem({ restaurant: r, ...payload });
   const quickAdd = async (item) => {
     if (hasRequiredChoices(item)) return setOpen(item);
-    if (await add({ item, quantity: 1, options: [], notes: "" })) toast(`${item.name} added to your cart`, "success");
+    // one press adds one piece, or one step (0.5 kg) of a weighed product; the store may replace it if it is out (the default)
+    const ok = await add({ item, quantity: 1, options: [], notes: "", substitution: isRetail ? "ALLOW" : undefined });
+    if (ok) toast(isWeighed(item) ? `${weightText(item, 1)} of ${item.name} added to your cart` : `${item.name} added to your cart`, "success");
   };
 
   return (
@@ -131,6 +139,7 @@ export default function Restaurant() {
           <div className="sf-rhead-info">
             <h1 data-testid="restaurant-name">{r.name}</h1>
             <div className="sf-small sf-muted">
+              {isRetail && r.storeTypeLabel && <span className="sf-tag sf-tag-store me-2" data-testid="store-type">{r.storeTypeLabel}</span>}
               {(r.cuisines || []).join(" - ")} - {priceLevel(r.priceLevel)}
             </div>
             <div className="sf-rhead-meta">
@@ -141,7 +150,7 @@ export default function Restaurant() {
                 </span>
               )}
               <span>
-                <Ri name="timer-line" /> Prep ~{r.prepTimeMin} min
+                <Ri name="timer-line" /> {isRetail ? "Picking" : "Prep"} ~{r.prepTimeMin} min
               </span>
               {r.minimumOrder > 0 && (
                 <span>
@@ -178,36 +187,42 @@ export default function Restaurant() {
       )}
 
       <div className="sf-rlayout">
-        <nav className="sf-catnav" aria-label="Menu sections">
-          {sections.map((s) => (
-            <a
-              key={s.id}
-              href={`#cat-${s.id}`}
-              className={activeCat === s.id ? "on" : ""}
-              onClick={(e) => {
-                e.preventDefault();
-                setActiveCat(s.id);
-                document.getElementById(`cat-${s.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
-            >
-              {s.name}
-            </a>
-          ))}
-        </nav>
-        <div className="sf-menu-col" data-testid="menu">
-          {sections.length === 0 && <p className="sf-muted">This menu is empty at the moment.</p>}
-          {sections.map((s) => (
-            <section key={s.id} id={`cat-${s.id}`} className="sf-cat">
-              <h2 className="sf-h2">{s.name}</h2>
-              {s.description && <p className="sf-small sf-muted">{s.description}</p>}
-              <div className="sf-items">
-                {s.items.map((it) => (
-                  <ItemCard key={`${s.id}-${it.id}`} item={it} closed={closed} onOpen={setOpen} onQuick={quickAdd} />
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
+        {isRetail ? (
+          <Catalog key={slug} slug={slug} storeName={r.name} sections={sections} departments={(data.menu?.categories || []).filter((c) => (c.itemCount ?? c.items?.length ?? 0) > 0)} closed={closed} onOpen={setOpen} onQuick={quickAdd} />
+        ) : (
+          <>
+            <nav className="sf-catnav" aria-label="Menu sections">
+              {sections.map((s) => (
+                <a
+                  key={s.id}
+                  href={`#cat-${s.id}`}
+                  className={activeCat === s.id ? "on" : ""}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setActiveCat(s.id);
+                    document.getElementById(`cat-${s.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                >
+                  {s.name}
+                </a>
+              ))}
+            </nav>
+            <div className="sf-menu-col" data-testid="menu">
+              {sections.length === 0 && <p className="sf-muted">This menu is empty at the moment.</p>}
+              {sections.map((s) => (
+                <section key={s.id} id={`cat-${s.id}`} className="sf-cat">
+                  <h2 className="sf-h2">{s.name}</h2>
+                  {s.description && <p className="sf-small sf-muted">{s.description}</p>}
+                  <div className="sf-items">
+                    {s.items.map((it) => (
+                      <ItemCard key={`${s.id}-${it.id}`} item={it} closed={closed} onOpen={setOpen} onQuick={quickAdd} />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </>
+        )}
         <aside className="sf-rinfo">
           <div className="sf-card sf-pad">
             <h3 className="sf-h3">Info</h3>
@@ -266,9 +281,12 @@ export default function Restaurant() {
           open
           onClose={() => setOpen(null)}
           disabledReason={closedReason ? `${closedReason} - cannot add` : ""}
+          retail={isRetail}
+          maxPerLine={maxPerLine}
+          inCart={isRetail ? inCartOf(open) : 0}
           onAdd={async (p) => {
             const ok = await add(p);
-            if (ok) toast(`${p.item.name} added to your cart`, "success");
+            if (ok) toast(isWeighed(p.item) ? `${weightText(p.item, p.quantity)} of ${p.item.name} added to your cart` : `${p.item.name} added to your cart`, "success");
             return ok;
           }}
         />

@@ -3,10 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { http } from "../../lib/api";
 import { useFetch, useForm, useSubmit } from "../../lib/hooks";
 import { AddressFinder, Button, Card, FormRow, LocationPicker, Modal, MultiCheck, NumberInput, PageHeader, Segmented, Select, TextArea, TextInput } from "../../ui";
-import { listOf, useLookups } from "./shared";
+import { STORE_TYPES, listOf, useLookups } from "./shared";
 
 const INIT = {
-  name: "", description: "", phone: "", email: "", addressLine1: "", city: "", province: "ON", postalCode: "", priceLevel: 2, commissionTierId: "", cuisineIds: [],
+  storeType: "RESTAURANT", name: "", description: "", phone: "", email: "", addressLine1: "", city: "", province: "ON", postalCode: "", priceLevel: 2, commissionTierId: "", cuisineIds: [],
   merchantId: "", businessName: "", legalName: "", hstNumber: "", contactEmail: "", contactPhone: "",
   ownerFirstName: "", ownerLastName: "", ownerEmail: "", ownerPhone: "",
 };
@@ -28,7 +28,7 @@ export default function RestaurantCreate() {
   const submit = () => {
     const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, x]) => x !== "" && x !== undefined));
     const body = clean({
-      name: v.name.trim(), description: v.description, phone: v.phone, email: v.email, addressLine1: v.addressLine1, city: v.city, province: v.province, postalCode: v.postalCode,
+      storeType: v.storeType, name: v.name.trim(), description: v.description, phone: v.phone, email: v.email, addressLine1: v.addressLine1, city: v.city, province: v.province, postalCode: v.postalCode,
       lat: geo.lat, lng: geo.lng, priceLevel: v.priceLevel, commissionTierId: v.commissionTierId, cuisineIds: v.cuisineIds.length ? v.cuisineIds : undefined,
     });
     if (mode === "existing") body.merchantId = v.merchantId;
@@ -42,11 +42,12 @@ export default function RestaurantCreate() {
 
   return (
     <>
-      <PageHeader title="Add restaurant" subtitle="Creates the location in APPLIED status; continue with documents review from the detail page" back="/restaurants" crumbs={[{ label: "Restaurants", to: "/restaurants" }, { label: "Add" }]} />
+      <PageHeader title="Add a business" subtitle="Creates the location in APPLIED status; continue with documents review from the detail page" back="/restaurants" crumbs={[{ label: "Restaurants", to: "/restaurants" }, { label: "Add" }]} />
       <div className="row gy-4">
         <div className="col-lg-8">
-          <Card title="Restaurant">
+          <Card title="Restaurant or store">
             <FormRow>
+              <Select col={12} label="Kind of store" allowEmpty={false} hint={`${STORE_TYPES.find((t) => t.value === v.storeType)?.hint}. It sets the defaults of the new location (prep time, delivery radius, minimum order, kitchen display), the documents asked for and the commission tier used.`} options={STORE_TYPES.map((t) => ({ value: t.value, label: `${t.label} (${t.vertical === "FOOD" ? "food" : "grocery and shops"})` }))} {...form.bind("storeType")} />
               <TextInput col={8} label="Name" required {...form.bind("name")} />
               <Select col={4} label="Price level" allowEmpty={false} options={[1, 2, 3, 4].map((n) => ({ value: n, label: "$".repeat(n) }))} value={v.priceLevel} onChange={(x) => form.set("priceLevel", Number(x))} />
               <TextArea col={12} label="Description" {...form.bind("description")} />
@@ -93,7 +94,7 @@ export default function RestaurantCreate() {
         </div>
       </div>
       <div className="d-flex gap-2 mt-24">
-        <Button size="md" loading={busy} disabled={!valid} onClick={submit}>Create restaurant</Button>
+        <Button size="md" loading={busy} disabled={!valid} onClick={submit}>Create {v.storeType === "RESTAURANT" ? "restaurant" : "store"}</Button>
         <Button size="md" variant="light" onClick={() => nav("/restaurants")}>Cancel</Button>
       </div>
       <Modal open={!!created} onClose={() => nav(`/restaurants/${created.restaurant.id}`)} title="Restaurant created" footer={<Button onClick={() => nav(`/restaurants/${created.restaurant.id}`)}>Open restaurant</Button>}>

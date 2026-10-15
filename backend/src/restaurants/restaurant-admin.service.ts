@@ -13,7 +13,8 @@ import {
   User,
   Zone,
 } from '../database/entities';
-import { DocStatus, RestaurantDocType, RestaurantRole, RestaurantStatus, UserStatus, UserType, VerificationAudience, VerificationMethod, VerificationStatus } from '../common/enums';
+import { DocStatus, RestaurantDocType, RestaurantRole, RestaurantStatus, StoreType, UserStatus, UserType, VerificationAudience, VerificationMethod, VerificationStatus } from '../common/enums';
+import { parseStoreTypeFilter } from '../common/store-types';
 import { verificationSummary, withoutRestore } from '../verification/verification-policy';
 import { AuthUser } from '../common/auth.types';
 import { AuditService } from '../audit/audit.service';
@@ -21,7 +22,7 @@ import { AuthService } from '../auth/auth.service';
 import { GeoService } from '../core/core.module';
 import { like, paginateQb } from '../common/pagination';
 import { RestaurantStoreService } from './restaurant-store.service';
-import { slugify, tempPassword } from './restaurants.util';
+import { slugify, storeTypeDefaults, tempPassword } from './restaurants.util';
 import {
   AgreementDto,
   ApproveDocDto,
@@ -122,6 +123,8 @@ export class RestaurantAdminService {
     if (q.maxRating) qb.andWhere('r.rating <= :maxR', { maxR: +q.maxRating });
     if (q.cuisineId) qb.andWhere('c.id = :cid', { cid: q.cuisineId });
     if (q.cuisine) qb.andWhere('c.slug = :cslug', { cslug: q.cuisine });
+    const types = parseStoreTypeFilter(q.storeType, q.vertical);
+    if (types) qb.andWhere('r.storeType IN (:...types)', { types: types.length ? types : ['__none__'] });
     if (q.hasExpiringDocs === 'true') {
       const days = q.expiringDays ? +q.expiringDays : 30;
       qb.andWhere(
@@ -167,7 +170,9 @@ export class RestaurantAdminService {
       let slug = slugify(dto.slug || dto.name) || 'restaurant';
       if (await em.findOne(Restaurant, { where: { slug } })) slug = `${slug}-${tempPassword().slice(2, 6).toLowerCase()}`;
       const cuisines = dto.cuisineIds?.length ? await em.find(Cuisine, { where: { id: In(dto.cuisineIds) } }) : [];
-      const defaultTier = dto.commissionTierId ? null : await this.tiers.findOne({ where: { isDefault: true } });
+      const storeType = (dto.storeType as StoreType | undefined) ?? StoreType.RESTAURANT;
+      // retail types without an explicit tier resolve to the tier made for them when an order is priced (commissionFor); only restaurants pin the default tier
+      const defaultTier = dto.commissionTierId || storeType !== StoreType.RESTAURANT ? null : await this.tiers.findOne({ where: { isDefault: true } });
       const zone = dto.lat != null && dto.lng != null ? await this.geo.resolveZone(dto.lat, dto.lng) : null;
 
       const restaurant = await em.save(
@@ -189,6 +194,7 @@ export class RestaurantAdminService {
           cityId: zone?.cityId ?? null,
           hstNumber: dto.hstNumber ?? null,
           priceLevel: dto.priceLevel ?? 2,
+          ...storeTypeDefaults(storeType),
           cuisines,
           commissionTierId: dto.commissionTierId ?? defaultTier?.id ?? null,
           status: RestaurantStatus.APPLIED,

@@ -34,6 +34,17 @@ export const PctColumn = (opts: { nullable?: boolean; default?: number } = {}) =
     ...(opts.nullable ? {} : { default: numericDefault(opts.default ?? 0) }),
   });
 
+/** Quantity / weight column: numeric(12,3) (stock on hand, weights in kg or lb). */
+export const QtyColumn = (opts: { nullable?: boolean; default?: number } = {}) =>
+  Column({
+    type: 'numeric',
+    precision: 12,
+    scale: 3,
+    transformer: numeric,
+    nullable: opts.nullable ?? false,
+    ...(opts.nullable ? {} : { default: numericDefault(opts.default ?? 0) }),
+  });
+
 /** Latitude / longitude column. */
 export const GeoColumn = (nullable = true) => Column({ type: 'double precision', nullable });
 

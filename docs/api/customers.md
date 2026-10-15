@@ -21,6 +21,19 @@ Base: `/api/v1`. Customer routes need a CUSTOMER JWT (guest tokens from `/public
 | POST | `/admin/customers/data-requests/:id/reject` | approve | `{reason}` | DataRequest |
 | GET | `/admin/customers/data-requests/:id/export` | view | - | JSON export (ACCESS requests) |
 
+## Store types, stores and catalogs (`/public/*` and `/customer/*`)
+Restaurants, cafes, bakeries and grocery / convenience / specialty stores are all stores (docs/store-types.md). Every route below exists under `/public` (no sign-in) and `/customer` (favourites and allergen warnings); `/stores` and `/restaurants` are the same.
+| Method | Path | Query | Response |
+|---|---|---|---|
+| GET | `/public/store-types` | lat,lng | `{location, data:[{type,label,pluralLabel,vertical,retail,itemLabel,itemLabelPlural,categoryLabel,count,openCount}], verticals}` |
+| GET | `/public/home` | lat,lng,`storeType` (list),`vertical` (FOOD/RETAIL) | the home feed + `storeTypes` (always unfiltered tiles), `filter`, `sections:{food,retail}`, `counts.food/retail`; every card has `storeType,storeTypeLabel,vertical,retail` |
+| GET | `/public/stores` | search filters + `storeType`,`vertical` | `{query, location, filter, data: RestaurantCard[], meta}` |
+| GET | `/public/search` | q,`storeType`,`vertical`,`barcode` (also a 6-14 digit `q`) | stores + products (`dishes`: with `sku,brand,packSize,sellBy,inStock,minAge,temperature` and the store) |
+| GET | `/public/stores/:slug` | lat,lng,`menu=full\|summary`,`perCategory` | the store page; `restaurant.store` (labels, limits); `menu.mode` `MENU` or `CATALOG` (summary), `menu.truncated`, `menu.itemCount` |
+| GET | `/public/stores/:slug/catalog` | `categoryId\|none`,q,dietary,`inStock`,`restricted`,`sort`,`page`,`limit` (<= 100) | `{store, data: product[], categories:[{id,name,itemCount}], meta}` |
+| GET | `/public/stores/:slug/products/:itemId` | - | `{store, category, product}` |
+Cart lines take `substitution` (`ALLOW` default / `REFUND`); payment intent and order take `ageConfirmed: true` when the basket has age-restricted products (the quote prices it anyway and says `ageConfirmationRequired`). Errors: `INSUFFICIENT_STOCK`, `MAX_PER_ORDER`, `AGE_CONFIRMATION_REQUIRED`, `ID_CHECK_NO_LEAVE_AT_DOOR` (only when "leave at the door" is sent in the request; a saved address default is replaced by a hand-over in person).
+
 ## Customer app (`/customer/*`)
 | Method | Path | Body / query | Response |
 |---|---|---|---|
@@ -59,7 +72,7 @@ Base: `/api/v1`. Customer routes need a CUSTOMER JWT (guest tokens from `/public
 | DELETE | `/customer/cart` | - | empty cart |
 | POST | `/customer/checkout/quote` | `{type DELIVERY/PICKUP, fulfilment?, addressId|lat+lng, tip, useWallet, promoCode, scheduledFor}` (uses current cart) | `Quote` (PricingService) |
 | POST | `/customer/orders` | quote fields + `{paymentMethod (CARD / APPLE_PAY / GOOGLE_PAY / WALLET / GIFT_CARD; CASH is refused), paymentIntentId (required for any card amount: the confirmed PaymentIntent; replaces paymentToken, which only works with the development mock), giftCardCode? (redeemed to wallet first), dropoffMethod? (HAND_TO_ME/LEAVE_AT_DOOR/MEET_OUTSIDE), usePin? (default true; false = no PIN, the driver must upload a photo of the delivered order),  dropoffNotes? (driver instructions, max 300), accessCode? (max 40, sensitive), contactless? (legacy: true = LEAVE_AT_DOOR), customerNotes (KITCHEN note)}` | Order (cart cleared). Payment errors carry a `code` (`PAYMENT_INTENT_REQUIRED`, `PAYMENT_INTENT_INVALID`, `PAYMENT_NOT_CONFIRMED`, 409 `PAYMENT_QUOTE_CHANGED` / `PAYMENT_ACTION_REQUIRED` / `PAYMENT_INTENT_USED` / `PAYMENT_INTENT_CANCELED`), see docs/payments.md. Omitted method/notes/code are prefilled from the chosen saved address. Hand-to-me / meet-outside orders get a 4-digit `deliveryPin` (shown to the customer) unless `usePin` is false. Drivers must be within 100 m of the delivery location to complete |
-| GET | `/customer/orders` | page,limit,status | paginated own orders |
+| GET | `/customer/orders` | page,limit,status | paginated own orders; each row also has `statusLabel`, `retail`, `storeType`, `restaurantName`, `restaurantSlug` |
 | GET | `/customer/orders/:id` | - | Order with items, `deliveryPin` (when a PIN is required), `accessCodeSet`, `kitchenNotes`, and once delivered `deliveryProof{proofType,deliveredAt,photoUrl,location,dropoff}` (photo via the authenticated `GET /orders/:id/proof/photo`) |
 | PATCH | `/customer/orders/:id/delivery-instructions` | `{dropoffMethod?, usePin?, dropoffNotes?, accessCode?}` (10/min) | Order. Allowed until the driver picks the food up (400 after). Switching method updates the proof rule / PIN; the assigned driver gets a realtime `order.instructions_changed` event + notification; an OrderEvent is written (never containing the code) |
 | POST | `/customer/orders/:id/cancel` | `{reason}` | Order |

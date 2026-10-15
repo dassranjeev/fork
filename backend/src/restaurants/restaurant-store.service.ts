@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { DataSource, In, IsNull, Repository } from 'typeorm';
+import { DataSource, In, IsNull, MoreThan, Repository } from 'typeorm';
 import { randomInt } from 'crypto';
 import {
   Cuisine,
@@ -21,6 +21,7 @@ import {
 import { DocStatus, OrderStatus, RestaurantDocType, RestaurantRole, RestaurantServiceMode, RestaurantStatus, UserStatus, UserType, VerificationAudience } from '../common/enums';
 import { verificationSummary } from '../verification/verification-policy';
 import { fulfilmentAvailability } from '../common/service-mode';
+import { isRetail, profileOf } from '../common/store-types';
 import { ActorRef, Events, StatusChangedEvent } from '../common/contracts';
 import { AuthUser } from '../common/auth.types';
 import { AuditService } from '../audit/audit.service';
@@ -105,7 +106,15 @@ export class RestaurantStoreService {
     await Promise.all(owners.map((o) => this.notifications.notify({ userId: o.userId, audience: 'RESTAURANT', event, title, body, data: { restaurantId: restaurant.id } })));
   }
 
-  requiredDocTypes(): string[] {
+  /**
+   * Documents a business must upload. Per store type: the platform setting restaurant.requiredDocumentsByType wins; retail types (grocery, convenience,
+   * specialty) otherwise use the built-in retail list; restaurants, cafes and bakeries use restaurant.requiredDocuments (the old single list).
+   */
+  requiredDocTypes(storeType?: string | null): string[] {
+    const t = String(storeType ?? 'RESTAURANT');
+    const byType = this.settings.get<Record<string, string[]>>('restaurant.requiredDocumentsByType', {}) ?? {};
+    if (Array.isArray(byType[t]) && byType[t].length) return byType[t];
+    if (isRetail(t)) return profileOf(t).requiredDocuments;
     return this.settings.get<string[]>('restaurant.requiredDocuments', ['BUSINESS_LICENCE', 'HEALTH_CERTIFICATE', 'VOID_CHEQUE']);
   }
 
@@ -489,9 +498,13 @@ export class RestaurantStoreService {
   /** required document checklist: latest doc per required type */
   async documentChecklist(id: string) {
     const docs = await this.docs.find({ where: { restaurantId: id }, order: { createdAt: 'DESC' } });
-    const required = this.requiredDocTypes();
+    const store = await this.restaurants.findOne({ where: { id }, select: ['id', 'storeType'] });
+    const required = [...this.requiredDocTypes(store?.storeType)];
+    // a store that lists age-restricted products (alcohol, tobacco) also needs the licence for them (a tobacco licence counts as well)
+    const sellsAgeRestricted = (await this.items.count({ where: { restaurantId: id, active: true, minAge: MoreThan(0) } })) > 0;
+    if (sellsAgeRestricted && !required.includes('LIQUOR_LICENCE')) required.push('LIQUOR_LICENCE');
     const items = required.map((type) => {
-      const latest = docs.find((d) => d.type === type) ?? null;
+      const latest = (type === 'LIQUOR_LICENCE' ? docs.find((d) => d.type === 'LIQUOR_LICENCE' || d.type === 'TOBACCO_LICENCE') : docs.find((d) => d.type === type)) ?? null;
       return { type, required: true, status: latest?.status ?? 'MISSING', docId: latest?.id ?? null, expiresAt: latest?.expiresAt ?? null, rejectReason: latest?.rejectReason ?? null };
     });
     return { items, allApproved: items.every((i) => i.status === DocStatus.APPROVED), approved: items.filter((i) => i.status === DocStatus.APPROVED).length, total: items.length };
@@ -769,6 +782,13 @@ export class RestaurantStoreService {
         id: r.id,
         name: r.name,
         status: r.status,
+        // what kind of store this is: the portal words its screens by it (Menu / Catalog, Kitchen display / Picking) - docs/store-types.md
+        storeType: r.storeType,
+        storeTypeLabel: profileOf(r.storeType).label,
+        retail: profileOf(r.storeType).retail,
+        itemLabel: profileOf(r.storeType).itemLabel,
+        itemLabelPlural: profileOf(r.storeType).itemLabelPlural,
+        categoryLabel: profileOf(r.storeType).categoryLabel,
         acceptingOrders: r.acceptingOrders,
         ...this.modeInfo(r),
         pausedUntil: r.pausedUntil,

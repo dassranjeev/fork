@@ -42,10 +42,10 @@ export const routes = [
 
 export const menu = [
   { section: "STORE", order: 10, label: "Dashboard", icon: "solar:home-smile-angle-outline", to: "/portal" },
-  { section: "STORE", order: 20, label: "Live Orders", icon: "solar:bag-check-outline", to: "/portal/orders" },
-  { section: "STORE", order: 30, label: "Kitchen Display", icon: "solar:chef-hat-outline", to: "/portal/kds" },
+  { section: "STORE", order: 20, label: "Live Orders", retailLabel: "Orders & picking", icon: "solar:bag-check-outline", to: "/portal/orders" },
+  { section: "STORE", order: 30, label: "Kitchen Display", hideForRetail: true, icon: "solar:chef-hat-outline", to: "/portal/kds" },
   { section: "STORE", order: 40, label: "Store Settings", icon: "solar:shop-2-outline", to: "/portal/store", roles: MANAGERS },
-  { section: "MENU", order: 10, label: "Menu", icon: "solar:clipboard-list-outline", to: "/portal/menu" },
+  { section: "MENU", order: 10, label: "Menu", retailLabel: "Catalog", icon: "solar:clipboard-list-outline", to: "/portal/menu" },
   { section: "MONEY", order: 10, label: "Finance", icon: "solar:wallet-money-outline", to: "/portal/finance", roles: OWNER },
   { section: "MONEY", order: 20, label: "Reports", icon: "solar:chart-2-outline", to: "/portal/reports", roles: MANAGERS },
   { section: "GROWTH", order: 10, label: "Promotions", icon: "solar:tag-price-outline", to: "/portal/promotions", roles: MANAGERS },

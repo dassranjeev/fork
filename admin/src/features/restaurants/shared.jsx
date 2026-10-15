@@ -5,11 +5,36 @@ import { toast } from "react-toastify";
 import { API_URL, http } from "../../lib/api";
 import { useFetch, useSubmit } from "../../lib/hooks";
 import { useAuth } from "../../lib/auth";
-import { Button, FormModal, NumberInput, TextArea, useConfirm } from "../../ui";
+import { Badge, Button, FormModal, NumberInput, TextArea, useConfirm } from "../../ui";
 
 export const RESTAURANT_STATUSES = ["APPLIED", "DOCS_REVIEW", "MENU_SETUP", "TEST_ORDER", "LIVE", "PAUSED", "SUSPENDED", "REJECTED"];
 export const PRE_LIVE = ["APPLIED", "DOCS_REVIEW", "MENU_SETUP", "TEST_ORDER"];
-export const DOC_TYPES = ["BUSINESS_LICENCE", "HEALTH_CERTIFICATE", "VOID_CHEQUE", "HST_CERTIFICATE", "AGREEMENT", "MENU", "PHOTOS", "OTHER"];
+export const DOC_TYPES = ["BUSINESS_LICENCE", "HEALTH_CERTIFICATE", "FOOD_PREMISES_PERMIT", "LIQUOR_LICENCE", "TOBACCO_LICENCE", "VOID_CHEQUE", "HST_CERTIFICATE", "AGREEMENT", "MENU", "PHOTOS", "OTHER"];
+
+/**
+ * Kinds of store (docs/store-types.md): one platform, one store entity. FOOD stores are made to order; RETAIL stores sell products picked from shelves
+ * (catalog with SKU / barcode / weight / stock, picking list, substitutions, age-restricted products).
+ */
+export const STORE_TYPES = [
+  { value: "RESTAURANT", label: "Restaurant", vertical: "FOOD", hint: "Made to order: menu, kitchen display" },
+  { value: "CAFE", label: "Cafe", vertical: "FOOD", hint: "Coffee, tea, juice, dessert" },
+  { value: "BAKERY", label: "Bakery", vertical: "FOOD", hint: "Bakery, patisserie (stock counts work too)" },
+  { value: "GROCERY", label: "Grocery store", vertical: "RETAIL", hint: "Supermarket, ethnic / halal / Asian grocery: catalog, weights, stock, picking" },
+  { value: "CONVENIENCE", label: "Convenience store", vertical: "RETAIL", hint: "Corner / variety store: small baskets" },
+  { value: "SPECIALTY", label: "Specialty food store", vertical: "RETAIL", hint: "Butcher, fish market, produce, deli, health food" },
+];
+export const STORE_TYPE_LABEL = Object.fromEntries(STORE_TYPES.map((t) => [t.value, t.label]));
+export const isRetailType = (t) => STORE_TYPES.find((x) => x.value === t)?.vertical === "RETAIL";
+
+/** Small badge with the kind of store; retail stores get a different tone so they stand out in lists. */
+export function StoreTypeBadge({ type }) {
+  const t = type || "RESTAURANT";
+  return (
+    <span title={STORE_TYPES.find((x) => x.value === t)?.hint}>
+      <Badge tone={isRetailType(t) ? "success" : "neutral"}>{STORE_TYPE_LABEL[t] || t}</Badge>
+    </span>
+  );
+}
 export const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 /** Files are served by the API host; stored urls can be relative ("/uploads/..."). */

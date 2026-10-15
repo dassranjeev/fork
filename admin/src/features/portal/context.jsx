@@ -24,7 +24,19 @@ export function PortalProvider({ children }) {
       ids.map(async (id) => {
         try {
           const d = await http.get("/restaurant/dashboard", { restaurantId: id });
-          out[id] = { name: d.restaurant?.name, status: d.restaurant?.status, serviceMode: d.restaurant?.serviceMode, serviceModeResumeAt: d.restaurant?.serviceModeResumeAt };
+          out[id] = {
+            name: d.restaurant?.name,
+            status: d.restaurant?.status,
+            serviceMode: d.restaurant?.serviceMode,
+            serviceModeResumeAt: d.restaurant?.serviceModeResumeAt,
+            // what kind of store (docs/store-types.md): grocery-type stores say "Catalog" and "picking" where restaurants say "Menu" and "kitchen"
+            storeType: d.restaurant?.storeType,
+            storeTypeLabel: d.restaurant?.storeTypeLabel,
+            retail: !!d.restaurant?.retail,
+            itemLabel: d.restaurant?.itemLabel,
+            itemLabelPlural: d.restaurant?.itemLabelPlural,
+            categoryLabel: d.restaurant?.categoryLabel,
+          };
         } catch {
           out[id] = {};
         }
@@ -55,7 +67,7 @@ export function PortalProvider({ children }) {
   );
 
   const locations = useMemo(
-    () => ids.map((id) => ({ id, name: names[id]?.name || "Location", status: names[id]?.status, serviceMode: names[id]?.serviceMode, serviceModeResumeAt: names[id]?.serviceModeResumeAt })),
+    () => ids.map((id) => ({ id, name: names[id]?.name || "Location", status: names[id]?.status, serviceMode: names[id]?.serviceMode, serviceModeResumeAt: names[id]?.serviceModeResumeAt, storeType: names[id]?.storeType, storeTypeLabel: names[id]?.storeTypeLabel, retail: !!names[id]?.retail, itemLabel: names[id]?.itemLabel || "item", itemLabelPlural: names[id]?.itemLabelPlural || "items", categoryLabel: names[id]?.categoryLabel || "Category" })),
     [ids, names]
   );
 
@@ -65,6 +77,8 @@ export function PortalProvider({ children }) {
       setRestaurantId: setStored,
       locations,
       location: locations.find((l) => l.id === restaurantId),
+      /** true when the selected location is a grocery / convenience / specialty store (catalog, picking list) */
+      retail: !!locations.find((l) => l.id === restaurantId)?.retail,
       role: restaurantRole,
       isOwner: restaurantRole === "OWNER",
       isManager: restaurantRole === "OWNER" || restaurantRole === "LOCATION_MANAGER",
@@ -79,4 +93,4 @@ export function PortalProvider({ children }) {
 }
 
 export const usePortal = () =>
-  useContext(PortalCtx) || { restaurantId: null, locations: [], params: {}, isOwner: false, isManager: false, setRestaurantId() {}, reloadLocations() {} };
+  useContext(PortalCtx) || { restaurantId: null, locations: [], retail: false, params: {}, isOwner: false, isManager: false, setRestaurantId() {}, reloadLocations() {} };

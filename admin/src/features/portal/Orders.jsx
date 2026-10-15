@@ -9,6 +9,7 @@ import { errorMessage, http } from "../../lib/api";
 import { usePagedList } from "../../lib/hooks";
 import { ORDER_TYPE_LABEL, PortalPage, modifierText, useAction, useApi, usePortalFetch, useRealtimeReload, useTick } from "./shared";
 import { usePortal } from "./context";
+import PickingList, { weightWord } from "./Picking";
 
 const COLUMNS = [
   { key: "new", title: "New", statuses: ["PLACED"], tone: "danger", icon: "solar:bell-bing-outline" },
@@ -125,9 +126,13 @@ export function OrderItems({ order, onRemove, removing }) {
       {(order.items || []).map((it) => (
         <li key={it.id} className="d-flex justify-content-between align-items-start gap-2 py-6 border-bottom">
           <div className={it.removed ? "text-decoration-line-through text-secondary-light" : ""}>
-            <span className="fw-semibold">{it.quantity}×</span> {it.name}
+            <span className="fw-semibold">{it.sellBy === "WEIGHT" ? `~${weightWord(it, it.estimatedWeight)}` : `${it.quantity}×`}</span> {it.name}
+            {it.packSize && <span className="text-secondary-light text-xs"> · {it.packSize}</span>}
+            {it.minAge > 0 && <Badge tone="danger" className="ms-2">{it.minAge}+ ID</Badge>}
             {it.modifiers?.length > 0 && <div className="text-secondary-light text-xs">{modifierText(it.modifiers)}</div>}
             {it.notes && <div className="text-warning-main text-xs">Note: {it.notes}</div>}
+            {it.sellBy === "WEIGHT" && it.actualWeight != null && <div className="text-xs text-success-600">Weighed {weightWord(it, it.actualWeight)}</div>}
+            {it.pickStatus === "REPLACED" && it.replacement && <div className="text-xs text-info-600">Replaced with {it.replacement.quantity} × {it.replacement.name}</div>}
           </div>
           <div className="d-flex align-items-center gap-2 flex-shrink-0">
             <span className="text-sm text-secondary-light">{money(it.lineTotal)}</span>
@@ -146,6 +151,7 @@ export function OrderItems({ order, onRemove, removing }) {
 
 function OrderCard({ order, reload, highlight }) {
   const api = useApi();
+  const { retail } = usePortal();
   const { acknowledge } = useAlerts();
   const confirm = useConfirm();
   const { run, isBusy } = useAction();
@@ -225,8 +231,10 @@ function OrderCard({ order, reload, highlight }) {
           {order.hasAllergyFlag && <Badge tone="danger">Allergy</Badge>}
           {order.type !== "PICKUP" && order.dropoffMethod === "LEAVE_AT_DOOR" && <Badge tone="info">Contactless</Badge>}
           {order.type !== "PICKUP" && order.dropoffMethod === "MEET_OUTSIDE" && <Badge tone="neutral">Meet outside</Badge>}
+          {order.requiresIdCheck && <Badge tone="danger">ID check {order.minAge}+ at hand-over</Badge>}
+          {retail && order.basket && <Badge tone="neutral">{order.basket.units} item{order.basket.units === 1 ? "" : "s"}{order.basket.weighed ? ` · ${order.basket.weighed} weighed` : ""}</Badge>}
         </div>
-        <OrderItems order={order} onRemove={removeItem} removing={isBusy("rm")} />
+        {retail && ["ACCEPTED", "DRIVER_ASSIGNED", "PREPARING", "READY"].includes(s) ? <PickingList order={order} reload={reload} /> : <OrderItems order={order} onRemove={retail ? undefined : removeItem} removing={isBusy("rm")} />}
         {order.customerNotes && <div className="alert alert-warning py-8 px-12 radius-8 text-sm mt-8 mb-0">Customer note: {order.customerNotes}</div>}
 
         <div className="d-flex flex-wrap gap-2 mt-12">
@@ -254,12 +262,12 @@ function OrderCard({ order, reload, highlight }) {
                 if (r.ok) reload();
               }}
             >
-              Start preparing
+              {retail ? "Start picking" : "Start preparing"}
             </Button>
           )}
           {s === "PREPARING" && (
             <Button variant="success" loading={isBusy("ready")} onClick={() => act("ready", "ready", undefined, `Order ${order.code} ready`)}>
-              Mark ready
+              {retail ? "Packed: ready for the driver" : "Mark ready"}
             </Button>
           )}
           {["ACCEPTED", "DRIVER_ASSIGNED", "PREPARING"].includes(s) && (
@@ -296,6 +304,7 @@ function OrderCard({ order, reload, highlight }) {
 
 function LiveBoard({ focusId, focusKey, onMissing }) {
   const { orders, error, reload } = useLiveOrders();
+  const { retail } = usePortal();
   useRealtimeReload(reload, ["order.new", "order.status", "store.updated", "order.cancel_requested"]);
   useTick(15000);
   const [hl, setHl] = useState(null);
@@ -320,10 +329,12 @@ function LiveBoard({ focusId, focusKey, onMissing }) {
   if (!orders) return <Loading />;
   return (
     <div className="row g-3">
-      {COLUMNS.map((c) => {
+      {COLUMNS.map((col) => {
+        // grocery-type stores pick instead of cook
+        const c = retail && col.key === "kitchen" ? { ...col, title: "Picking", icon: "solar:cart-large-minimalistic-outline" } : retail && col.key === "ready" ? { ...col, title: "Packed and ready" } : col;
         const list = orders.filter((o) => c.statuses.includes(o.status)).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
         return (
-          <div key={c.key} className="col-xl-3 col-md-6">
+          <div key={c.key} className={retail ? `col-md-6 ${{ new: "col-xl-3", kitchen: "col-xl-4", ready: "col-xl-3", out: "col-xl-2" }[c.key]}` : "col-xl-3 col-md-6"}>
             <div className="d-flex align-items-center justify-content-between mb-12">
               <h6 className="mb-0 d-flex align-items-center gap-2">
                 <Icon icon={c.icon} className="text-xl" /> {c.title}

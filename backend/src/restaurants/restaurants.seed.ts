@@ -17,12 +17,15 @@ import {
   User,
   Zone,
 } from '../database/entities';
-import { DocStatus, MenuEditStatus, RestaurantDocType, RestaurantRole, RestaurantServiceMode, RestaurantStatus, UserStatus, UserType, VerificationMethod, VerificationStatus } from '../common/enums';
+import { DocStatus, MenuEditStatus, RestaurantDocType, RestaurantRole, RestaurantServiceMode, RestaurantStatus, StoreType, UserStatus, UserType, VerificationMethod, VerificationStatus } from '../common/enums';
+import { profileOf } from '../common/store-types';
 import { SeedOptions } from '../database/seed-types';
 import { slugify } from './restaurants.util';
 import { EXTRA_DEFS, EXTRA_MENUS } from './restaurants.seed-extra';
+import { STORE_DEFS, STORE_MENUS } from './restaurants.seed-stores';
 
-export type Item = [name: string, price: number, description: string, tags?: string[], allergens?: string[], taxClass?: string];
+/** [name, price, description, dietary tags, allergens, tax class, catalog fields (SKU, barcode, weight, stock, age... see restaurants.seed-stores.ts)] */
+export type Item = [name: string, price: number, description: string, tags?: string[], allergens?: string[], taxClass?: string, extra?: Partial<MenuItem>];
 export type Cat = { name: string; station: string; items: Item[] };
 export type Group = { name: string; required: boolean; min: number; max: number; options: [string, number][]; appliesTo: string[] };
 export type Menu = { categories: Cat[]; groups: Group[] };
@@ -85,6 +88,8 @@ export type Def = {
   name: string; merchant: number; cuisines: string[]; menu: string; zone: string; dLat: number; dLng: number; street: string; price: number; tier: string; prep: number;
   /** extras only */
   city?: string; postal?: string; hours?: 'std' | 'late' | 'conv' | 'allday'; mode?: RestaurantServiceMode; featured?: boolean; minOrder?: number;
+  /** default: CONVENIENCE for a "Convenience" cuisine, RESTAURANT otherwise */
+  storeType?: StoreType;
 };
 
 /** merchant 1 owns two locations (City Centre + Port Credit); every other merchant has one. */
@@ -95,13 +100,13 @@ const DEFS: Def[] = [
   { name: 'Sakura Sushi House', merchant: 3, cuisines: ['Sushi', 'Japanese'], menu: 'asian', zone: 'Erin Mills', dLat: 0.003, dLng: 0.002, street: '5100 Erin Mills Pkwy', price: 3, tier: 'Standard', prep: 25 },
   { name: 'Spice Route Indian Kitchen', merchant: 4, cuisines: ['Indian', 'Halal'], menu: 'indian', zone: 'Meadowvale', dLat: 0.001, dLng: -0.003, street: '6677 Meadowvale Town Centre Cir', price: 2, tier: 'Standard', prep: 25 },
   { name: 'Casa Taco', merchant: 5, cuisines: ['Mexican'], menu: 'mexican', zone: 'Streetsville', dLat: 0.002, dLng: -0.001, street: '282 Queen St S', price: 1, tier: 'Starter', prep: 15 },
-  { name: 'Lakeside Cafe', merchant: 6, cuisines: ['Breakfast', 'Sandwiches'], menu: 'cafe', zone: 'Port Credit', dLat: -0.003, dLng: -0.002, street: '28 Stavebank Rd', price: 2, tier: 'Standard', prep: 12 },
+  { name: 'Lakeside Cafe', merchant: 6, storeType: StoreType.CAFE, cuisines: ['Breakfast', 'Sandwiches'], menu: 'cafe', zone: 'Port Credit', dLat: -0.003, dLng: -0.002, street: '28 Stavebank Rd', price: 2, tier: 'Standard', prep: 12 },
   { name: 'Golden Wok', merchant: 7, cuisines: ['Chinese'], menu: 'asian', zone: 'City Centre', dLat: 0.005, dLng: -0.004, street: '50 Burnhamthorpe Rd W', price: 2, tier: 'Standard', prep: 20 },
   { name: 'Thai Orchid', merchant: 8, cuisines: ['Thai'], menu: 'asian', zone: 'Erin Mills', dLat: -0.004, dLng: -0.003, street: '2225 Erin Centre Blvd', price: 2, tier: 'Premium', prep: 22 },
   { name: 'Tandoori Nights', merchant: 9, cuisines: ['Indian'], menu: 'indian', zone: 'Streetsville', dLat: -0.003, dLng: 0.002, street: '318 Queen St S', price: 2, tier: 'Standard', prep: 25 },
   { name: 'Slice Republic', merchant: 10, cuisines: ['Pizza'], menu: 'pizza', zone: 'Meadowvale', dLat: -0.002, dLng: 0.002, street: '6765 Financial Dr', price: 1, tier: 'Starter', prep: 18 },
   { name: 'Grill House 905', merchant: 11, cuisines: ['Burgers', 'BBQ'], menu: 'burgers', zone: 'Port Credit', dLat: 0.004, dLng: 0.001, street: '70 Port St E', price: 3, tier: 'Premium', prep: 20 },
-  { name: 'The Daily Grind Cafe', merchant: 12, cuisines: ['Breakfast', 'Coffee & Tea'], menu: 'cafe', zone: 'City Centre', dLat: -0.001, dLng: -0.005, street: '1 Square One Dr', price: 1, tier: 'Starter', prep: 10 },
+  { name: 'The Daily Grind Cafe', merchant: 12, storeType: StoreType.CAFE, cuisines: ['Breakfast', 'Coffee & Tea'], menu: 'cafe', zone: 'City Centre', dLat: -0.001, dLng: -0.005, street: '1 Square One Dr', price: 1, tier: 'Starter', prep: 10 },
 ];
 
 const POSTAL = ['L5B 1M2', 'L5G 1A1', 'L5M 2B7', 'L5N 7T4', 'L5L 3R9', 'L5R 3K1'];
@@ -115,7 +120,7 @@ export async function seedRestaurants(ds: DataSource, opts: SeedOptions): Promis
 /** Additional Brampton + Mississauga restaurants/convenience stores (merchants 13+). Runs after the orders seed so historical orders stay unchanged. */
 export async function seedRestaurantsExtra(ds: DataSource, opts: SeedOptions): Promise<void> {
   if (!opts.demo) return;
-  await seedDefs(ds, opts, [...DEFS, ...EXTRA_DEFS], { ...MENUS, ...EXTRA_MENUS }, true);
+  await seedDefs(ds, opts, [...DEFS, ...EXTRA_DEFS, ...STORE_DEFS], { ...MENUS, ...EXTRA_MENUS, ...STORE_MENUS }, true);
 }
 
 async function seedDefs(ds: DataSource, opts: SeedOptions, defs: Def[], menus: Record<string, Menu>, extraOnly: boolean): Promise<void> {
@@ -172,6 +177,12 @@ async function seedDefs(ds: DataSource, opts: SeedOptions, defs: Def[], menus: R
 
     const slug = slugify(d.name);
     let r = await restaurants.findOne({ where: { slug } });
+    const storeType = d.storeType ?? (d.cuisines.includes('Convenience') ? StoreType.CONVENIENCE : d.cuisines.includes('Bakery') && !d.cuisines.includes('Pizza') ? StoreType.BAKERY : StoreType.RESTAURANT);
+    if (r && r.storeType !== storeType) {
+      // a location seeded before store types existed: give it its type (idempotent)
+      await restaurants.update(r.id, { storeType });
+      r.storeType = storeType;
+    }
     if (!r) {
       const zone = zones.get(d.zone) ?? null;
       r = await restaurants.save(
@@ -179,7 +190,9 @@ async function seedDefs(ds: DataSource, opts: SeedOptions, defs: Def[], menus: R
           merchantId: merchant.id,
           name: d.name,
           slug,
-          description: `${d.name} - fresh, made to order in ${d.city ?? 'Mississauga'}.`,
+          storeType,
+          kdsEnabled: profileOf(storeType).kdsDefault,
+          description: profileOf(storeType).retail ? `${d.name} - ${profileOf(storeType).label.toLowerCase()} in ${d.city ?? 'Mississauga'}. Picked fresh for you and delivered.` : `${d.name} - fresh, made to order in ${d.city ?? 'Mississauga'}.`,
           phone: `+1416555${String(3000 + i).padStart(4, '0')}`,
           email: `orders+${slug}@demo-restaurant.ca`,
           addressLine1: d.street,
@@ -213,8 +226,10 @@ async function seedDefs(ds: DataSource, opts: SeedOptions, defs: Def[], menus: R
       created++;
 
       await seedHours(ds, r.id, d.hours ?? 'std');
-      await seedDocuments(ds, r.id);
-      await seedMenu(ds, r.id, menus[d.menu]);
+      const menu = menus[d.menu];
+      const sellsAgeRestricted = menu.categories.some((c) => c.items.some((it) => (it[6]?.minAge ?? 0) > 0));
+      await seedDocuments(ds, r.id, [...profileOf(storeType).requiredDocuments, ...(sellsAgeRestricted ? ['LIQUOR_LICENCE'] : [])] as RestaurantDocType[]);
+      await seedMenu(ds, r.id, menu);
     }
 
     // first location of each merchant gets the staff roles; merchant 1's second location gets its own manager
@@ -242,16 +257,15 @@ async function seedHours(ds: DataSource, restaurantId: string, kind: 'std' | 'la
   await ds.getRepository(RestaurantHours).insert(rows);
 }
 
-async function seedDocuments(ds: DataSource, restaurantId: string) {
+async function seedDocuments(ds: DataSource, restaurantId: string, types: RestaurantDocType[] = [RestaurantDocType.BUSINESS_LICENCE, RestaurantDocType.HEALTH_CERTIFICATE, RestaurantDocType.VOID_CHEQUE]) {
   const expires = new Date(Date.now() + 300 * 86400_000).toISOString().slice(0, 10);
-  const types = [RestaurantDocType.BUSINESS_LICENCE, RestaurantDocType.HEALTH_CERTIFICATE, RestaurantDocType.VOID_CHEQUE];
   await ds.getRepository(RestaurantDocument).insert(
     types.map((type) => ({ restaurantId, type, fileUrl: `/uploads/demo/${type.toLowerCase()}.pdf`, fileName: `${type.toLowerCase()}.pdf`, status: DocStatus.APPROVED, expiresAt: type === RestaurantDocType.VOID_CHEQUE ? null : expires, reviewedAt: new Date() })),
   );
 }
 
 async function seedMenu(ds: DataSource, restaurantId: string, menu: Menu) {
-  const stationNames = [...new Set(menu.categories.map((c) => c.station))];
+  const stationNames = [...new Set(menu.categories.map((c) => c.station).filter(Boolean))]; // retail departments have no kitchen station
   const stations = await ds.getRepository(KitchenStation).save(stationNames.map((name, i) => ({ restaurantId, name, sortOrder: i })));
   const stationId = (n: string) => stations.find((s) => s.name === n)?.id ?? null;
 
@@ -269,7 +283,7 @@ async function seedMenu(ds: DataSource, restaurantId: string, menu: Menu) {
   const linkRepo = ds.getRepository(MenuItemModifierGroup);
   for (const [ci, c] of menu.categories.entries()) {
     const cat = await catRepo.save(catRepo.create({ restaurantId, name: c.name, sortOrder: ci }));
-    for (const [ii, [name, price, description, tags, allergens, taxClass]] of c.items.entries()) {
+    for (const [ii, [name, price, description, tags, allergens, taxClass, extra]] of c.items.entries()) {
       const item = await itemRepo.save(
         itemRepo.create({
           restaurantId,
@@ -277,7 +291,7 @@ async function seedMenu(ds: DataSource, restaurantId: string, menu: Menu) {
           name,
           description: description || null,
           price,
-          pickupPrice: c.station === 'Drinks' ? null : +(price * 0.95).toFixed(2),
+          pickupPrice: c.station === 'Drinks' || !c.station ? null : +(price * 0.95).toFixed(2), // shelf prices are the same for pickup
           taxClassCode: taxClass ?? 'HST_ON',
           dietaryTags: tags ?? [],
           allergens: allergens ?? [],
@@ -285,6 +299,7 @@ async function seedMenu(ds: DataSource, restaurantId: string, menu: Menu) {
           stationId: stationId(c.station),
           isPopular: ii === 0,
           calories: 200 + ((ci * 37 + ii * 53) % 600),
+          ...(extra ?? {}),
         }),
       );
       const linked = menu.groups.filter((g) => g.appliesTo.includes(c.name) || g.appliesTo.includes(`${c.name}:${name}`));

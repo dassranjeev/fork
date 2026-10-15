@@ -121,12 +121,15 @@ export const SETTING_DEFINITIONS: any[] = [
   { key: 'integrations.stripe.platformCountry', group: 'integrations', label: 'Stripe platform country (connected accounts are created in this country)', value: 'CA', inputType: 'text' },
   { key: 'integrations.mapbox.accessToken', group: 'integrations', label: 'Mapbox server access token (sk. or pk.; used by the API only)', value: '', inputType: 'password', isSecret: true },
   { key: 'integrations.mapbox.publicToken', group: 'integrations', label: 'Mapbox public token (pk.; optional, for future browser maps)', value: '', inputType: 'text' },
+  { key: 'integrations.mapbox.style', group: 'integrations', label: 'Mapbox map style drawn on the admin screens ("username/style_id")', value: 'mapbox/streets-v12', inputType: 'text' },
+  { key: 'integrations.google.apiKey', group: 'integrations', label: 'Google Maps server API key (address search, routes, map session; used by the API only)', value: '', inputType: 'password', isSecret: true },
+  { key: 'integrations.google.browserKey', group: 'integrations', label: 'Google Maps browser key (restricted to the website addresses; only used in the map tile URL)', value: '', inputType: 'text' },
+  { key: 'integrations.maps.provider', group: 'integrations', label: 'Maps provider in use (mapbox or google): address search, road distances and map tiles', value: 'mapbox', inputType: 'select' },
+  { key: 'integrations.maps.routingEnabled', group: 'integrations', label: 'Use real road distances and drive times from the maps provider for deliveries (off = the built-in estimate)', value: false, inputType: 'boolean' },
   { key: 'integrations.mapbox.country', group: 'integrations', label: 'Mapbox address search: country (ISO 3166 alpha-2, comma separated)', value: 'ca', inputType: 'text' },
   { key: 'integrations.mapbox.bbox', group: 'integrations', label: 'Mapbox address search: bounding box "minLng,minLat,maxLng,maxLat" (Greater Toronto Area); empty = whole country', value: '-80.35,43.35,-78.9,44.2', inputType: 'text' },
   { key: 'integrations.mapbox.proximity', group: 'integrations', label: 'Mapbox address search: default proximity "lng,lat" (Mississauga)', value: '-79.6441,43.589', inputType: 'text' },
   // ---- maps ----
-  { key: 'maps.provider', group: 'maps', label: 'Maps provider', value: 'google', inputType: 'select' },
-  { key: 'maps.googleApiKey', group: 'maps', label: 'Google Maps API key', value: '', inputType: 'password', isSecret: true },
   { key: 'maps.driverLocationIntervalSec', group: 'maps', label: 'Driver location refresh (sec)', value: 5, inputType: 'number', isPublic: true },
   // ---- notifications ----
   { key: 'notifications.smsProvider', group: 'notifications', label: 'SMS provider', value: 'twilio', inputType: 'select' },
@@ -245,6 +248,13 @@ export const SETTING_DEFINITIONS: any[] = [
   // ---- restaurant ----
   { key: 'restaurant.requiredDocuments', group: 'restaurant', label: 'Required documents', value: ['BUSINESS_LICENCE', 'HEALTH_CERTIFICATE', 'VOID_CHEQUE'], inputType: 'json' },
   { key: 'restaurant.defaultPrepTimeMin', group: 'restaurant', label: 'Default prep time (min)', value: 20, inputType: 'number' },
+  // ---- store types: groceries, convenience, specialty food (docs/store-types.md) ----
+  { key: 'restaurant.requiredDocumentsByType', group: 'restaurant', label: 'Required documents per store type: a JSON object such as {"GROCERY": ["BUSINESS_LICENCE", "FOOD_PREMISES_PERMIT", "VOID_CHEQUE"]}. A type without an entry uses the built-in list for it (restaurants: business licence, health certificate, void cheque; retail: business licence, food premises permit, void cheque)', value: {}, inputType: 'json' },
+  { key: 'restaurant.ageRestricted.enabled', group: 'restaurant', label: 'Allow age-restricted products (alcohol, tobacco) to be sold: the customer confirms their age at checkout and ID is checked at hand-over', value: true, inputType: 'boolean' },
+  { key: 'restaurant.ageRestricted.requireLicence', group: 'restaurant', label: 'A store may only list age-restricted products once it has an APPROVED liquor or tobacco licence document', value: true, inputType: 'boolean' },
+  { key: 'orders.retail.prepBaseMinutes', group: 'orders', label: 'Grocery / retail picking time: minutes every order needs, plus the minutes per unit below (never below the prep time set for the store)', value: 10, inputType: 'number' },
+  { key: 'orders.retail.prepSecondsPerUnit', group: 'orders', label: 'Grocery / retail picking time: seconds per unit picked', value: 20, inputType: 'number' },
+  { key: 'orders.retail.prepMaxMinutes', group: 'orders', label: 'Grocery / retail picking time: longest estimate a customer is quoted (min)', value: 90, inputType: 'number' },
   { key: 'restaurant.selfServePromosNeedApproval', group: 'restaurant', label: 'Restaurant promos need ops approval', value: false, inputType: 'boolean' },
   { key: 'restaurant.docExpiryReminderDays', group: 'restaurant', label: 'Document expiry reminders (days before)', value: [30, 14, 7, 1], inputType: 'json' },
   // ---- marketing ----
@@ -306,6 +316,7 @@ const MOVED_KEYS: Record<string, string> = {
   'payments.stripe.publishableKey': 'integrations.stripe.publishableKey',
   'payments.stripe.webhookSecret': 'integrations.stripe.webhookSecret',
   'maps.mapboxToken': 'integrations.mapbox.accessToken',
+  'maps.googleApiKey': 'integrations.google.apiKey',
 };
 /** Settings that no longer exist (cash payments were removed: every payment goes through Stripe). */
 const REMOVED_KEYS = ['orders.acceptCashPayments'];
@@ -358,6 +369,18 @@ export class SettingsService implements OnModuleInit {
         await this.repo.save(target);
       }
       await this.repo.delete({ key: oldKey });
+    }
+    // one-off: the maps provider moved into the integrations group (Mapbox is the default now). An old row only keeps Google when a Google key was really configured.
+    const oldProvider = await this.repo.findOne({ where: { key: 'maps.provider' } });
+    if (oldProvider) {
+      const googleKey = await this.repo.findOne({ where: { key: 'integrations.google.apiKey' } });
+      const hasGoogle = typeof googleKey?.value === 'string' && googleKey.value !== '';
+      const target = await this.repo.findOne({ where: { key: 'integrations.maps.provider' } });
+      if (target && oldProvider.value === 'google' && hasGoogle) {
+        target.value = 'google';
+        await this.repo.save(target);
+      }
+      await this.repo.delete({ key: 'maps.provider' });
     }
     for (const k of REMOVED_KEYS) await this.repo.delete({ key: k });
     // one-off: secrets used to be stored in clear text. Seal every secret that still is.

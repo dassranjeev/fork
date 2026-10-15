@@ -21,6 +21,7 @@ import {
 } from 'class-validator';
 import { PartialType } from '@nestjs/swagger';
 import { PageQueryDto } from '../common/pagination';
+import { STORE_TYPES } from '../common/store-types';
 
 /** Optional number with bounds. */
 const Num = (min = 0, max?: number) =>
@@ -168,6 +169,8 @@ export class TierFieldsDto {
   @Num(0, 60) ownDriverPct?: number;
   @IsOptional() @IsBoolean() active?: boolean;
   @IsOptional() @IsBoolean() isDefault?: boolean;
+  /** store types that use this tier when a location has none of its own (e.g. a grocery tier with thinner rates) */
+  @IsOptional() @IsArray() @IsIn(STORE_TYPES, { each: true }) defaultForStoreTypes?: string[];
 }
 export class CreateTierDto extends TierFieldsDto {
   @IsString() @MinLength(2) @MaxLength(60) name: string;

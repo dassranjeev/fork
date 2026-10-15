@@ -9,7 +9,7 @@ import { like, paginateQb } from '../common/pagination';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { GeoService } from '../core/core.module';
-import { MapboxService } from '../integrations/mapbox.service';
+import { MapsService } from '../integrations/maps.service';
 import { RestaurantStoreService } from '../restaurants/restaurant-store.service';
 import { BackgroundCheckResult, CertnAdapter } from '../drivers/adapters/certn.adapter';
 import {
@@ -48,7 +48,7 @@ export class BusinessVerification implements AudienceHandler {
     private audit: AuditService,
     private notifications: NotificationsService,
     private geo: GeoService,
-    private mapbox: MapboxService,
+    private maps: MapsService,
     @InjectRepository(Merchant) private merchants: Repository<Merchant>,
     @InjectRepository(Restaurant) private restaurants: Repository<Restaurant>,
     @InjectRepository(RestaurantMember) private members: Repository<RestaurantMember>,
@@ -149,16 +149,16 @@ export class BusinessVerification implements AudienceHandler {
     await this.store.changeStatus(r, RestaurantStatus.LIVE, { reason: o.reason, actor: null, action: 'verification_activate', acceptingOrders: true, pausedUntil: null, notifyEvent: 'account.approved' });
   }
 
-  /** Best effort: a location pin from the street address (Mapbox, when configured). Never throws. */
+  /** Best effort: a location pin from the street address (the active maps provider, when configured). Never throws. */
   private async locate(r: Restaurant) {
     try {
-      if (!this.mapbox.enabled) return;
+      if (!this.maps.enabled) return;
       const query = [r.addressLine1, r.city, r.province, r.postalCode].filter(Boolean).join(', ');
       const session = randomUUID();
-      const found = await this.mapbox.autocomplete(query, { sessionToken: session });
+      const found = await this.maps.autocomplete(query, { sessionToken: session });
       const top = found.suggestions?.[0];
       if (!top) return;
-      const got = await this.mapbox.retrieve(top.id, session);
+      const got = await this.maps.retrieve(top.id, session);
       if (got.address) {
         r.lat = got.address.lat;
         r.lng = got.address.lng;

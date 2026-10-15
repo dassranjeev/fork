@@ -7,7 +7,7 @@
        frame-ancestors / X-Frame-Options cannot be set from a meta tag: send them as headers (docs/security-frontend.md).
        Stripe (the ONE deliberate third-party exception, required by the Stripe Payment Element): REACT_APP_CSP_SCRIPT allows Stripe.js, REACT_APP_CSP_FRAME the
        Stripe iframes (card form, 3-D Secure); connect / img origins come through REACT_APP_CSP_CONNECT / REACT_APP_CSP_IMG. Empty frame list = no frames at all. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' %REACT_APP_CSP_SCRIPT%; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org %REACT_APP_CSP_IMG%; font-src 'self' data:; connect-src 'self' %REACT_APP_CSP_CONNECT%; media-src 'self' blob: %REACT_APP_CSP_IMG%; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self' blob:; manifest-src 'self'; frame-src %REACT_APP_CSP_FRAME%" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' %REACT_APP_CSP_SCRIPT%; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://api.mapbox.com https://tile.googleapis.com %REACT_APP_CSP_IMG%; font-src 'self' data:; connect-src 'self' %REACT_APP_CSP_CONNECT%; media-src 'self' blob: %REACT_APP_CSP_IMG%; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self' blob:; manifest-src 'self'; frame-src %REACT_APP_CSP_FRAME%" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
   <script src="/frame-guard.js"></script>
   <link rel="shortcut icon" href="/favicon.ico" />

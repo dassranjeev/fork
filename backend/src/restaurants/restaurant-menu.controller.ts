@@ -14,8 +14,10 @@ import {
   ModifierGroupDto,
   ModifierOptionDto,
   PrepTargetsDto,
+  ProductListQuery,
   ReorderDto,
   SetGroupsDto,
+  StockUpdateDto,
   UpdateCategoryDto,
   UpdateGroupDto,
   UpdateItemDto,
@@ -41,10 +43,24 @@ export class RestaurantMenuController {
   }
 
   @Get()
-  async tree(@CurrentUser() user: AuthUser, @Query('restaurantId') restaurantId?: string, @Query('includeInactive') includeInactive?: string) {
+  async tree(@CurrentUser() user: AuthUser, @Query('restaurantId') restaurantId?: string, @Query('includeInactive') includeInactive?: string, @Query('items') items?: string) {
     const id = this.rid(user, restaurantId);
-    const [tree, access] = await Promise.all([this.menu.tree(id, includeInactive !== 'false'), this.access.access(id)]);
+    // items=false: the structure only (departments with their product counts): for stores whose products are loaded page by page (GET /restaurant/menu/items)
+    const [tree, access] = await Promise.all([items === 'false' ? this.menu.structure(id) : this.menu.tree(id, includeInactive !== 'false'), this.access.access(id)]);
     return { ...tree, access };
+  }
+
+  /** Paged, searchable product list (catalog screen of grocery / retail stores; works for any store). */
+  @Get('items')
+  listItems(@CurrentUser() user: AuthUser, @Query() q: ProductListQuery) {
+    return this.menu.listItems(this.rid(user, q.restaurantId), q as Record<string, string | undefined>);
+  }
+
+  /** Stock counts, deliveries and POS syncs: set or adjust the stock of many products by id, SKU or barcode. Not menu editing (prices stay as they are). */
+  @Post('stock')
+  @RestaurantRoles(...MANAGERS, RestaurantRole.CASHIER)
+  stockUpdate(@CurrentUser() user: AuthUser, @Body() dto: StockUpdateDto, @Query('restaurantId') restaurantId?: string) {
+    return this.menu.stockUpdate(this.rid(user, restaurantId), dto.updates);
   }
 
   /** Can this restaurant add / update / remove menu items? (decided by FORKY staff) */

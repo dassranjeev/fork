@@ -10,10 +10,14 @@ import {
   ModifierGroup,
   ModifierOption,
   Restaurant,
+  RestaurantDocument,
   TaxClass,
 } from '../database/entities';
-import { DayPart } from '../common/enums';
-import { CategoryDto, ItemDto, ModifierGroupDto, ModifierOptionDto } from './dto';
+import { DayPart, DocStatus, RestaurantDocType } from '../common/enums';
+import { MIN_AGES } from '../common/store-types';
+import { clampPaging, like, pageMeta } from '../common/pagination';
+import { SettingsService } from '../settings/settings.service';
+import { CategoryDto, CatalogFieldsDto, ItemDto, ModifierGroupDto, ModifierOptionDto, StockUpdateRowDto } from './dto';
 import { nextRestockTime } from './restaurants.util';
 import { AvailabilityService } from '../core/core.module';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -73,6 +77,20 @@ export const MENU_CSV_HEADER = [
   'image_url',
   'popular',
   'modifier_groups',
+  // catalog (groceries / retail); optional in an import: a CSV without these columns leaves them untouched
+  'sku',
+  'barcode',
+  'brand',
+  'pack_size',
+  'sell_by',
+  'weight_unit',
+  'step_size',
+  'track_stock',
+  'stock_qty',
+  'low_stock',
+  'max_per_order',
+  'min_age',
+  'temperature',
 ];
 
 @Injectable()
@@ -86,8 +104,10 @@ export class MenuService {
     @InjectRepository(MenuItemModifierGroup) private links: Repository<MenuItemModifierGroup>,
     @InjectRepository(KitchenStation) private stations: Repository<KitchenStation>,
     @InjectRepository(TaxClass) private taxClasses: Repository<TaxClass>,
+    @InjectRepository(RestaurantDocument) private docs: Repository<RestaurantDocument>,
     private availability: AvailabilityService,
     private notifications: NotificationsService,
+    private settings: SettingsService,
   ) {}
 
   // ------------------------------------------------------------------ read
@@ -120,7 +140,46 @@ export class MenuService {
       combos: views.filter((i) => i.isCombo),
       modifierGroups: groupView,
       stations,
-      counts: { items: items.length, unavailable: items.filter((i) => !i.available).length, categories: cats.length, modifierGroups: groups.length },
+      counts: {
+        items: items.length,
+        unavailable: items.filter((i) => !i.available).length,
+        outOfStock: items.filter((i) => i.trackStock && (i.stockQty ?? 0) <= 0).length,
+        lowStock: items.filter((i) => i.trackStock && (i.stockQty ?? 0) > 0 && i.lowStockThreshold != null && (i.stockQty ?? 0) <= i.lowStockThreshold).length,
+        categories: cats.length,
+        modifierGroups: groups.length,
+      },
+    };
+  }
+
+  /**
+   * The structure of the menu without its items: departments with their product counts, modifier groups, stations and counts. A store with a big catalog loads its
+   * products page by page (listItems) and only needs this.
+   */
+  async structure(restaurantId: string) {
+    const [cats, groups, stations, perCat, totals] = await Promise.all([
+      this.categories.find({ where: { restaurantId }, order: { sortOrder: 'ASC', name: 'ASC' } }),
+      this.groups.find({ where: { restaurantId }, order: { sortOrder: 'ASC', name: 'ASC' } }),
+      this.stations.find({ where: { restaurantId }, order: { sortOrder: 'ASC' } }),
+      this.items.createQueryBuilder('i').select('i.categoryId', 'id').addSelect('COUNT(*)', 'n').where('i.restaurantId = :restaurantId', { restaurantId }).groupBy('i.categoryId').getRawMany<{ id: string | null; n: string }>(),
+      this.items
+        .createQueryBuilder('i')
+        .select('COUNT(*)', 'items')
+        .addSelect('COUNT(*) FILTER (WHERE i.available = false)', 'unavailable')
+        .addSelect(`COUNT(*) FILTER (WHERE i."trackStock" = true AND COALESCE(i."stockQty", 0) <= 0)`, 'outOfStock')
+        .addSelect(`COUNT(*) FILTER (WHERE i."trackStock" = true AND COALESCE(i."stockQty", 0) > 0 AND i."lowStockThreshold" IS NOT NULL AND i."stockQty" <= i."lowStockThreshold")`, 'lowStock')
+        .where('i.restaurantId = :restaurantId', { restaurantId })
+        .getRawOne<Record<string, string>>(),
+    ]);
+    const opts = groups.length ? await this.options.find({ where: { groupId: In(groups.map((g) => g.id)) }, order: { sortOrder: 'ASC', name: 'ASC' } }) : [];
+    const n = new Map(perCat.map((r) => [r.id, +r.n]));
+    return {
+      categories: cats.map((c) => ({ ...c, itemCount: n.get(c.id) ?? 0, items: [] as any[] })),
+      uncategorized: [] as any[],
+      uncategorizedCount: n.get(null) ?? 0,
+      combos: [] as any[],
+      modifierGroups: groups.map((g) => ({ ...g, options: opts.filter((o) => o.groupId === g.id) })),
+      stations,
+      counts: { items: +(totals?.items ?? 0), unavailable: +(totals?.unavailable ?? 0), outOfStock: +(totals?.outOfStock ?? 0), lowStock: +(totals?.lowStock ?? 0), categories: cats.length, modifierGroups: groups.length },
     };
   }
 
@@ -184,11 +243,85 @@ export class MenuService {
     }
   }
 
+  // ------------------------------------------------------------------ catalog fields (groceries / retail)
+  /** Does the store hold a valid (approved, not expired) liquor or tobacco licence? Age-restricted products may only be listed with one. */
+  async hasAgeLicence(restaurantId: string): Promise<boolean> {
+    const today = new Date().toISOString().slice(0, 10);
+    const rows = await this.docs.find({ where: { restaurantId, type: In([RestaurantDocType.LIQUOR_LICENCE, RestaurantDocType.TOBACCO_LICENCE]), status: DocStatus.APPROVED } });
+    return rows.some((d) => !d.expiresAt || d.expiresAt >= today);
+  }
+
+  private async assertMayListAgeRestricted(restaurantId: string) {
+    if (!this.settings.get<boolean>('restaurant.ageRestricted.enabled', true)) {
+      throw new BadRequestException({ message: 'Age-restricted products (alcohol, tobacco) are not sold on this platform', code: 'AGE_RESTRICTED_DISABLED' });
+    }
+    if (this.settings.get<boolean>('restaurant.ageRestricted.requireLicence', true) && !(await this.hasAgeLicence(restaurantId))) {
+      throw new BadRequestException({
+        message: 'Upload your liquor or tobacco licence (Store, Documents) and wait for FORKY to approve it before listing age-restricted products',
+        code: 'LICENCE_REQUIRED',
+      });
+    }
+  }
+
+  /**
+   * Validates and normalises the catalog part of an item (create / update / import). Returns only the columns the caller supplied (plus the ones that
+   * follow from them), so a partial update never resets what it did not mention.
+   */
+  private async catalogFields(restaurantId: string, dto: Partial<CatalogFieldsDto>, existing?: MenuItem): Promise<Partial<MenuItem>> {
+    const out: Partial<MenuItem> = {};
+    const has = (k: keyof CatalogFieldsDto) => dto[k] !== undefined;
+    const clean = (s?: string | null) => {
+      const v = (s ?? '').trim();
+      return v === '' ? null : v;
+    };
+    if (has('sku')) {
+      out.sku = clean(dto.sku);
+      if (out.sku) {
+        const clash = await this.items.findOne({ where: { restaurantId, sku: out.sku, ...(existing ? { id: Not(existing.id) } : {}) }, select: ['id', 'name'] });
+        if (clash) throw new ConflictException(`SKU "${out.sku}" is already used by "${clash.name}"`);
+      }
+    }
+    if (has('barcode')) out.barcode = clean(dto.barcode);
+    if (has('brand')) out.brand = clean(dto.brand);
+    if (has('packSize')) out.packSize = clean(dto.packSize);
+
+    const sellBy = dto.sellBy ?? existing?.sellBy ?? 'UNIT';
+    if (has('sellBy')) out.sellBy = sellBy;
+    if (has('weightUnit')) out.weightUnit = dto.weightUnit!;
+    if (sellBy === 'WEIGHT') {
+      const step = dto.stepSize ?? (existing?.sellBy === 'WEIGHT' ? existing.stepSize : undefined);
+      if (!(Number(step) > 0)) throw new BadRequestException('stepSize is required for products sold by weight (for example 0.5 = half a kilo per step)');
+      if (has('stepSize') || has('sellBy')) out.stepSize = Math.round(Number(step) * 1000) / 1000;
+    } else if (has('sellBy') || has('stepSize')) {
+      out.stepSize = 1; // products sold by the piece have no step
+    }
+
+    const trackStock = dto.trackStock ?? existing?.trackStock ?? false;
+    if (has('trackStock')) out.trackStock = trackStock;
+    if (has('stockQty')) out.stockQty = dto.stockQty === null ? null : Math.round(Number(dto.stockQty) * 1000) / 1000;
+    const stock = has('stockQty') ? out.stockQty : existing?.stockQty;
+    if (trackStock && (stock === null || stock === undefined)) throw new BadRequestException('stockQty is required when stock is tracked');
+    if (trackStock && sellBy === 'UNIT' && stock != null && !Number.isInteger(stock)) throw new BadRequestException('stockQty must be a whole number for products sold by the piece');
+    if (has('lowStockThreshold')) out.lowStockThreshold = dto.lowStockThreshold ?? null;
+    if (has('maxPerOrder')) out.maxPerOrder = dto.maxPerOrder ?? null;
+
+    if (has('minAge')) {
+      const age = Number(dto.minAge);
+      if (!MIN_AGES.includes(age)) throw new BadRequestException(`minAge must be one of ${MIN_AGES.join(', ')}`);
+      if (age > 0 && age !== (existing?.minAge ?? 0)) await this.assertMayListAgeRestricted(restaurantId);
+      out.minAge = age;
+    }
+    if (has('temperature')) out.temperature = dto.temperature!;
+    return out;
+  }
+
   async createItem(restaurantId: string, dto: ItemDto) {
     await this.validateItem(restaurantId, dto);
+    const catalog = await this.catalogFields(restaurantId, dto);
     const max = await this.items.maximum('sortOrder', { restaurantId, categoryId: dto.categoryId ?? IsNull() });
     const item = await this.items.save(
       this.items.create({
+        ...catalog,
         restaurantId,
         categoryId: dto.categoryId ?? null,
         name: dto.name,
@@ -231,8 +364,10 @@ export class MenuService {
     const item = await this.items.findOne({ where: { id, restaurantId } });
     if (!item) throw new NotFoundException('Menu item not found');
     await this.validateItem(restaurantId, dto);
+    const catalog = await this.catalogFields(restaurantId, dto, item);
     const { groupIds, ...rest } = dto;
     for (const [k, v] of Object.entries(rest)) if (v !== undefined) (item as any)[k] = v;
+    Object.assign(item, catalog); // the validated / normalised catalog values win over the raw ones above
     if (dto.comboItems && dto.isCombo === undefined) item.isCombo = dto.comboItems.length > 0;
     if (dto.available === true) item.restockAt = null;
     await this.items.save(item);
@@ -266,6 +401,127 @@ export class MenuService {
     await this.links.delete({ menuItemId: itemId });
     if (groupIds.length) await this.links.insert([...new Set(groupIds)].map((groupId, i) => ({ menuItemId: itemId, groupId, sortOrder: i })));
     return this.getItem(restaurantId, itemId);
+  }
+
+  // ------------------------------------------------------------------ product list (paged, for big catalogs) + stock
+  /**
+   * Paged, searchable product list for the portal catalog screen (a supermarket has thousands of products: the menu tree is too big).
+   * Filters: q (name / SKU / barcode / brand), categoryId ("none" = uncategorised), stock (out | low | in | tracked | untracked), available, active.
+   */
+  async listItems(restaurantId: string, q: Record<string, string | undefined>) {
+    const { page, limit } = clampPaging(q.page, q.limit, 200, 50);
+    const qb = this.items.createQueryBuilder('i').where('i.restaurantId = :restaurantId', { restaurantId });
+    const text = (q.q ?? q.search ?? '').trim();
+    if (text) qb.andWhere('(i.name ILIKE :s OR i.sku ILIKE :s OR i.barcode ILIKE :s OR i.brand ILIKE :s)', { s: like(text) });
+    if (q.categoryId === 'none') qb.andWhere('i.categoryId IS NULL');
+    else if (q.categoryId && /^[0-9a-f-]{36}$/i.test(q.categoryId)) qb.andWhere('i.categoryId = :cat', { cat: q.categoryId });
+    if (q.available === 'true' || q.available === 'false') qb.andWhere('i.available = :av', { av: q.available === 'true' });
+    if (q.active === 'true' || q.active === 'false') qb.andWhere('i.active = :ac', { ac: q.active === 'true' });
+    switch (q.stock) {
+      case 'out':
+        qb.andWhere('i.trackStock = true AND COALESCE(i.stockQty, 0) <= 0');
+        break;
+      case 'low':
+        qb.andWhere('i.trackStock = true AND COALESCE(i.stockQty, 0) > 0 AND i.lowStockThreshold IS NOT NULL AND i.stockQty <= i.lowStockThreshold');
+        break;
+      case 'in':
+        qb.andWhere('(i.trackStock = false OR COALESCE(i.stockQty, 0) > 0)');
+        break;
+      case 'tracked':
+        qb.andWhere('i.trackStock = true');
+        break;
+      case 'untracked':
+        qb.andWhere('i.trackStock = false');
+        break;
+    }
+    const sorts: Record<string, string> = { name: 'i.name', price: 'i.price', stock: 'i.stockQty', updated: 'i.updatedAt', sku: 'i.sku', sort: 'i.sortOrder' };
+    const dir: 'ASC' | 'DESC' = String(q.sortDir ?? '').toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+    qb.orderBy(sorts[q.sortBy ?? ''] ?? 'i.name', dir).addOrderBy('i.name', 'ASC');
+    const [rows, total] = await qb.skip((page - 1) * limit).take(limit).getManyAndCount();
+    const cats = await this.categories.find({ where: { restaurantId }, select: ['id', 'name'] });
+    const catName = new Map(cats.map((c) => [c.id, c.name]));
+    const counts = await this.items
+      .createQueryBuilder('i')
+      .select('COUNT(*)', 'total')
+      .addSelect(`COUNT(*) FILTER (WHERE i.trackStock = true AND COALESCE(i.stockQty, 0) <= 0)`, 'outOfStock')
+      .addSelect(`COUNT(*) FILTER (WHERE i.trackStock = true AND COALESCE(i.stockQty, 0) > 0 AND i.lowStockThreshold IS NOT NULL AND i.stockQty <= i.lowStockThreshold)`, 'lowStock')
+      .addSelect(`COUNT(*) FILTER (WHERE i.trackStock = true)`, 'tracked')
+      .where('i.restaurantId = :restaurantId', { restaurantId })
+      .getRawOne<{ total: string; outOfStock: string; lowStock: string; tracked: string }>();
+    return {
+      data: rows.map((i) => ({ ...i, categoryName: i.categoryId ? catName.get(i.categoryId) ?? null : null, stockState: this.stockState(i) })),
+      meta: pageMeta(total, page, limit),
+      counts: { total: +(counts?.total ?? 0), outOfStock: +(counts?.outOfStock ?? 0), lowStock: +(counts?.lowStock ?? 0), tracked: +(counts?.tracked ?? 0) },
+    };
+  }
+
+  /** UNTRACKED | IN_STOCK | LOW | OUT */
+  stockState(i: Pick<MenuItem, 'trackStock' | 'stockQty' | 'lowStockThreshold'>) {
+    if (!i.trackStock) return 'UNTRACKED';
+    const n = i.stockQty ?? 0;
+    if (n <= 0) return 'OUT';
+    return i.lowStockThreshold != null && n <= i.lowStockThreshold ? 'LOW' : 'IN_STOCK';
+  }
+
+  /**
+   * Stock counts / deliveries / POS syncs: set or adjust the stock of many products at once, found by id, SKU or barcode.
+   * A product without stock tracking starts tracking when it gets a stock level. Prices are NOT changed here (that is menu editing).
+   */
+  async stockUpdate(restaurantId: string, rows: StockUpdateRowDto[]) {
+    if (!Array.isArray(rows) || !rows.length) throw new BadRequestException('Send at least one row in "updates"');
+    if (rows.length > 5000) throw new BadRequestException('At most 5000 rows per call');
+    const skus = [...new Set(rows.map((r) => r.sku?.trim()).filter(Boolean) as string[])];
+    const barcodes = [...new Set(rows.map((r) => r.barcode?.trim()).filter(Boolean) as string[])];
+    const ids = [...new Set(rows.map((r) => r.itemId).filter((x) => x && /^[0-9a-f-]{36}$/i.test(x)) as string[])];
+    const found = new Map<string, MenuItem>();
+    const take = (list: MenuItem[]) => list.forEach((i) => found.set(i.id, i));
+    if (skus.length) take(await this.items.find({ where: { restaurantId, sku: In(skus) } }));
+    if (barcodes.length) take(await this.items.find({ where: { restaurantId, barcode: In(barcodes) } }));
+    if (ids.length) take(await this.items.find({ where: { restaurantId, id: In(ids) } }));
+    const bySku = new Map([...found.values()].filter((i) => i.sku).map((i) => [i.sku!, i]));
+    const byBarcode = new Map<string, MenuItem[]>();
+    for (const i of found.values()) if (i.barcode) byBarcode.set(i.barcode, [...(byBarcode.get(i.barcode) ?? []), i]);
+
+    const result = { updated: 0, unchanged: 0, notFound: [] as { row: number; key: string }[], errors: [] as { row: number; error: string }[] };
+    const dirty = new Map<string, MenuItem>();
+    rows.forEach((r, idx) => {
+      const row = idx + 1;
+      const key = r.itemId ?? r.sku ?? r.barcode ?? '';
+      let targets: MenuItem[] = [];
+      if (r.itemId && found.get(r.itemId)) targets = [found.get(r.itemId)!];
+      else if (r.sku?.trim() && bySku.get(r.sku.trim())) targets = [bySku.get(r.sku.trim())!];
+      else if (r.barcode?.trim() && byBarcode.get(r.barcode.trim())) targets = byBarcode.get(r.barcode.trim())!;
+      if (!targets.length) {
+        result.notFound.push({ row, key: key || '(no id, sku or barcode)' });
+        return;
+      }
+      if (r.stockQty === undefined && r.delta === undefined && r.available === undefined) {
+        result.errors.push({ row, error: 'nothing to change: send stockQty, delta or available' });
+        return;
+      }
+      for (const item of targets) {
+        const before = JSON.stringify([item.stockQty, item.trackStock, item.available]);
+        if (r.stockQty !== undefined || r.delta !== undefined) {
+          const next = r.stockQty !== undefined ? Number(r.stockQty) : Math.max(0, Math.round(((item.stockQty ?? 0) + Number(r.delta)) * 1000) / 1000);
+          if (item.sellBy !== 'WEIGHT' && !Number.isInteger(next)) {
+            result.errors.push({ row, error: `"${item.name}" is sold by the piece: the stock must be a whole number` });
+            continue;
+          }
+          item.stockQty = next;
+          item.trackStock = true;
+          if (next > 0) item.restockAt = null;
+        }
+        if (r.available !== undefined) {
+          item.available = r.available;
+          if (r.available) item.restockAt = null;
+        }
+        if (JSON.stringify([item.stockQty, item.trackStock, item.available]) === before) result.unchanged++;
+        else dirty.set(item.id, item);
+      }
+    });
+    if (dirty.size) await this.items.save([...dirty.values()]);
+    result.updated = dirty.size;
+    return result;
   }
 
   // ------------------------------------------------------------------ 86 / availability
@@ -492,6 +748,19 @@ export class MenuService {
         i.imageUrl ?? '',
         i.isPopular ? 'true' : 'false',
         this.groupsToCell(i.modifierGroups as any),
+        i.sku ?? '',
+        i.barcode ?? '',
+        i.brand ?? '',
+        i.packSize ?? '',
+        i.sellBy ?? 'UNIT',
+        i.weightUnit ?? 'KG',
+        i.sellBy === 'WEIGHT' ? i.stepSize : '',
+        i.trackStock ? 'true' : 'false',
+        i.trackStock ? i.stockQty ?? '' : '',
+        i.lowStockThreshold ?? '',
+        i.maxPerOrder ?? '',
+        i.minAge ?? 0,
+        i.temperature ?? 'AMBIENT',
       ]);
     }
     return toCsv(rows);
@@ -506,6 +775,7 @@ export class MenuService {
     const col = (r: string[], k: string) => (r[header.indexOf(k)] ?? '').trim();
     const errors: { row: number; error: string }[] = [];
     const parsed: any[] = [];
+    const seenSkus = new Set<string>();
     rows.slice(1).forEach((r, idx) => {
       try {
         const price = parseFloat(col(r, 'price'));
@@ -514,7 +784,57 @@ export class MenuService {
         const list = (k: string) => col(r, k).split(/[|;]/).map((s) => s.trim()).filter(Boolean);
         const dayparts = list('dayparts').map((d) => d.toUpperCase());
         for (const d of dayparts) if (!DAYPARTS.includes(d)) throw new Error(`unknown daypart ${d}`);
+        // catalog columns: only those present in the header AND filled in change anything (an empty cell means "no change")
+        const catalog: Partial<CatalogFieldsDto> = {};
+        const cell = (k: string) => (header.includes(k) ? col(r, k) : '');
+        const numCell = (k: string) => {
+          const v = cell(k);
+          if (v === '') return undefined;
+          const n = Number(v);
+          if (!Number.isFinite(n)) throw new Error(`${k} must be a number`);
+          return n;
+        };
+        const boolCell = (k: string) => (cell(k) === '' ? undefined : /^(true|1|yes|y)$/i.test(cell(k)));
+        if (cell('sku')) catalog.sku = cell('sku');
+        if (cell('barcode')) {
+          if (!/^[0-9]{6,14}$/.test(cell('barcode'))) throw new Error('barcode must be 6 to 14 digits');
+          catalog.barcode = cell('barcode');
+        }
+        if (cell('brand')) catalog.brand = cell('brand');
+        if (cell('pack_size')) catalog.packSize = cell('pack_size');
+        if (cell('sell_by')) {
+          const v = cell('sell_by').toUpperCase();
+          if (v !== 'UNIT' && v !== 'WEIGHT') throw new Error('sell_by must be UNIT or WEIGHT');
+          catalog.sellBy = v;
+        }
+        if (cell('weight_unit')) {
+          const v = cell('weight_unit').toUpperCase();
+          if (v !== 'KG' && v !== 'LB') throw new Error('weight_unit must be KG or LB');
+          catalog.weightUnit = v;
+        }
+        if (numCell('step_size') !== undefined) catalog.stepSize = numCell('step_size');
+        if (boolCell('track_stock') !== undefined) catalog.trackStock = boolCell('track_stock');
+        if (numCell('stock_qty') !== undefined) {
+          catalog.stockQty = numCell('stock_qty');
+          if (catalog.trackStock === undefined) catalog.trackStock = true; // a stock level starts tracking
+        }
+        if (numCell('low_stock') !== undefined) catalog.lowStockThreshold = numCell('low_stock');
+        if (numCell('max_per_order') !== undefined) catalog.maxPerOrder = Math.trunc(numCell('max_per_order')!);
+        if (numCell('min_age') !== undefined) {
+          catalog.minAge = Math.trunc(numCell('min_age')!);
+          if (!MIN_AGES.includes(catalog.minAge)) throw new Error(`min_age must be one of ${MIN_AGES.join(', ')}`);
+        }
+        if (cell('temperature')) {
+          const v = cell('temperature').toUpperCase();
+          if (v !== 'AMBIENT' && v !== 'CHILLED' && v !== 'FROZEN') throw new Error('temperature must be AMBIENT, CHILLED or FROZEN');
+          catalog.temperature = v;
+        }
+        if (catalog.sku) {
+          if (seenSkus.has(catalog.sku.toLowerCase())) throw new Error(`sku "${catalog.sku}" appears twice in this file`);
+          seenSkus.add(catalog.sku.toLowerCase());
+        }
         parsed.push({
+          catalog,
           category: col(r, 'category'),
           name: col(r, 'name'),
           description: col(r, 'description') || null,
@@ -537,6 +857,8 @@ export class MenuService {
       }
     });
     if (errors.length) throw new BadRequestException({ message: 'CSV has errors - nothing was imported', details: errors });
+    // age-restricted products need the store's licence: refuse the whole file up front instead of failing half way
+    if (parsed.some((p) => (p.catalog.minAge ?? 0) > 0)) await this.assertMayListAgeRestricted(restaurantId);
 
     if (mode === 'replace') {
       const ids = (await this.items.find({ where: { restaurantId }, select: ['id'] })).map((i) => i.id);
@@ -569,8 +891,13 @@ export class MenuService {
           stations.set(p.station.toLowerCase(), station);
         }
       }
-      const existing = await this.items.findOne({ where: { restaurantId, name: p.name, categoryId: cat?.id ?? IsNull() } });
+      // the SKU identifies a product when the file has one; otherwise category + name does
+      const existing =
+        (p.catalog.sku ? await this.items.findOne({ where: { restaurantId, sku: p.catalog.sku } }) : null) ??
+        (await this.items.findOne({ where: { restaurantId, name: p.name, categoryId: cat?.id ?? IsNull() } }));
+      const catalogFields = await this.catalogFields(restaurantId, p.catalog, existing ?? undefined);
       const fields: Partial<MenuItem> = {
+        ...catalogFields,
         categoryId: cat?.id ?? null,
         description: p.description,
         price: p.price,
@@ -589,6 +916,7 @@ export class MenuService {
       let item: MenuItem;
       if (existing) {
         Object.assign(existing, fields);
+        existing.name = p.name; // matched by SKU: the file's name wins
         item = await this.items.save(existing);
         updated++;
       } else {

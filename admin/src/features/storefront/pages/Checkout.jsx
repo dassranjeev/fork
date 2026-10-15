@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import AddressSearch from "../components/AddressSearch";
-import { CartLines } from "../components/CartPanel";
+import { CartLines, RetailCartNotes } from "../components/CartPanel";
 import PaymentSection from "../components/PaymentSection";
 import { Dialog, ErrorBox, Loading, Notice, Ri, Spinner, useToast } from "../components/ui";
 import { addressSearchEnabled } from "../lib/geocode";
 import { DEMO_LOCATIONS, setLocation, useSfLocation } from "../lib/location";
+import { basketText } from "../lib/retail";
 import { SF_KEYS, errorCode, errorMessage, money, sfHttp, sfStore } from "../lib/sfApi";
 import { useSfAuth } from "../lib/SfAuth";
 import { useSfCart } from "../lib/SfCart";
@@ -25,7 +26,7 @@ function Section({ n, title, children, hint }) {
   );
 }
 
-/** "Add a delivery address" dialog. With address search (Mapbox through the FORKY API) the street, city, postal code and map position are filled from a suggestion; without it the demo areas are the fallback. */
+/** "Add a delivery address" dialog. With address search (the maps provider through the FORKY API) the street, city, postal code and map position are filled from a suggestion; without it the demo areas are the fallback. */
 function AddressDialog({ open, onClose, onSaved }) {
   const loc = useSfLocation();
   const first = DEMO_LOCATIONS.find((l) => loc && l.lat === loc.lat && l.lng === loc.lng) || DEMO_LOCATIONS[0];
@@ -140,7 +141,7 @@ function AddressDialog({ open, onClose, onSaved }) {
 
 export default function Checkout() {
   const { user, loading: authLoading } = useSfAuth();
-  const { cart, ready, busy: cartBusy, setQuantity, setPromo, afterOrder, refresh } = useSfCart();
+  const { cart, ready, busy: cartBusy, setQuantity, setSubstitution, setPromo, afterOrder, refresh } = useSfCart();
   const navigate = useNavigate();
   const toast = useToast();
   const loc = useSfLocation();
@@ -166,6 +167,7 @@ export default function Checkout() {
   const [quoting, setQuoting] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [placeErr, setPlaceErr] = useState("");
+  const [ageOk, setAgeOk] = useState(false); // "I am at least 19 and I will show ID" (age-restricted products in the basket)
   const [payState, setPayState] = useState({ provider: null, stripeReady: false, loading: true, error: "" });
   const payRef = useRef(null);
   const placeLock = useRef(false);
@@ -224,6 +226,10 @@ export default function Checkout() {
   }
 
   const delivery = mode === "DELIVERY";
+  const needsAge = !!cart.requiresIdCheck;
+  const minAge = cart.minAge || 19;
+  // age-restricted products are handed over in person: what the customer picked, except "leave at my door" (a saved address default may say so)
+  const handOver = method === "LEAVE_AT_DOOR" ? "HAND_TO_ME" : method;
   const subtotal = cart.subtotal;
   const tip = !delivery ? 0 : tipPct === "custom" ? Math.max(0, Math.min(500, Math.round(Number(tipCustom || 0) * 100) / 100)) : Math.round(subtotal * (Number(tipPct) / 100) * 100) / 100;
   const codeBad = accessCode.trim() !== "" && !ACCESS_CODE_RE.test(accessCode.trim());
@@ -239,7 +245,8 @@ export default function Checkout() {
     setQuoting(true);
     const t = setTimeout(async () => {
       try {
-        const body = { type: mode, tip: delivery ? tip : undefined, useWallet: useWallet || undefined, ...(delivery ? { addressId: addrId } : {}) };
+        // the quote prices an age-restricted basket before the box is ticked too (it says ageConfirmationRequired); paying and ordering need the box
+        const body = { type: mode, tip: delivery ? tip : undefined, useWallet: useWallet || undefined, ageConfirmed: needsAge && ageOk ? true : undefined, ...(delivery ? { addressId: addrId, ...(needsAge ? { dropoffMethod: handOver } : {}) } : {}) };
         const q = await sfHttp.post("/customer/checkout/quote", body);
         if (my !== seq.current) return;
         setQuote(q);
@@ -253,7 +260,7 @@ export default function Checkout() {
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [user, ready, restId, mode, addrId, addrOk, delivery, tip, useWallet, cart.promoCode, cart.subtotal, cart.itemCount]);
+  }, [user, ready, restId, mode, addrId, addrOk, delivery, tip, useWallet, needsAge, ageOk, handOver, cart.promoCode, cart.subtotal, cart.itemCount]);
 
   const applyPromo = async () => {
     const code = promoText.trim().toUpperCase();
@@ -263,21 +270,26 @@ export default function Checkout() {
   };
 
   // the same fields as the quote: the server prices the cart again to create the payment (the amount is never taken from this page)
-  const quoteBody = useMemo(() => ({ type: mode, tip: delivery ? tip : undefined, useWallet: useWallet || undefined, ...(delivery ? { addressId: addrId } : {}) }), [mode, delivery, tip, useWallet, addrId]);
+  const quoteBody = useMemo(() => ({ type: mode, tip: delivery ? tip : undefined, useWallet: useWallet || undefined, ageConfirmed: needsAge && ageOk ? true : undefined, ...(delivery ? { addressId: addrId, ...(needsAge ? { dropoffMethod: handOver } : {}) } : {}) }), [mode, delivery, tip, useWallet, addrId, needsAge, ageOk, handOver]);
   const cardAmount = quote ? Math.round((Number(quote.total) - Number(quote.walletUsed || 0)) * 100) / 100 : 0;
   const onPayState = useCallback((s) => setPayState(s), []);
 
   const rule = useMemo(() => (opts?.methods || []).find((m) => m.value === method), [opts, method]);
   const leave = method === "LEAVE_AT_DOOR";
+  // age-restricted products are handed over in person (the driver checks ID): "leave at my door" is not offered, and a saved address that prefers it is switched
+  useEffect(() => {
+    if (needsAge && method === "LEAVE_AT_DOOR") setMethod("HAND_TO_ME");
+  }, [needsAge, method]);
 
   const blockers = [];
   if (!rest) blockers.push("Your cart is empty.");
   if (rest && rest.isOpen === false) blockers.push(`${rest.name} is closed right now.`);
-  if (rest && !cart.valid) blockers.push("Some items in your cart are not available. Remove them to continue.");
+  if (rest && !cart.valid) blockers.push(cart.lines.some((l) => l.problem === "INSUFFICIENT_STOCK") ? "Some items are low in stock. Lower the quantity or remove them to continue." : "Some items in your cart are not available. Remove them to continue.");
   if (rest && !cart.meetsMinimum) blockers.push(`Minimum order is ${money(rest.minimumOrder)}.`);
   if (rest && !mode) blockers.push("This place is not taking pickup or delivery orders right now.");
   if (delivery && !addrId) blockers.push("Choose or add a delivery address.");
   if (delivery && codeBad) blockers.push("The access code has characters that are not allowed.");
+  if (needsAge && !ageOk) blockers.push(`Confirm that you are at least ${minAge} to place this order.`);
   if (quoteErr && !(delivery && addrId)) blockers.push(quoteErr);
   const payBlocked = payState.provider === "none" || (cardAmount > 0.009 && payState.provider === "stripe" && !!payState.error && !payState.stripeReady);
   const canPlace = blockers.length === 0 && !quoteErr && !!quote && !quoting && !placing && !cartBusy && !payBlocked && payState.provider !== null;
@@ -298,6 +310,7 @@ export default function Checkout() {
         tip: delivery ? tip : undefined,
         useWallet: useWallet || undefined,
         customerNotes: kitchenNote.trim() || undefined,
+        ageConfirmed: needsAge ? true : undefined,
         ...(delivery
           ? {
               addressId: addrId,
@@ -353,10 +366,11 @@ export default function Checkout() {
       <div className="sf-co-layout">
         <div className="sf-co-main">
           <Section n={1} title={`Your order from ${rest.name}`}>
-            <CartLines cart={cart} busy={cartBusy} setQuantity={setQuantity} />
+            <CartLines cart={cart} busy={cartBusy} setQuantity={setQuantity} setSubstitution={setSubstitution} />
             {cart.issues.filter((i) => i.code !== "BELOW_MINIMUM").map((i, n) => (
               <Notice key={n} tone="warn" className="mt-2">{i.message}</Notice>
             ))}
+            <RetailCartNotes cart={cart} pickup={mode === "PICKUP"} />
             <Link to={`/order/r/${encodeURIComponent(rest.slug)}`} className="sf-btn sf-btn-link">
               <Ri name="add-line" /> Add more items
             </Link>
@@ -415,13 +429,20 @@ export default function Checkout() {
 
               <Section n={4} title="Delivery instructions" hint="These go to your driver only. Notes for the kitchen are separate, below.">
                 <div className="sf-methods" role="radiogroup" aria-label="How should we hand over your order?">
-                  {(opts?.methods || [{ value: "HAND_TO_ME", label: "Hand it to me" }, { value: "MEET_OUTSIDE", label: "Meet outside" }, { value: "LEAVE_AT_DOOR", label: "Leave at my door" }]).map((m) => (
-                    <button key={m.value} type="button" role="radio" aria-checked={method === m.value} className={`sf-method ${method === m.value ? "on" : ""}`} onClick={() => setMethod(m.value)} data-testid={`method-${m.value}`}>
-                      <b>{m.label}</b>
-                      {m.description && <span className="sf-small sf-muted">{m.description}</span>}
-                    </button>
-                  ))}
+                  {(opts?.methods || [{ value: "HAND_TO_ME", label: "Hand it to me" }, { value: "MEET_OUTSIDE", label: "Meet outside" }, { value: "LEAVE_AT_DOOR", label: "Leave at my door" }])
+                    .filter((m) => !(needsAge && m.value === "LEAVE_AT_DOOR"))
+                    .map((m) => (
+                      <button key={m.value} type="button" role="radio" aria-checked={method === m.value} className={`sf-method ${method === m.value ? "on" : ""}`} onClick={() => setMethod(m.value)} data-testid={`method-${m.value}`}>
+                        <b>{m.label}</b>
+                        {m.description && <span className="sf-small sf-muted">{m.description}</span>}
+                      </button>
+                    ))}
                 </div>
+                {needsAge && (
+                  <p className="sf-small sf-muted mt-2 mb-0" data-testid="no-leave-note">
+                    <Ri name="id-card-line" /> Your order has age-restricted items, so the driver hands it to you and checks your ID. Leaving it at the door is not available.
+                  </p>
+                )}
                 {rule?.proof?.summary && <p className="sf-small sf-muted mt-2">{rule.proof.summary}</p>}
 
                 <div className={`sf-switchrow ${leave ? "is-off" : ""}`}>
@@ -459,8 +480,8 @@ export default function Checkout() {
             </>
           )}
 
-          <Section n={delivery ? 5 : 3} title="Note for the restaurant" hint="Allergies, preferences, anything the kitchen should know.">
-            <textarea className="sf-input" rows={3} maxLength={1000} value={kitchenNote} onChange={(e) => setKitchenNote(e.target.value)} aria-label="Note for the restaurant" data-testid="kitchen-note" />
+          <Section n={delivery ? 5 : 3} title={rest.retail ? "Note for the store" : "Note for the restaurant"} hint={rest.retail ? "Anything the person picking your order should know." : "Allergies, preferences, anything the kitchen should know."}>
+            <textarea className="sf-input" rows={3} maxLength={1000} value={kitchenNote} onChange={(e) => setKitchenNote(e.target.value)} aria-label={rest.retail ? "Note for the store" : "Note for the restaurant"} data-testid="kitchen-note" />
             <div className="sf-small sf-muted text-end">{kitchenNote.length}/1000</div>
           </Section>
 
@@ -524,9 +545,21 @@ export default function Checkout() {
               </dl>
             )}
             {q?.etaMinutes != null && <p className="sf-small sf-muted">{delivery ? "Estimated delivery" : "Ready for pickup in about"} {q.etaMinutes} min</p>}
+            {q?.basket?.lines > 0 && rest.retail && (
+              <p className="sf-small sf-muted" data-testid="basket-summary">
+                <Ri name="shopping-basket-2-line" /> {basketText(q.basket)}
+                {q.basket.chilled + q.basket.frozen > 0 ? ". Includes chilled or frozen items, kept cold for you." : ""}
+              </p>
+            )}
             {(q?.warnings || []).map((w, i) => (
               <Notice key={i} tone="warn">{typeof w === "string" ? w : w.message}</Notice>
             ))}
+            {needsAge && (
+              <label className="sf-check sf-agebox mt-2">
+                <input type="checkbox" checked={ageOk} onChange={(e) => setAgeOk(e.target.checked)} aria-required="true" data-testid="age-confirm" />
+                <span>I am at least {minAge} years old and I will show ID {delivery ? "on delivery" : "when I collect it"}</span>
+              </label>
+            )}
             {blockers.map((b, i) => (
               <Notice key={i} tone="warn" className="mt-2">{b}</Notice>
             ))}
@@ -536,7 +569,7 @@ export default function Checkout() {
             </button>
             <p className="sf-small sf-muted mt-2 mb-0">
               {payState.provider === "mock" ? "Test payment only. " : ""}
-              {cardAmount > 0.009 && payState.provider === "stripe" ? "Your card is charged when you place the order. If the restaurant cannot take it, the full amount is refunded. " : ""}
+              {cardAmount > 0.009 && payState.provider === "stripe" ? `Your card is charged when you place the order. If the ${rest.retail ? "store" : "restaurant"} cannot take it, the full amount is refunded. ` : ""}
               You can follow your order live after you place it.
             </p>
           </div>

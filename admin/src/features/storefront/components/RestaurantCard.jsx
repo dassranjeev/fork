@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { fmtOpens } from "../lib/fmt";
+import { storeBadge } from "../lib/retail";
 import { money } from "../lib/sfApi";
 import { Pic, Ri, priceLevel } from "./ui";
 
@@ -27,6 +28,7 @@ export function Rating({ r }) {
 export default function RestaurantCard({ r }) {
   const av = availability(r);
   const closed = r.serviceMode === "CLOSED" || r.isOpen === false;
+  const badge = storeBadge(r); // "Grocery store" for retail stores; restaurants have none
   return (
     <Link to={`/order/r/${encodeURIComponent(r.slug)}`} className={`sf-card sf-rcard ${closed ? "is-closed" : ""}`} data-testid="restaurant-card" data-slug={r.slug}>
       <div className="sf-rcard-cover">
@@ -39,6 +41,11 @@ export default function RestaurantCard({ r }) {
           <Pic src={r.logoUrl} name={r.name} className="sf-rcard-logo" rounded />
           <div className="sf-rcard-name">
             <h3>{r.name}</h3>
+            {badge && (
+              <div>
+                <span className="sf-tag sf-tag-store" data-testid="store-badge">{badge}</span>
+              </div>
+            )}
             <div className="sf-small sf-muted">
               {(r.cuisines || []).slice(0, 3).join(" - ")}
               {r.priceLevel ? ` - ${priceLevel(r.priceLevel)}` : ""}
@@ -61,7 +68,7 @@ export default function RestaurantCard({ r }) {
         </div>
         {r.matchedDishes?.length > 0 && (
           <div className="sf-small sf-muted sf-rcard-dishes">
-            <Ri name="restaurant-2-line" /> {r.matchedDishes.map((d) => d.name).join(", ")}
+            <Ri name={r.retail ? "shopping-basket-2-line" : "restaurant-2-line"} /> {r.matchedDishes.map((d) => d.name).join(", ")}
           </div>
         )}
       </div>

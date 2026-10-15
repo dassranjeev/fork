@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { ErrorBox, Loading, Ri, Spinner } from "../components/ui";
 import { fmtDateTime } from "../lib/fmt";
+import { statusWords } from "../lib/retail";
 import { errorMessage, money, sfHttp } from "../lib/sfApi";
 import { useSfAuth } from "../lib/SfAuth";
 
@@ -48,8 +49,8 @@ export default function Orders() {
         {(rows || []).map((o) => (
           <Link key={o.id} to={`/order/track/${o.id}`} className="sf-card sf-pad sf-orderrow" data-testid="order-row">
             <div className="sf-row-between">
-              <b>{o.code}</b>
-              <span className={`sf-tag sf-tag-${tone(o.status)}`}>{o.status.replace(/_/g, " ")}</span>
+              <b>{o.code}{o.restaurantName ? ` - ${o.restaurantName}` : ""}</b>
+              <span className={`sf-tag sf-tag-${tone(o.status)}`} data-testid="order-status">{statusWords(o)}</span>
             </div>
             <div className="sf-row-between sf-small sf-muted">
               <span>

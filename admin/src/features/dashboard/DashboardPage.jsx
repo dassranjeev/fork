@@ -123,9 +123,9 @@ export default function DashboardPage() {
                     {d.pendingApprovals?.total ? (
                       <ul className="list-unstyled mb-0 d-flex flex-column gap-12">
                         {[
-                          ["restaurants", "Restaurants", "/restaurants"],
+                          ["restaurants", "Businesses", "/restaurants"],
                           ["drivers", "Drivers", "/drivers"],
-                          ["restaurantDocuments", "Restaurant documents", "/restaurants"],
+                          ["restaurantDocuments", "Business documents", "/restaurants"],
                           ["driverDocuments", "Driver documents", "/drivers"],
                           ["promotions", "Promotions", "/promotions"],
                           ["refunds", "Refunds", "/refunds"],

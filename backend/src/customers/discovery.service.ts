@@ -21,8 +21,9 @@ import {
   User,
   Zone,
 } from '../database/entities';
-import { OrderStatus, RestaurantServiceMode, RestaurantStatus } from '../common/enums';
+import { OrderStatus, RestaurantServiceMode, RestaurantStatus, StoreType } from '../common/enums';
 import { fulfilmentAvailability } from '../common/service-mode';
+import { STORE_PROFILES, STORE_TYPES, estimatedWeight, parseStoreTypeFilter, profileOf, stepOf, unitPriceOf, weightLabel } from '../common/store-types';
 import { haversineKm, haversineSql, roadEstimate } from '../common/geo.util';
 import { AvailabilityService, daypartOf, GeoService, zonedParts } from '../core/core.module';
 import { SettingsService } from '../settings/settings.service';
@@ -48,6 +49,13 @@ export interface RestaurantCard {
   name: string;
   logoUrl: string | null;
   coverUrl: string | null;
+  /** what kind of business this is: RESTAURANT, CAFE, BAKERY, GROCERY, CONVENIENCE, SPECIALTY (docs/store-types.md) */
+  storeType: StoreType;
+  storeTypeLabel: string;
+  /** FOOD (restaurant, cafe, bakery) or RETAIL (grocery, convenience, specialty) */
+  vertical: 'FOOD' | 'RETAIL';
+  /** true: the store sells products picked from shelves (catalog, weights, substitutions) instead of cooked dishes */
+  retail: boolean;
   cuisines: string[];
   /** null (with ratingLabel "New") until the restaurant has ratings.minCountToShow reviews */
   rating: number | null;
@@ -154,15 +162,16 @@ export class DiscoveryService {
   }
 
   /** Nearby LIVE restaurants (SQL prefilter) with cuisines loaded, nearest first. */
-  private async nearby(loc: Loc, limit = 150): Promise<Restaurant[]> {
-    const rows = await this.ds
+  private async nearby(loc: Loc, limit = 150, types: StoreType[] | null = null): Promise<Restaurant[]> {
+    const qb = this.ds
       .getRepository(Restaurant)
       .createQueryBuilder('r')
       .leftJoinAndSelect('r.cuisines', 'c')
       .where('r.status = :live', { live: RestaurantStatus.LIVE })
       .andWhere('r.lat IS NOT NULL AND r.lng IS NOT NULL')
-      .andWhere(`${haversineSql('r.lat', 'r.lng')} <= :maxKm`, { lat: loc.lat, lng: loc.lng, maxKm: MAX_DISCOVERY_KM })
-      .getMany();
+      .andWhere(`${haversineSql('r.lat', 'r.lng')} <= :maxKm`, { lat: loc.lat, lng: loc.lng, maxKm: MAX_DISCOVERY_KM });
+    if (types) qb.andWhere('r.storeType IN (:...types)', { types: types.length ? types : ['__none__'] });
+    const rows = await qb.getMany();
     const d = (r: Restaurant) => haversineKm(loc.lat, loc.lng, r.lat!, r.lng!);
     return rows.sort((a, b) => d(a) - d(b)).slice(0, limit);
   }
@@ -199,6 +208,10 @@ export class DiscoveryService {
           name: r.name,
           logoUrl: r.logoUrl,
           coverUrl: r.coverUrl,
+          storeType: r.storeType ?? StoreType.RESTAURANT,
+          storeTypeLabel: profileOf(r.storeType).label,
+          vertical: profileOf(r.storeType).vertical,
+          retail: profileOf(r.storeType).retail,
           cuisines: (r.cuisines ?? []).map((c) => c.name),
           ...ratingDisplay(r.rating, r.ratingCount, this.settings.get<number>('ratings.minCountToShow', 5)),
           priceLevel: r.priceLevel,
@@ -234,11 +247,15 @@ export class DiscoveryService {
   }
 
   // ------------------------------------------------------------------ home feed
-  async home(latIn?: number, lngIn?: number, customerId?: string) {
+  async home(latIn?: number, lngIn?: number, customerId?: string, filter: { storeType?: string; vertical?: string } = {}) {
     const loc = await this.resolveLocation(latIn, lngIn);
-    const [list, favorites] = await Promise.all([this.nearby(loc), this.favoritesOf(customerId)]);
+    const types = parseStoreTypeFilter(filter.storeType, filter.vertical);
+    const [allNearby, favorites] = await Promise.all([this.nearby(loc), this.favoritesOf(customerId)]);
+    // the type tiles always count every kind of store around the customer; the feed below follows the chosen types
+    const list = types ? allNearby.filter((r) => types.includes(r.storeType)) : allNearby;
     const promos = await this.activePromos(list.map((r) => r.id), loc.city?.id ?? null);
-    const cards = (await this.buildCards(list, loc, { favorites, promos })).filter((c) => c.deliveryAvailable || (c.pickupAvailable && (c.distanceKm ?? 99) <= 10) || (c.serviceMode === RestaurantServiceMode.CLOSED && c.inDeliveryRange));
+    const reach = (c: RestaurantCard) => c.deliveryAvailable || (c.pickupAvailable && (c.distanceKm ?? 99) <= 10) || (c.serviceMode === RestaurantServiceMode.CLOSED && c.inDeliveryRange);
+    const cards = (await this.buildCards(list, loc, { favorites, promos })).filter(reach);
     // CLOSED stores that normally deliver here stay in the lists (shown as closed, sorted after open ones)
     const deliverable = cards.filter((c) => c.deliveryAvailable || (c.serviceMode === RestaurantServiceMode.CLOSED && c.inDeliveryRange));
     const pickupOnlyStores = cards.filter((c) => c.serviceMode === RestaurantServiceMode.PICKUP_ONLY && c.pickupAvailable);
@@ -273,6 +290,12 @@ export class DiscoveryService {
       .filter((c) => c.restaurantCount > 0);
 
     const banners = await this.banners(loc.city?.id ?? null, 'HOME');
+    const tileSource = types ? (await this.buildCards(allNearby, loc, { favorites })).filter(reach) : cards;
+    const storeTypes = STORE_TYPES.map((type) => {
+      const p = STORE_PROFILES[type];
+      const mine = tileSource.filter((c) => c.storeType === type);
+      return { type, label: p.label, pluralLabel: p.pluralLabel, vertical: p.vertical, retail: p.retail, count: mine.length, openCount: mine.filter((c) => c.isOpen).length };
+    });
     const platformPromos = promos.filter((p) => !p.restaurantId && p.code && p.autoApply === false).slice(0, 5).map((p) => ({ id: p.id, code: p.code, name: p.name, description: p.description, label: promoLabel(p), minSubtotal: p.minSubtotal, endsAt: p.endsAt }));
 
     return {
@@ -285,6 +308,11 @@ export class DiscoveryService {
         city: loc.city ? { id: loc.city.id, name: loc.city.name, timezone: loc.city.timezone } : null,
       },
       banners,
+      /** every kind of store around the customer (always unfiltered): tiles for "Restaurants", "Grocery", "Convenience"... */
+      storeTypes,
+      filter: { storeTypes: types, applied: !!types },
+      /** nearby stores split by what they are: made-to-order food vs. grocery / retail (each already sorted open first, nearest first) */
+      sections: { food: nearby.filter((c) => c.vertical === 'FOOD').slice(0, 20), retail: nearby.filter((c) => c.vertical === 'RETAIL').slice(0, 20) },
       cuisines,
       nearby: nearby.slice(0, 20),
       pickupOnly: [...pickupOnlyStores].sort(byDistance).slice(0, 20),
@@ -294,7 +322,14 @@ export class DiscoveryService {
       fastest: fastest.slice(0, 12),
       favorites: customerId ? cards.filter((c) => c.isFavorite).slice(0, 12) : [],
       promotions: platformPromos,
-      counts: { restaurants: deliverable.length, open: deliverable.filter((c) => c.isOpen).length, pickupOnly: pickupOnlyStores.length },
+      counts: {
+        restaurants: deliverable.length,
+        stores: deliverable.length,
+        open: deliverable.filter((c) => c.isOpen).length,
+        pickupOnly: pickupOnlyStores.length,
+        food: deliverable.filter((c) => c.vertical === 'FOOD').length,
+        retail: deliverable.filter((c) => c.vertical === 'RETAIL').length,
+      },
     };
   }
 
@@ -326,6 +361,12 @@ export class DiscoveryService {
       dietary?: string;
       excludeAllergens?: string;
       cuisine?: string;
+      /** one or more store types, comma separated (GROCERY,BAKERY) */
+      storeType?: string;
+      /** FOOD (restaurant, cafe, bakery) or RETAIL (grocery, convenience, specialty) */
+      vertical?: string;
+      /** exact barcode / SKU lookup (also tried when q is 6 to 14 digits) */
+      barcode?: string;
       pickupOnly?: string;
       /** pickup | delivery: only stores where that fulfilment is available right now */
       fulfilment?: string;
@@ -352,8 +393,10 @@ export class DiscoveryService {
     const dietary = csv(q.dietary).map((d) => d.toLowerCase());
     const exclude = csv(q.excludeAllergens).map((d) => d.toLowerCase());
     const cuisineSlugs = csv(q.cuisine).map((s) => s.toLowerCase());
+    const types = parseStoreTypeFilter(q.storeType, q.vertical);
+    const barcode = /^\d{6,14}$/.test(text) ? text : /^\d{6,14}$/.test((q.barcode ?? '').trim()) ? (q.barcode ?? '').trim() : null;
 
-    const list = await this.nearby(loc);
+    const list = await this.nearby(loc, 150, types);
     const favorites = await this.favoritesOf(customerId);
     let cards = await this.buildCards(list, loc, { favorites });
     const byId = new Map(list.map((r) => [r.id, r]));
@@ -396,13 +439,14 @@ export class DiscoveryService {
     type DishRow = MenuItem;
     let dishes: DishRow[] = [];
     const cardIds = cards.map((c) => c.id);
-    if ((type === 'all' || type === 'dishes') && cardIds.length && (tokens.length || dietary.length)) {
+    if ((type === 'all' || type === 'dishes') && cardIds.length && (tokens.length || dietary.length || barcode)) {
       const qb = this.ds
         .getRepository(MenuItem)
         .createQueryBuilder('i')
         .where('i.restaurantId IN (:...ids)', { ids: cardIds })
         .andWhere('i.active = true');
-      tokens.forEach((t, i) => qb.andWhere(`(i.name ILIKE :t${i} OR i.description ILIKE :t${i})`, { [`t${i}`]: `%${t.replace(/[%_\\]/g, (m) => `\\${m}`)}%` }));
+      if (barcode) qb.andWhere('(i.barcode = :bc OR i.sku = :bc)', { bc: barcode });
+      else tokens.forEach((t, i) => qb.andWhere(`(i.name ILIKE :t${i} OR i.description ILIKE :t${i} OR i.brand ILIKE :t${i} OR i.sku ILIKE :t${i})`, { [`t${i}`]: `%${t.replace(/[%_\\]/g, (m) => `\\${m}`)}%` }));
       dietary.forEach((d, i) => qb.andWhere(`i.dietaryTags @> :dt${i}::jsonb`, { [`dt${i}`]: JSON.stringify([d]) }));
       dishes = await qb.orderBy('i.isPopular', 'DESC').limit(400).getMany();
       if (exclude.length) dishes = dishes.filter((d) => !d.allergens.some((a) => exclude.includes(String(a).toLowerCase())));
@@ -462,8 +506,9 @@ export class DiscoveryService {
           price: d.price,
           dietaryTags: d.dietaryTags,
           allergens: d.allergens,
-          available: d.available,
-          restaurant: { id: c.id, slug: c.slug, name: c.name, logoUrl: c.logoUrl, isOpen: c.isOpen, distanceKm: c.distanceKm, etaMinutes: c.etaMinutes },
+          available: this.availability.itemSellable(d),
+          ...this.productFacts(d),
+          restaurant: { id: c.id, slug: c.slug, name: c.name, logoUrl: c.logoUrl, isOpen: c.isOpen, distanceKm: c.distanceKm, etaMinutes: c.etaMinutes, storeType: c.storeType, storeTypeLabel: c.storeTypeLabel, retail: c.retail },
         };
       });
 
@@ -480,7 +525,9 @@ export class DiscoveryService {
     return {
       query: text,
       location: { lat: loc.lat, lng: loc.lng, located: loc.located },
+      filter: { storeTypes: types, barcode },
       restaurants: type === 'dishes' ? [] : restaurants,
+      /** the matching dishes / products; a grocery product also carries sku, brand, packSize, sellBy, weightUnit, minAge, inStock... */
       dishes: dishOut,
       cuisines: type === 'restaurants' || type === 'dishes' ? [] : cuisines,
       meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
@@ -495,71 +542,227 @@ export class DiscoveryService {
     return r;
   }
 
-  /** Full menu with modifier groups. `tz` decides which items are inside their daypart right now. */
-  async buildMenu(r: Restaurant, opts: { customerAllergens?: string[]; customerDiet?: string[] } = {}) {
-    const [cats, items] = await Promise.all([
-      this.ds.getRepository(MenuCategory).find({ where: { restaurantId: r.id, active: true }, order: { sortOrder: 'ASC', name: 'ASC' } }),
-      this.ds.getRepository(MenuItem).find({ where: { restaurantId: r.id, active: true }, order: { sortOrder: 'ASC', name: 'ASC' } }),
-    ]);
-    const itemIds = items.map((i) => i.id);
-    const links = itemIds.length ? await this.ds.getRepository(MenuItemModifierGroup).find({ where: { menuItemId: In(itemIds) }, order: { sortOrder: 'ASC' } }) : [];
-    const groupIds = [...new Set(links.map((l) => l.groupId))];
-    const groups = groupIds.length ? await this.ds.getRepository(ModifierGroup).find({ where: { id: In(groupIds) } }) : [];
-    const options = groupIds.length ? await this.ds.getRepository(ModifierOption).find({ where: { groupId: In(groupIds) }, order: { sortOrder: 'ASC', name: 'ASC' } }) : [];
-    const groupMap = new Map(groups.map((g) => [g.id, g]));
+  /** The catalog facts of a product (groceries / retail): all safe defaults for a plain restaurant dish. */
+  productFacts(i: MenuItem) {
+    const weighed = i.sellBy === 'WEIGHT';
+    const step = stepOf(i);
+    const tracked = !!i.trackStock;
+    const stock = Number(i.stockQty ?? 0);
+    const inStock = !tracked || stock > 0;
+    const cap = Math.min(99, i.maxPerOrder ?? 99);
+    // the most the customer can put in the cart: what is on the shelf (in pieces, or in steps for weighed products) and the per-order limit
+    const maxQuantity = !inStock ? 0 : tracked ? Math.max(0, Math.min(cap, Math.floor(weighed ? stock / step : stock))) : cap;
+    return {
+      sku: i.sku ?? null,
+      barcode: i.barcode ?? null,
+      brand: i.brand ?? null,
+      packSize: i.packSize ?? null,
+      sellBy: (i.sellBy ?? 'UNIT') as 'UNIT' | 'WEIGHT',
+      weightUnit: weighed ? i.weightUnit : null,
+      /** weighed products: the weight of one step and the price of one step (price is per weightUnit) */
+      stepSize: weighed ? step : null,
+      stepPrice: weighed ? unitPriceOf(i) : null,
+      stepLabel: weighed ? weightLabel(i, 1) : null,
+      inStock,
+      lowStock: tracked && inStock && i.lowStockThreshold != null && stock <= i.lowStockThreshold,
+      maxQuantity,
+      maxPerOrder: i.maxPerOrder ?? null,
+      minAge: i.minAge ?? 0,
+      ageRestricted: (i.minAge ?? 0) > 0,
+      temperature: (i.temperature ?? 'AMBIENT') as 'AMBIENT' | 'CHILLED' | 'FROZEN',
+    };
+  }
+
+  /** Turns items into customer-facing products (modifier groups, daypart / stock availability, allergen conflicts). `tz` decides which items are inside their daypart now. */
+  private async shaper(r: Restaurant, opts: { customerAllergens?: string[] } = {}) {
+    const cats = await this.ds.getRepository(MenuCategory).find({ where: { restaurantId: r.id, active: true }, order: { sortOrder: 'ASC', name: 'ASC' } });
     const tz = await this.availability.timezoneFor(r);
     const now = new Date();
     const part = daypartOf(zonedParts(now, tz).minutes);
     const catMap = new Map(cats.map((c) => [c.id, c]));
     const allergenSet = new Set((opts.customerAllergens ?? []).map((a) => a.toLowerCase()));
-
-    const shape = (i: MenuItem) => {
-      const cat = i.categoryId ? catMap.get(i.categoryId) : undefined;
-      const catBlocked = !!cat?.dayparts?.length && !cat.dayparts.includes(part);
-      const sellable = this.availability.itemSellable(i, now, tz) && !catBlocked;
-      const dayBlocked = catBlocked || (!!i.dayparts?.length && !i.dayparts.includes(part));
-      return {
-        id: i.id,
-        name: i.name,
-        description: i.description,
-        imageUrl: i.imageUrl,
-        price: i.price,
-        pickupPrice: i.pickupPrice,
-        calories: i.calories,
-        allergens: i.allergens,
-        dietaryTags: i.dietaryTags,
-        isPopular: i.isPopular,
-        isCombo: i.isCombo,
-        dayparts: i.dayparts,
-        available: sellable,
-        unavailableReason: sellable ? null : !i.available ? 'OUT_OF_STOCK' : dayBlocked ? 'NOT_SERVED_NOW' : 'UNAVAILABLE',
-        allergenConflict: i.allergens.filter((a) => allergenSet.has(String(a).toLowerCase())),
-        modifierGroups: links
-          .filter((l) => l.menuItemId === i.id && groupMap.has(l.groupId))
-          .map((l) => {
-            const g = groupMap.get(l.groupId)!;
-            return {
-              id: g.id,
-              name: g.name,
-              required: g.required || g.minSelect > 0,
-              minSelect: g.required ? Math.max(1, g.minSelect) : g.minSelect,
-              maxSelect: g.maxSelect,
-              options: options.filter((o) => o.groupId === g.id).map((o) => ({ id: o.id, name: o.name, priceDelta: o.priceDelta, isDefault: o.isDefault, available: o.available })),
-            };
-          }),
-      };
+    const shapeAll = async (list: MenuItem[]) => {
+      const itemIds = list.map((i) => i.id);
+      const links = itemIds.length ? await this.ds.getRepository(MenuItemModifierGroup).find({ where: { menuItemId: In(itemIds) }, order: { sortOrder: 'ASC' } }) : [];
+      const groupIds = [...new Set(links.map((l) => l.groupId))];
+      const groups = groupIds.length ? await this.ds.getRepository(ModifierGroup).find({ where: { id: In(groupIds) } }) : [];
+      const options = groupIds.length ? await this.ds.getRepository(ModifierOption).find({ where: { groupId: In(groupIds) }, order: { sortOrder: 'ASC', name: 'ASC' } }) : [];
+      const groupMap = new Map(groups.map((g) => [g.id, g]));
+      return list.map((i) => {
+        const cat = i.categoryId ? catMap.get(i.categoryId) : undefined;
+        const catBlocked = !!cat?.dayparts?.length && !cat.dayparts.includes(part);
+        const sellable = this.availability.itemSellable(i, now, tz) && !catBlocked;
+        const dayBlocked = catBlocked || (!!i.dayparts?.length && !i.dayparts.includes(part));
+        const soldOut = !!i.trackStock && Number(i.stockQty ?? 0) <= 0;
+        return {
+          id: i.id,
+          name: i.name,
+          description: i.description,
+          imageUrl: i.imageUrl,
+          price: i.price,
+          pickupPrice: i.pickupPrice,
+          calories: i.calories,
+          allergens: i.allergens,
+          dietaryTags: i.dietaryTags,
+          isPopular: i.isPopular,
+          isCombo: i.isCombo,
+          dayparts: i.dayparts,
+          categoryId: i.categoryId,
+          ...this.productFacts(i),
+          available: sellable,
+          unavailableReason: sellable ? null : !i.available || soldOut ? 'OUT_OF_STOCK' : dayBlocked ? 'NOT_SERVED_NOW' : 'UNAVAILABLE',
+          allergenConflict: i.allergens.filter((a) => allergenSet.has(String(a).toLowerCase())),
+          modifierGroups: links
+            .filter((l) => l.menuItemId === i.id && groupMap.has(l.groupId))
+            .map((l) => {
+              const g = groupMap.get(l.groupId)!;
+              return {
+                id: g.id,
+                name: g.name,
+                required: g.required || g.minSelect > 0,
+                minSelect: g.required ? Math.max(1, g.minSelect) : g.minSelect,
+                maxSelect: g.maxSelect,
+                options: options.filter((o) => o.groupId === g.id).map((o) => ({ id: o.id, name: o.name, priceDelta: o.priceDelta, isDefault: o.isDefault, available: o.available })),
+              };
+            }),
+        };
+      });
     };
-
-    const categories = cats
-      .map((c) => ({ id: c.id as string | null, name: c.name, description: c.description, dayparts: c.dayparts, items: items.filter((i) => i.categoryId === c.id).map(shape) }))
-      .filter((c) => c.items.length);
-    const loose = items.filter((i) => !i.categoryId || !catMap.has(i.categoryId));
-    if (loose.length) categories.push({ id: null, name: 'Other', description: null, dayparts: [], items: loose.map(shape) });
-    const popular = items.filter((i) => i.isPopular).slice(0, 8).map(shape);
-    return { categories, popular };
+    return { cats, shapeAll };
   }
 
-  async restaurantPage(slugOrId: string, latIn?: number, lngIn?: number, customerId?: string) {
+  /**
+   * The menu of a store. Restaurants get the whole menu (as before). A store with a big catalog asks for `summary`: every department with its product
+   * count and only the first `summary` products of each (the rest comes from catalog(), paged).
+   */
+  async buildMenu(r: Restaurant, opts: { customerAllergens?: string[]; summary?: number } = {}) {
+    const [sh, items] = await Promise.all([
+      this.shaper(r, opts),
+      this.ds.getRepository(MenuItem).find({ where: { restaurantId: r.id, active: true }, order: { sortOrder: 'ASC', name: 'ASC' } }),
+    ]);
+    const catMap = new Map(sh.cats.map((c) => [c.id, c]));
+    const per = opts.summary && opts.summary > 0 ? opts.summary : null;
+    const grouped = sh.cats.map((c) => ({ cat: c, all: items.filter((i) => i.categoryId === c.id) })).filter((g) => g.all.length);
+    const loose = items.filter((i) => !i.categoryId || !catMap.has(i.categoryId));
+    const picked = new Set<string>();
+    const shown = grouped.map((g) => ({ ...g, show: per ? g.all.slice(0, per) : g.all }));
+    shown.forEach((g) => g.show.forEach((i) => picked.add(i.id)));
+    const looseShown = per ? loose.slice(0, per) : loose;
+    looseShown.forEach((i) => picked.add(i.id));
+    const popularItems = items.filter((i) => i.isPopular).slice(0, 8);
+    popularItems.forEach((i) => picked.add(i.id));
+    const shaped = new Map((await sh.shapeAll(items.filter((i) => picked.has(i.id)))).map((x) => [x.id, x]));
+    const view = (list: MenuItem[]) => list.map((i) => shaped.get(i.id)!);
+    const categories = shown.map((g) => ({ id: g.cat.id as string | null, name: g.cat.name, description: g.cat.description, dayparts: g.cat.dayparts, itemCount: g.all.length, items: view(g.show) }));
+    if (loose.length) categories.push({ id: null, name: 'Other', description: null, dayparts: [], itemCount: loose.length, items: view(looseShown) });
+    const popular = view(popularItems);
+    const truncated = !!per && categories.some((c) => c.itemCount > c.items.length);
+    return { mode: per ? ('CATALOG' as const) : ('MENU' as const), truncated, itemCount: items.length, categories, popular };
+  }
+
+  /**
+   * Paged catalog of ONE store (groceries: thousands of products). Filters: categoryId ("none" = no department), q (name / brand / SKU / barcode),
+   * dietary, inStock, minAge (age-restricted only with "restricted"), sort (popular, name, price_low, price_high).
+   */
+  async catalog(slugOrId: string, q: { categoryId?: string; q?: string; dietary?: string; inStock?: string; restricted?: string; sort?: string; page?: string; limit?: string }, customerId?: string) {
+    const r = await this.findRestaurant(slugOrId);
+    const page = Math.max(1, num(q.page) ?? 1);
+    const limit = Math.min(100, Math.max(1, num(q.limit) ?? 24));
+    const qb = this.ds.getRepository(MenuItem).createQueryBuilder('i').where('i.restaurantId = :rid AND i.active = true', { rid: r.id });
+    const text = (q.q ?? '').trim().slice(0, 100);
+    if (/^\d{6,14}$/.test(text)) qb.andWhere('(i.barcode = :bc OR i.sku = :bc OR i.name ILIKE :s)', { bc: text, s: `%${text}%` });
+    else
+      text
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 6)
+        .forEach((tok, n) => qb.andWhere(`(i.name ILIKE :t${n} OR i.brand ILIKE :t${n} OR i.description ILIKE :t${n} OR i.sku ILIKE :t${n})`, { [`t${n}`]: `%${tok.replace(/[%_\\]/g, (m) => `\\${m}`)}%` }));
+    if (q.categoryId === 'none') qb.andWhere('i.categoryId IS NULL');
+    else if (q.categoryId) {
+      if (!isUuid(q.categoryId)) throw new BadRequestException('categoryId must be an id or "none"');
+      qb.andWhere('i.categoryId = :cat', { cat: q.categoryId });
+    }
+    csv(q.dietary).map((d) => d.toLowerCase()).forEach((d, n) => qb.andWhere(`i.dietaryTags @> :dt${n}::jsonb`, { [`dt${n}`]: JSON.stringify([d]) }));
+    if (parseBool(q.inStock)) qb.andWhere('i.available = true AND (i.trackStock = false OR COALESCE(i.stockQty, 0) > 0)');
+    if (parseBool(q.restricted) === true) qb.andWhere('i.minAge > 0');
+    switch (q.sort) {
+      case 'name':
+        qb.orderBy('i.name', 'ASC');
+        break;
+      case 'price_low':
+        qb.orderBy('i.price', 'ASC').addOrderBy('i.name', 'ASC');
+        break;
+      case 'price_high':
+        qb.orderBy('i.price', 'DESC').addOrderBy('i.name', 'ASC');
+        break;
+      default:
+        qb.orderBy('i.isPopular', 'DESC').addOrderBy('i.sortOrder', 'ASC').addOrderBy('i.name', 'ASC');
+    }
+    const [rows, total] = await qb.skip((page - 1) * limit).take(limit).getManyAndCount();
+    let profile: CustomerProfile | null = null;
+    if (customerId) profile = await this.ds.getRepository(CustomerProfile).findOne({ where: { userId: customerId } });
+    const sh = await this.shaper(r, { customerAllergens: profile?.allergens });
+    const counts = await this.ds
+      .getRepository(MenuItem)
+      .createQueryBuilder('i')
+      .select('i.categoryId', 'id')
+      .addSelect('COUNT(*)', 'n')
+      .where('i.restaurantId = :rid AND i.active = true', { rid: r.id })
+      .groupBy('i.categoryId')
+      .getRawMany<{ id: string | null; n: string }>();
+    const n = new Map(counts.map((c) => [c.id, +c.n]));
+    const categories = sh.cats.filter((c) => n.get(c.id)).map((c) => ({ id: c.id as string | null, name: c.name, description: c.description, itemCount: n.get(c.id) ?? 0 }));
+    if (n.get(null)) categories.push({ id: null, name: 'Other', description: null, itemCount: n.get(null) ?? 0 });
+    return {
+      store: { id: r.id, slug: r.slug, name: r.name, storeType: r.storeType, storeTypeLabel: profileOf(r.storeType).label, retail: profileOf(r.storeType).retail },
+      data: await sh.shapeAll(rows),
+      categories,
+      meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+    };
+  }
+
+  /** One product of a store with its options (a grocery product page, or a dish dialog). */
+  async product(slugOrId: string, itemId: string, customerId?: string) {
+    const r = await this.findRestaurant(slugOrId);
+    if (!isUuid(itemId)) throw new NotFoundException('Product not found');
+    const item = await this.ds.getRepository(MenuItem).findOne({ where: { id: itemId, restaurantId: r.id, active: true } });
+    if (!item) throw new NotFoundException('Product not found');
+    let profile: CustomerProfile | null = null;
+    if (customerId) profile = await this.ds.getRepository(CustomerProfile).findOne({ where: { userId: customerId } });
+    const sh = await this.shaper(r, { customerAllergens: profile?.allergens });
+    const [shaped] = await sh.shapeAll([item]);
+    const cat = sh.cats.find((c) => c.id === item.categoryId);
+    return { store: { id: r.id, slug: r.slug, name: r.name, storeType: r.storeType, retail: profileOf(r.storeType).retail }, category: cat ? { id: cat.id, name: cat.name } : null, product: shaped };
+  }
+
+  /** The kinds of store on the platform with how many are around the customer: the tiles of a "what are you looking for" screen. */
+  async storeTypes(latIn?: number, lngIn?: number) {
+    const loc = await this.resolveLocation(latIn, lngIn);
+    const cards = (await this.buildCards(await this.nearby(loc), loc)).filter((c) => c.deliveryAvailable || (c.pickupAvailable && (c.distanceKm ?? 99) <= 10) || (c.serviceMode === RestaurantServiceMode.CLOSED && c.inDeliveryRange));
+    const data = STORE_TYPES.map((type) => {
+      const p = STORE_PROFILES[type];
+      const mine = cards.filter((c) => c.storeType === type);
+      return { type, label: p.label, pluralLabel: p.pluralLabel, vertical: p.vertical, retail: p.retail, itemLabel: p.itemLabel, itemLabelPlural: p.itemLabelPlural, categoryLabel: p.categoryLabel, count: mine.length, openCount: mine.filter((c) => c.isOpen).length };
+    });
+    return {
+      location: { lat: loc.lat, lng: loc.lng, located: loc.located },
+      data,
+      verticals: (['FOOD', 'RETAIL'] as const).map((v) => ({ vertical: v, label: v === 'FOOD' ? 'Restaurants & food' : 'Grocery & shops', count: data.filter((d) => d.vertical === v).reduce((s, d) => s + d.count, 0) })),
+    };
+  }
+
+  /** Browse stores (the "all grocery stores near me" list): same cards and filters as search, without the dish / cuisine parts. */
+  async stores(q: Parameters<DiscoveryService['search']>[0], customerId?: string) {
+    const r = await this.search({ ...q, type: 'restaurants' }, customerId);
+    return { query: r.query, location: r.location, filter: r.filter, data: r.restaurants, meta: r.meta };
+  }
+
+  /**
+   * The store page. `menu`: "full" = every product (even for a grocery store), "summary" = a few products per department (the default for retail stores;
+   * `perCategory` sets how many, 1 to 50). Restaurants get the full menu unless a summary is asked for.
+   */
+  async restaurantPage(slugOrId: string, latIn?: number, lngIn?: number, customerId?: string, view: { menu?: string; perCategory?: string } = {}) {
     const r = await this.findRestaurant(slugOrId);
     const loc = await this.resolveLocation(latIn, lngIn);
     let profile: CustomerProfile | null = null;
@@ -567,16 +770,19 @@ export class DiscoveryService {
     const favorites = await this.favoritesOf(customerId);
     const [card] = await this.buildCards([r], loc, { favorites });
     const [menu, hours, reviews, promos] = await Promise.all([
-      this.buildMenu(r, { customerAllergens: profile?.allergens }),
+      this.buildMenu(r, { customerAllergens: profile?.allergens, summary: this.summaryOf(r, view) }),
       this.ds.getRepository(RestaurantHours).find({ where: { restaurantId: r.id }, order: { dayOfWeek: 'ASC', openTime: 'ASC' } }),
       this.recentReviews(r.id, 5),
       this.activePromos([r.id], r.cityId),
     ]);
     const relevant = promos.filter((p) => p.restaurantId === r.id || (!p.restaurantId && (p.autoApply || p.code)));
     const tz = await this.availability.timezoneFor(r);
+    const sp = profileOf(r.storeType);
     return {
       restaurant: {
         ...card,
+        /** how this kind of store works: labels to show and what the checkout / picking will do (docs/store-types.md) */
+        store: { type: sp.type, label: sp.label, vertical: sp.vertical, retail: sp.retail, itemLabel: sp.itemLabel, itemLabelPlural: sp.itemLabelPlural, categoryLabel: sp.categoryLabel, limits: sp.limits },
         description: r.description,
         photos: r.photos,
         phone: r.phone,
@@ -599,6 +805,13 @@ export class DiscoveryService {
       reviews,
       ratings: this.ratingSummary(r),
     };
+  }
+
+  private summaryOf(r: Restaurant, view: { menu?: string; perCategory?: string }) {
+    if (view.menu === 'full') return 0;
+    const asked = Math.min(50, Math.max(0, Math.trunc(Number(view.perCategory)) || 0));
+    if (asked) return asked;
+    return view.menu === 'summary' || profileOf(r.storeType).retail ? 8 : 0;
   }
 
   /** Public rating block: numeric rating only once ratings.minCountToShow reviews exist (else null + "New"). */

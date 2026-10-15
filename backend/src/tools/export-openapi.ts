@@ -1,11 +1,11 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule } from '@nestjs/swagger';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { AppModule } from '../app.module';
 import { API_PREFIX, API_PREFIX_EXCLUDE } from '../common/api-prefix';
-import { applyObserved, buildOpenApiConfig, enrichOpenApi, sortKeysDeep } from '../common/openapi';
+import { buildOpenApiConfig, finalizeOpenApi } from '../common/openapi';
 
 /**
  * Writes the OpenAPI description of the API as files for frontend developers and code generators:
@@ -23,14 +23,12 @@ async function main() {
   const app = await NestFactory.create(AppModule, { logger: ['error'] });
   app.setGlobalPrefix(API_PREFIX, { exclude: API_PREFIX_EXCLUDE });
   await app.init();
-  const enriched = enrichOpenApi(SwaggerModule.createDocument(app, buildOpenApiConfig()));
+  // generated from the code + the response shapes observed on demo data (backend/assets/openapi.responses.json, from `npm run openapi:observe`): the same
+  // document the running server shows at /docs
+  const { doc, observed } = finalizeOpenApi(SwaggerModule.createDocument(app, buildOpenApiConfig()));
   await app.close();
 
   mkdirSync(outDir, { recursive: true });
-  // response shapes observed on demo data (npm run openapi:observe), committed next to the output
-  const observedFile = join(outDir, 'openapi.responses.json');
-  const observed = existsSync(observedFile) ? applyObserved(enriched, JSON.parse(readFileSync(observedFile, 'utf8'))) : 0;
-  const doc = sortKeysDeep(enriched);
   writeFileSync(join(outDir, 'openapi.json'), JSON.stringify(doc, null, 2) + '\n');
   // js-yaml is a dependency of @nestjs/swagger
   // eslint-disable-next-line @typescript-eslint/no-var-requires

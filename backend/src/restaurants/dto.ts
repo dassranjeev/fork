@@ -11,11 +11,13 @@ import {
   IsOptional,
   IsString,
   Max,
+  Matches,
   MaxLength,
   Min,
   MinLength,
 } from 'class-validator';
 import { PageQueryDto } from '../common/pagination';
+import { MIN_AGES, SELL_BY, STORE_TYPES, TEMPERATURES, WEIGHT_UNITS } from '../common/store-types';
 
 // ------------------------------------------------------------------ menu
 export class CategoryDto {
@@ -33,7 +35,32 @@ export class UpdateCategoryDto {
   @IsOptional() @IsArray() dayparts?: string[];
 }
 
-export class ItemDto {
+/** Catalog fields of a product (groceries / retail). All optional: a restaurant dish never needs one of them. docs/store-types.md */
+export class CatalogFieldsDto {
+  /** the store's own product code, unique within the store */
+  @IsOptional() @IsString() @MaxLength(64) sku?: string | null;
+  /** UPC / EAN / GTIN: 6 to 14 digits */
+  @IsOptional() @IsString() @Matches(/^[0-9]{6,14}$/, { message: 'barcode must be 6 to 14 digits (UPC / EAN / GTIN)' }) barcode?: string | null;
+  @IsOptional() @IsString() @MaxLength(80) brand?: string | null;
+  /** "500 g", "12 x 355 ml" */
+  @IsOptional() @IsString() @MaxLength(60) packSize?: string | null;
+  /** UNIT (default) or WEIGHT: then `price` is per weightUnit and the customer orders steps of stepSize (weighed when picked) */
+  @IsOptional() @IsIn(SELL_BY) sellBy?: 'UNIT' | 'WEIGHT';
+  @IsOptional() @IsIn(WEIGHT_UNITS) weightUnit?: 'KG' | 'LB';
+  /** weight of one step of a weighed product in weightUnit (0.5 = half a kg per step) */
+  @IsOptional() @IsNumber() @Min(0.001) @Max(1000) stepSize?: number;
+  /** keep the number on hand: the product sells out at 0 */
+  @IsOptional() @IsBoolean() trackStock?: boolean;
+  /** pieces on hand (UNIT) or weight on hand in weightUnit (WEIGHT) */
+  @IsOptional() @IsNumber() @Min(0) @Max(10_000_000) stockQty?: number | null;
+  @IsOptional() @IsNumber() @Min(0) @Max(10_000_000) lowStockThreshold?: number | null;
+  @IsOptional() @IsInt() @Min(1) @Max(99) maxPerOrder?: number | null;
+  /** 0 = none, else 18 / 19 / 21: the customer confirms their age at checkout and ID is checked at hand-over */
+  @IsOptional() @IsIn(MIN_AGES) minAge?: number;
+  @IsOptional() @IsIn(TEMPERATURES) temperature?: 'AMBIENT' | 'CHILLED' | 'FROZEN';
+}
+
+export class ItemDto extends CatalogFieldsDto {
   @IsString() name: string;
   @IsNumber() @Min(0) price: number;
   @IsOptional() @IsString() description?: string | null;
@@ -57,7 +84,7 @@ export class ItemDto {
   /** modifier group ids attached to this item (replaces the current set) */
   @IsOptional() @IsArray() groupIds?: string[];
 }
-export class UpdateItemDto {
+export class UpdateItemDto extends CatalogFieldsDto {
   @IsOptional() @IsString() name?: string;
   @IsOptional() @IsNumber() @Min(0) price?: number;
   @IsOptional() @IsString() description?: string | null;
@@ -127,6 +154,40 @@ export class EightySixDto {
   @IsOptional() @IsBoolean() untilTomorrow?: boolean;
   /** or restock after N hours */
   @IsOptional() @IsInt() @Min(1) @Max(72) hours?: number;
+}
+/** Paged product list of one store (portal catalog screen). */
+export class ProductListQuery {
+  @IsOptional() @IsString() restaurantId?: string;
+  /** search over name, SKU, barcode and brand */
+  @IsOptional() @IsString() @MaxLength(100) q?: string;
+  /** same as q (the name the portal's paged lists use) */
+  @IsOptional() @IsString() @MaxLength(100) search?: string;
+  /** a category id, or "none" for products without one */
+  @IsOptional() @IsString() categoryId?: string;
+  /** out | low | in | tracked | untracked */
+  @IsOptional() @IsIn(['out', 'low', 'in', 'tracked', 'untracked']) stock?: string;
+  @IsOptional() @IsIn(['true', 'false']) available?: string;
+  @IsOptional() @IsIn(['true', 'false']) active?: string;
+  @IsOptional() @IsIn(['name', 'price', 'stock', 'updated', 'sku', 'sort']) sortBy?: string;
+  @IsOptional() @IsIn(['ASC', 'DESC', 'asc', 'desc']) sortDir?: string;
+  @IsOptional() @IsString() page?: string;
+  @IsOptional() @IsString() limit?: string;
+}
+
+/** Stock level changes by SKU or barcode (what a POS / inventory system sends): set an absolute level or add a delta. */
+export class StockUpdateDto {
+  /** only the listed products change; products that are not listed keep their stock */
+  @IsArray() updates: StockUpdateRowDto[];
+}
+export class StockUpdateRowDto {
+  @IsOptional() @IsString() @MaxLength(64) sku?: string;
+  @IsOptional() @IsString() @MaxLength(32) barcode?: string;
+  @IsOptional() @IsString() itemId?: string;
+  /** absolute stock level */
+  @IsOptional() @IsNumber() @Min(0) @Max(10_000_000) stockQty?: number;
+  /** or a change (+ received, - written off) */
+  @IsOptional() @IsNumber() @Min(-10_000_000) @Max(10_000_000) delta?: number;
+  @IsOptional() @IsBoolean() available?: boolean;
 }
 export class CsvImportDto {
   @IsString() @MaxLength(1_500_000) csv: string;
@@ -277,6 +338,18 @@ export class HandoffDto {
 export class RemoveItemDto {
   @IsOptional() @IsString() reason?: string;
 }
+/** One step of the picking list of a grocery / retail order (POST /restaurant/orders/:id/items/:itemId/pick). */
+export class PickItemDto {
+  /** PICKED (found it), OUT_OF_STOCK (refund, the product shows as sold out) or REPLACED (another product instead) */
+  @IsIn(['PICKED', 'OUT_OF_STOCK', 'REPLACED']) status: 'PICKED' | 'OUT_OF_STOCK' | 'REPLACED';
+  /** weighed products (PICKED): what the scale says, in the product's weight unit. The customer pays for the weight up to the estimate, never more. */
+  @IsOptional() @IsNumber() @Min(0.001) @Max(1000) actualWeight?: number;
+  /** REPLACED: the product of this store that goes in the bag instead (no required options). The customer pays the LOWER of the two prices. */
+  @IsOptional() @IsString() replacementItemId?: string;
+  @IsOptional() @IsInt() @Min(1) @Max(99) replacementQuantity?: number;
+  @IsOptional() @IsString() @MaxLength(200) note?: string;
+}
+
 export class ExtendPrepDto {
   @IsInt() @Min(1) @Max(60) addMinutes: number;
 }
@@ -391,10 +464,14 @@ export class CreateRestaurantDto {
   @IsOptional() @IsArray() cuisineIds?: string[];
   @IsOptional() @IsInt() @Min(1) @Max(4) priceLevel?: number;
   @IsOptional() @IsString() commissionTierId?: string;
+  /** RESTAURANT (default), CAFE, BAKERY, GROCERY, CONVENIENCE, SPECIALTY: see docs/store-types.md */
+  @IsOptional() @IsIn(STORE_TYPES) storeType?: string;
 }
 
 export class AdminUpdateRestaurantDto extends UpdateStoreDto {
   @IsOptional() @IsString() slug?: string;
+  /** changing the type changes the catalog / picking behaviour, the documents asked for and the commission tier used */
+  @IsOptional() @IsIn(STORE_TYPES) storeType?: string;
   @IsOptional() @IsString() province?: string;
   @IsOptional() @IsString() hstNumber?: string | null;
   @IsOptional() @IsBoolean() isFeatured?: boolean;
@@ -415,6 +492,10 @@ export class RestaurantsQuery extends PageQueryDto {
   @IsOptional() @IsString() zoneId?: string;
   @IsOptional() @IsString() cuisineId?: string;
   @IsOptional() @IsString() cuisine?: string;
+  /** one or more store types, comma separated (GROCERY,CONVENIENCE) */
+  @IsOptional() @IsString() storeType?: string;
+  /** FOOD (restaurant, cafe, bakery) or RETAIL (grocery, convenience, specialty) */
+  @IsOptional() @IsString() vertical?: string;
   @IsOptional() @IsString() merchantId?: string;
   @IsOptional() @IsString() minRating?: string;
   @IsOptional() @IsString() maxRating?: string;

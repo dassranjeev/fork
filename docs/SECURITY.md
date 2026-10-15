@@ -77,7 +77,7 @@ Severity: **Critical** (direct loss of money / full takeover) · **High** · **M
 | F-28 | Weak password policy (min 8, the setting could only lower it) | Min 10 (setting, floor 8), letters+digits, common-password block-list, max 128 (bcrypt), hashes upgraded to cost 12 |
 | F-29 | Impersonation (`/admin/restaurants/:id/impersonate`): `restaurants:edit`, 2 h, bank/staff routes reachable | `restaurants:approve`, 1 h, `@NoImpersonation` on bank, staff, auth routes; audited as before |
 | F-30 | CSV/Excel formula injection in 6 exports (payout export had no quoting at all) | One shared `common/csv.ts` (`csv_before.txt`: `=HYPERLINK(…)` live → `'=HYPERLINK` neutralised) |
-| F-31 | Swagger (`/docs`, `/docs-json`) enabled in every environment | Off by default in production (`SWAGGER_ENABLED`), dev CSP scoped to `/docs` |
+| F-31 | Swagger (`/docs`, `/docs/openapi.json`, `/docs/openapi.yaml`, `/docs-json`) enabled in every environment | Off by default in production (`SWAGGER_ENABLED`), dev CSP scoped to `/docs`. The OpenAPI file is public in the repository anyway; switching the page on in production only adds "Try it out" against the same public API |
 | F-32 | Error handler echoed DB constraint details (PII), reflected URL/query; 500 on bad `sortDir`, invalid dates, missing rows | Generic production messages, path without query, mapped to 400/404, `sortDir`/`sortBy` whitelisted (own-property lookup) |
 | F-33 | Insecure defaults reaching production (`EXPOSE_OTP=true`, `DB_SYNC=true`, localhost CORS, demo accounts, default admin password, no 2FA) | **Production safety gate** (section 4) – the process refuses to start |
 | F-34 | Production mock SMS/email adapters logged OTP bodies | Never logged in production |
@@ -199,7 +199,7 @@ console adapters) log a warning at boot and are impossible when `NODE_ENV=produc
 
 * In-memory throttling/lockout (single instance) – see scaling note.
 * The Stripe on-page payment flow (PaymentIntent + Payment Element, webhooks, Connect payouts) is implemented and proven against a fake Stripe server only; it needs a run with the owner's TEST keys (docs/payments.md). 3-D Secure is handled in the browser by Stripe.js; the server refuses an order whose intent is not `succeeded` (the card has not been charged: 409 `PAYMENT_ACTION_REQUIRED` / 400 `PAYMENT_NOT_CONFIRMED`), and refunds a charge whose order cannot be placed.
-* Stripe / Mapbox keys are stored encrypted in the settings table (needs `DATA_ENCRYPTION_KEY`); the production gate refuses `ALLOW_MOCK_PAYMENTS`, `STRIPE_API_BASE` / `MAPBOX_API_BASE`, and missing or non-live Stripe keys.
+* Stripe / Mapbox / Google Maps keys are stored encrypted in the settings table (needs `DATA_ENCRYPTION_KEY`); the production gate refuses `ALLOW_MOCK_PAYMENTS`, `STRIPE_API_BASE` / `MAPBOX_API_BASE` / `GOOGLE_API_BASE`, and missing or non-live Stripe keys.
 * Staff city/zone scoping is enforced on analytics, orders and order chat only, not on every module.
 * Admin-created staff / restaurant members still receive a one-time temporary password in the API response (the console displays it); an email set-password link with forced change would remove this.
 * Uploaded documents are public-by-URL (see Files above).

@@ -20,18 +20,18 @@ export const routes = [
 
 export const menu = [
   {
-    section: "RESTAURANTS",
+    section: "BUSINESSES",
     order: 10,
-    label: "Restaurants",
+    label: "Businesses",
     icon: "solar:shop-2-outline",
     perm: ["restaurants", "view"],
     children: [
-      { label: "All Restaurants", to: "/restaurants" },
+      { label: "All Businesses", to: "/restaurants" },
       { label: "Onboarding Pipeline", to: "/restaurants/onboarding" },
       { label: "Merchants", to: "/restaurants/merchants" },
       { label: "Reviews", to: "/restaurants/reviews" },
-      { label: "Open a restaurant panel", to: "/restaurants/panels", perm: ["restaurants", "edit"] },
-      { label: "Add Restaurant", to: "/restaurants/new", perm: ["restaurants", "create"] },
+      { label: "Open a business panel", to: "/restaurants/panels", perm: ["restaurants", "edit"] },
+      { label: "Add Business", to: "/restaurants/new", perm: ["restaurants", "create"] },
     ],
   },
 ];

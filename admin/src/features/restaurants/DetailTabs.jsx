@@ -8,7 +8,7 @@ import {
   AddressFinder, BoolBadge, Badge, Button, Card, EmptyState, ErrorState, FormModal, FormRow, KeyValue, LocationPicker, Loading, Modal, NumberInput, PercentInput, Progress,
   Select, StatCard, StatusBadge, Switch, TextArea, TextInput, useConfirm,
 } from "../../ui";
-import { DAYS, assetUrl, listOf, restaurantPost, useLookups } from "./shared";
+import { DAYS, STORE_TYPES, StoreTypeBadge, assetUrl, listOf, restaurantPost, useLookups } from "./shared";
 import ReviewsTable from "./ReviewsTable";
 import RestaurantRatingSummary from "../ratings/RestaurantRatingSummary";
 
@@ -24,7 +24,7 @@ export function OverviewTab({ r, reload }) {
 
   const openEdit = () => {
     form.reset({
-      name: r.name, phone: r.phone || "", email: r.email || "", website: r.website || "", description: r.description || "", minimumOrder: r.minimumOrder, prepTimeMin: r.prepTimeMin,
+      name: r.name, storeType: r.storeType || "RESTAURANT", phone: r.phone || "", email: r.email || "", website: r.website || "", description: r.description || "", minimumOrder: r.minimumOrder, prepTimeMin: r.prepTimeMin,
       isFeatured: !!r.isFeatured, reliabilityScore: r.reliabilityScore,
     });
     setEdit(true);
@@ -61,6 +61,7 @@ export function OverviewTab({ r, reload }) {
           <Card title="Profile" actions={can("restaurants", "edit") && <Button variant="light" icon="solar:pen-outline" onClick={openEdit}>Edit</Button>}>
             <KeyValue
               items={[
+                { label: "Kind of store", value: <StoreTypeBadge type={r.storeType} /> },
                 { label: "Phone", value: r.phone },
                 { label: "Email", value: r.email },
                 { label: "Website", value: r.website },
@@ -98,6 +99,7 @@ export function OverviewTab({ r, reload }) {
       <FormModal open={edit} onClose={() => setEdit(false)} title="Edit restaurant" onSubmit={save} busy={busy}>
         <FormRow>
           <TextInput col={12} label="Name" {...form.bind("name")} />
+          <Select col={12} label="Kind of store" allowEmpty={false} hint="Changes how the catalog and orders work, the documents asked for and the commission tier used when the location has none of its own." options={STORE_TYPES.map((t) => ({ value: t.value, label: t.label }))} {...form.bind("storeType")} />
           <TextInput col={6} label="Phone" {...form.bind("phone")} />
           <TextInput col={6} label="Email" {...form.bind("email")} />
           <TextInput col={12} label="Website" {...form.bind("website")} />

@@ -14,7 +14,7 @@ export default function RestaurantPerfPage() {
   const top = list.rows.slice(0, 10);
   return (
     <>
-      <PageHeader title="Restaurant Performance" subtitle="Sales, reliability and prep times per restaurant" crumbs={[{ label: "Analytics" }, { label: "Restaurants" }]} />
+      <PageHeader title="Business Performance" subtitle="Sales, reliability and prep times per business" crumbs={[{ label: "Analytics" }, { label: "Businesses" }]} />
       <RangeBar state={f} onChange={set} groupBy={false} exportKey="restaurant_performance" />
       <div className="row gy-4 mb-24">
         <div className="col-md-3 col-6"><StatCard label="Restaurants" value={num(list.meta.total)} icon="solar:shop-2-outline" tone="primary" /></div>

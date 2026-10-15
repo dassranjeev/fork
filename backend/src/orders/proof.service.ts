@@ -42,6 +42,10 @@ export interface ProofInput {
   capturedAt?: string;
   exceptionReason?: string;
   note?: string;
+  /** age-restricted order: the driver checked the recipient's ID and they are old enough */
+  idChecked?: boolean;
+  /** age-restricted order: the recipient could not / would not show valid ID, so the age-restricted products are NOT handed over (and are refunded) */
+  idRefused?: boolean;
 }
 
 /** Validated, not-yet-persisted evidence. Built by prepare(), written by persist() when the order really becomes DELIVERED. */
@@ -62,6 +66,8 @@ export interface ProofDraft {
   device: Record<string, any>;
   deliveryAction?: string | null;
   actorUserId?: string;
+  /** age-restricted order: CHECKED (ID seen, old enough) or REFUSED (not handed over); null for ordinary orders */
+  idCheck?: 'CHECKED' | 'REFUSED' | null;
 }
 
 const MAX_PIN_FAILURES = 5;
@@ -142,6 +148,20 @@ export class ProofService implements OnModuleInit {
   async prepare(order: Order, driver: DriverProfile, input: ProofInput, ctx: { ip?: string; userAgent?: string } = {}): Promise<ProofDraft> {
     if (!order.driverArrivedCustomerAt) throw new BadRequestException('Mark "arrived at customer" before completing the delivery');
     const action = input.deliveryAction ?? null;
+    // ---- age-restricted products: ID is checked at the door (the customer cannot choose "leave at door" for these orders)
+    let idCheck: 'CHECKED' | 'REFUSED' | null = null;
+    if (order.requiresIdCheck) {
+      if (input.idChecked === true && input.idRefused === true) throw new BadRequestException('Send idChecked or idRefused, not both');
+      if (input.idChecked === true) idCheck = 'CHECKED';
+      else if (input.idRefused === true) idCheck = 'REFUSED';
+      else {
+        throw new BadRequestException({
+          message: `This order has age-restricted products: check the recipient's ID (at least ${order.minAge}) and confirm with idChecked: true, or send idRefused: true when they cannot show valid ID (the age-restricted products then stay with you and are refunded)`,
+          code: 'ID_CHECK_REQUIRED',
+          details: { minAge: order.minAge },
+        });
+      }
+    }
     if (action && !(Object.values(DeliveryAction) as string[]).includes(action)) throw new BadRequestException('Unknown delivery action');
     if (action && (order.requiresPin || order.dropoffMethod === DropoffMethod.LEAVE_AT_DOOR)) throw new BadRequestException('deliveryAction only applies to orders where the customer turned the PIN off');
     const req = this.requirementFor(order, action);
@@ -217,6 +237,8 @@ export class ProofService implements OnModuleInit {
     else if (action === DeliveryAction.HANDED_TO_CUSTOMER && !req.pinRequired && !req.photoRequired) proofType = ProofType.HANDED_OVER;
     else proofType = ProofType.NONE;
     if (proofType === ProofType.HANDED_OVER) flags.push('HANDED_OVER_NO_PHOTO');
+    if (idCheck === 'CHECKED') flags.push('ID_CHECKED');
+    if (idCheck === 'REFUSED') flags.push('ID_REFUSED');
     // the PIN is customer-confirmed: GPS flags do not weaken it. A photo / nothing is only strong when clean.
     const weak = proofType === ProofType.EXCEPTION || proofType === ProofType.NONE || proofType === ProofType.HANDED_OVER || (!pinVerified && flags.some((f) => FLAGS_THAT_WEAKEN.includes(f)));
     if (weak && proofType !== ProofType.HANDED_OVER) flags.unshift('WEAK_PROOF'); // a hand-over the customer made possible by turning the PIN off is "no evidence", not suspicious
@@ -238,6 +260,7 @@ export class ProofService implements OnModuleInit {
       device: { ip: ctx.ip ?? null, userAgent: (ctx.userAgent ?? '').slice(0, 200) || null },
       deliveryAction: action,
       actorUserId: driver.userId,
+      idCheck,
     };
   }
 

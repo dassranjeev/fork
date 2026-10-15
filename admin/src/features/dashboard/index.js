@@ -35,7 +35,7 @@ export const menu = [
     perm: ["reports", "view"],
     children: [
       { label: "Executive", to: "/analytics/executive" },
-      { label: "Restaurants", to: "/analytics/restaurants" },
+      { label: "Businesses", to: "/analytics/restaurants" },
       { label: "Drivers", to: "/analytics/drivers" },
       { label: "Ratings", to: "/analytics/ratings" },
       { label: "Customer growth", to: "/analytics/customers" },
