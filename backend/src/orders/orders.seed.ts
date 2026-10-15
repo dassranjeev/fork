@@ -578,10 +578,8 @@ function buildOrder(ctx: Ctx, spec: Spec, code: string, out: Bundle) {
 
   // ---- refunds (completed orders only)
   const refundRows: Record<string, any>[] = [];
-  let paymentStatus: PaymentStatus;
-  if (completed) paymentStatus = PaymentStatus.CAPTURED;
-  else if (live) paymentStatus = PaymentStatus.AUTHORIZED;
-  else paymentStatus = PaymentStatus.RELEASED;
+  // the card is charged when the order is placed; a rejected / cancelled order is refunded in full
+  let paymentStatus: PaymentStatus = live || completed ? PaymentStatus.CAPTURED : PaymentStatus.REFUNDED;
   const refundPayments: Record<string, any>[] = [];
   const refundLedger: Record<string, any>[] = [];
   const refundEvents: Record<string, any>[] = [];
@@ -765,11 +763,11 @@ function buildOrder(ctx: Ctx, spec: Spec, code: string, out: Bundle) {
   out.events.push(...refundEvents);
 
   // ---- payments
-  out.payments.push({ id: randomUUID(), orderId, provider: 'mock', kind: 'AUTHORIZE', amount: total, currency: 'CAD', status: 'SUCCEEDED', externalId: intentId, meta: null, createdAt: placedAt, updatedAt: placedAt });
-  if (completed && finishedAt) {
-    out.payments.push({ id: randomUUID(), orderId, provider: 'mock', kind: 'CAPTURE', amount: total, currency: 'CAD', status: 'SUCCEEDED', externalId: `${intentId}_cap`, meta: null, createdAt: finishedAt, updatedAt: finishedAt });
-  } else if (!live && cancelledAt) {
-    out.payments.push({ id: randomUUID(), orderId, provider: 'mock', kind: 'RELEASE', amount: total, currency: 'CAD', status: 'SUCCEEDED', externalId: `${intentId}_void`, meta: null, createdAt: cancelledAt, updatedAt: cancelledAt });
+  // the card is charged the moment the order is placed ...
+  out.payments.push({ id: randomUUID(), orderId, provider: 'mock', kind: 'CAPTURE', amount: total, currency: 'CAD', status: 'SUCCEEDED', externalId: `${intentId}_cap`, meta: null, createdAt: placedAt, updatedAt: placedAt });
+  // ... and goes back in full when the order is rejected or cancelled
+  if (!live && !completed && cancelledAt) {
+    out.payments.push({ id: randomUUID(), orderId, provider: 'mock', kind: 'REFUND', amount: total, currency: 'CAD', status: 'SUCCEEDED', externalId: `re_mock_${orderId.replace(/-/g, '').slice(0, 20)}`, meta: { reason: 'ORDER_CANCELLED' }, createdAt: cancelledAt, updatedAt: cancelledAt });
   }
   out.payments.push(...refundPayments);
   out.refunds.push(...refundRows);

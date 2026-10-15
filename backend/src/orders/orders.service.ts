@@ -115,21 +115,26 @@ export class OrdersService implements IOrdersService {
 
   // ---------------------------------------------------------------------- create
 
+  /**
+   * Place an order. Payment comes first: the customer has already paid (the card is charged when they pay at checkout, before this call, and an order
+   * fully covered by wallet credit takes the wallet balance here). The payment is verified, the order is created and the payment recorded.
+   * The caller (CheckoutService) refunds the charge when this refuses the order for a clear reason (PaymentsService.refundAfterRefusedOrder).
+   */
   async placeOrder(customerId: string, input: PlaceOrderInput): Promise<Order> {
     const quote = await this.pricing.quote(input);
     const restaurant = await this.restaurants.findOne({ where: { id: input.restaurantId } });
     if (!restaurant) throw new NotFoundException('Restaurant not found');
 
-    // ---- payment policy + the card hold. Everything that takes money goes through Stripe; the hold is verified BEFORE the order exists.
-    // Wallet / gift-card BALANCE is store credit (not a gateway payment): an order fully covered by it needs no card.
+    // ---- payment policy. Everything that takes money goes through Stripe and is taken BEFORE the order exists: the card is charged when the customer
+    // pays at checkout and the charge is verified here. Wallet / gift-card BALANCE is store credit (not a gateway payment): an order fully covered by it needs no card.
     const cardAmount = round2(quote.total - quote.walletUsed);
     if (input.paymentMethod === PaymentMethod.CASH) throw new BadRequestException('Cash payments are not available. Pay by card, Apple Pay, Google Pay or wallet credit.');
     if ((input.paymentMethod === PaymentMethod.WALLET || input.paymentMethod === PaymentMethod.GIFT_CARD) && cardAmount > 0.009) {
       throw new BadRequestException('Your wallet balance does not cover this order');
     }
-    const hold =
+    const paid =
       cardAmount > 0.009
-        ? await this.payments.verifyHold(customerId, { paymentIntentId: input.paymentIntentId, paymentToken: input.paymentToken, amount: cardAmount, quoteHash: quoteFingerprint(input, quote), declaredMethod: input.paymentMethod })
+        ? await this.payments.verifyPayment(customerId, { paymentIntentId: input.paymentIntentId, paymentToken: input.paymentToken, amount: cardAmount, quoteHash: quoteFingerprint(input, quote), declaredMethod: input.paymentMethod })
         : null;
 
     const code = await this.codes.orderCode();
@@ -190,8 +195,8 @@ export class OrdersService implements IOrdersService {
       commissionAmount: quote.commissionAmount,
       restaurantPayout: quote.restaurantPayout,
       distanceKm: quote.distanceKm,
-      paymentMethod: hold ? hold.method : input.paymentMethod === PaymentMethod.GIFT_CARD ? PaymentMethod.GIFT_CARD : PaymentMethod.WALLET,
-      paymentIntentId: hold?.intentId ?? null,
+      paymentMethod: paid ? paid.method : input.paymentMethod === PaymentMethod.GIFT_CARD ? PaymentMethod.GIFT_CARD : PaymentMethod.WALLET,
+      paymentIntentId: paid?.intentId ?? null,
       paymentStatus: PaymentStatus.PENDING,
       pickupCode: quote.fulfilment === FulfilmentMode.OWN_DRIVER ? null : this.codes.pin(4),
       deliveryPin: requiresPin ? this.codes.pin(4) : null,
@@ -210,7 +215,7 @@ export class OrdersService implements IOrdersService {
     try {
       order = await this.orders.save(order);
     } catch (e: any) {
-      if (hold) await this.payments.releaseUnusedHold(hold, { keepIfUsed: true });
+      // the payment stays untouched: another order owns it (23505), or the customer retries (the clean-up returns it if no order ever uses it)
       if (e?.code === '23505' && /paymentIntentId/i.test(String(e?.detail ?? e?.message ?? ''))) throw payError(409, 'PAYMENT_INTENT_USED', 'This payment was already used for another order.');
       throw e;
     }
@@ -227,16 +232,25 @@ export class OrdersService implements IOrdersService {
       }
     }
 
-    // the card hold was verified above (the intent is already claimed by this order's unique paymentIntentId); only debit the wallet now.
+    // the card payment was verified above (the intent is already claimed by this order's unique paymentIntentId): link it, take the wallet part and
+    // record the payment. The order is PAID from the moment it exists; nothing is captured later.
+    let walletDebited = false;
     try {
-      if (hold) await this.payments.bindHold(order, hold);
-      order.paymentStatus = PaymentStatus.AUTHORIZED;
-      if (quote.walletUsed > 0) await this.wallet.debit(customerId, quote.walletUsed, 'PURCHASE', { orderId: order.id, note: `Order ${order.code}` });
+      if (paid) await this.payments.bindPayment(order, paid);
+      order.paymentStatus = PaymentStatus.CAPTURED;
+      if (quote.walletUsed > 0) {
+        await this.wallet.debit(customerId, quote.walletUsed, 'PURCHASE', { orderId: order.id, note: `Order ${order.code}` });
+        walletDebited = true;
+      }
       order = await this.orders.save(order);
+      if (paid) await this.payments.recordCharge(order, paid);
     } catch (e) {
+      // undo everything this attempt did; the card payment stays the customer's (placeOrder refunds it for a clear refusal, a retry can use it otherwise)
       await promoSvc?.unredeem(order.id).catch(() => undefined);
+      if (walletDebited) await this.wallet.credit(customerId, quote.walletUsed, 'ADJUSTMENT', { orderId: order.id, note: `Order ${order.code} could not be placed - wallet credit returned` }).catch(() => undefined);
+      await this.payments.forgetPayments(order.id);
       await this.orders.delete(order.id);
-      if (hold) await this.payments.releaseUnusedHold(hold);
+      if (paid) await this.payments.unbindPayment(paid);
       throw e;
     }
 
@@ -324,8 +338,9 @@ export class OrdersService implements IOrdersService {
     if (to === OrderStatus.REJECTED) {
       order.rejectReason = opts.reason ?? null;
       order.cancelledBy = actor.type;
-      await this.payments.release(order);
-      order.paymentStatus = PaymentStatus.RELEASED;
+      const oldHold = order.paymentStatus === PaymentStatus.AUTHORIZED; // placed before "charge at checkout": the card was only held
+      await this.payments.refundOnCancel(order);
+      order.paymentStatus = oldHold ? PaymentStatus.RELEASED : PaymentStatus.REFUNDED;
       if (order.walletUsed > 0) await this.wallet.credit(order.customerId, order.walletUsed, 'ADJUSTMENT', { orderId: order.id, note: 'Order rejected - wallet portion returned' });
     }
     if (to === OrderStatus.CANCELLED) {
@@ -471,7 +486,8 @@ export class OrdersService implements IOrdersService {
   }
 
   private async settleDelivered(order: Order) {
-    if (order.paymentStatus !== PaymentStatus.CAPTURED) {
+    // the card was charged at checkout: nothing is captured now. Only an order placed as an old manual-capture hold is captured at delivery.
+    if (order.paymentStatus !== PaymentStatus.CAPTURED && !(await this.payments.hasCharge(order))) {
       try {
         await this.payments.capture(order);
       } catch (e: any) {
@@ -492,14 +508,18 @@ export class OrdersService implements IOrdersService {
 
   /** one sentence about the money for a cancelled / rejected order (customer notification) */
   private refundNote(order: Order): string {
-    if (order.cancellationFee && Number(order.cancellationFee) > 0) return `A cancellation fee of $${Number(order.cancellationFee).toFixed(2)} applies; the rest is released.`;
-    if (order.paymentStatus === PaymentStatus.RELEASED || order.paymentStatus === PaymentStatus.REFUNDED) return 'You have not been charged: the payment hold was released.';
-    return 'Any payment hold will be released.';
+    const toCard = !!order.paymentIntentId;
+    if (order.cancellationFee && Number(order.cancellationFee) > 0) return `A cancellation fee of $${Number(order.cancellationFee).toFixed(2)} applies; the rest of your payment is ${toCard ? 'refunded to your card (it can take 5-10 business days to show on your statement)' : 'returned to your wallet'}.`;
+    if (order.paymentStatus === PaymentStatus.RELEASED) return 'You have not been charged: the payment hold was released.'; // an order placed before "charge at checkout"
+    if (order.paymentStatus === PaymentStatus.REFUNDED) return toCard ? 'Your payment is refunded in full to your card (it can take 5-10 business days to show on your statement).' : 'Your payment is returned to your wallet.';
+    return 'Your payment will be refunded.';
   }
 
-  /** Reject / cancel: release the auth hold, or capture a cancellation fee, per section 7 rules. */
+  /** Reject / cancel: give the card payment back (or an old hold is released), keeping the cancellation fee when one applies, per section 7 rules. */
   private async applyCancellationMoney(order: Order, actor: ActorRef) {
-    if (order.paymentStatus === PaymentStatus.CAPTURED) return; // already settled elsewhere; nothing to release
+    // already delivered: the order is settled, money goes back only through the refund flow
+    if (order.status === OrderStatus.DELIVERED || order.status === OrderStatus.COLLECTED) return;
+    const oldHold = order.paymentStatus === PaymentStatus.AUTHORIZED; // placed before "charge at checkout": the card was only held
 
     const freeUntil = this.settings.get<string>('orders.freeCancelUntil', 'ACCEPTED');
     const isStaffOrRestaurant = actor.type === ActorType.STAFF || actor.type === ActorType.RESTAURANT;
@@ -510,8 +530,8 @@ export class OrdersService implements IOrdersService {
     const freeCancel = order.status === OrderStatus.PLACED || isStaffOrRestaurant || restaurantLate || (freeUntil === order.status) || withinGrace;
 
     if (freeCancel) {
-      await this.payments.release(order);
-      order.paymentStatus = PaymentStatus.RELEASED;
+      await this.payments.refundOnCancel(order);
+      order.paymentStatus = oldHold ? PaymentStatus.RELEASED : PaymentStatus.REFUNDED;
       if (order.walletUsed > 0) await this.wallet.credit(order.customerId, order.walletUsed, 'ADJUSTMENT', { orderId: order.id, note: 'Order cancelled - wallet portion returned' });
       if (actor.type === ActorType.RESTAURANT && order.status !== OrderStatus.PLACED) {
         // restaurant cancelling after accept counts against its reliability score (section 9.3)
@@ -522,19 +542,17 @@ export class OrdersService implements IOrdersService {
     }
 
     // Customer-initiated cancellation after acceptance, restaurant on time: forfeit the food cost (capped),
-    // refund fees + tip. We never actually captured the hold, so "keeping" the fee means capturing just that
-    // slice of it; the remainder of the hold is released.
+    // refund fees + tip. The card was charged at checkout, so "keeping" the fee means refunding everything except that
+    // slice. (An order placed as an old hold keeps the fee by capturing just that slice; Stripe releases the rest of the hold.)
     const capPct = this.settings.get<number>('orders.cancellationFeeMaxPctOfFood', 100);
     const fee = round2(Math.min(Number(order.subtotal) * (capPct / 100), Number(order.total)));
     order.cancellationFee = fee;
-    // the fee is taken from the card hold first (a partial capture; Stripe releases the rest of the hold); if wallet credit paid part of the
-    // order and the card cannot cover the whole fee, the wallet keeps the difference
-    const cardFee = fee > 0 && order.paymentIntentId ? Math.min(fee, await this.payments.cardDue(order)) : 0;
+    // the fee is kept from the card payment first; if wallet credit paid part of the order and the card cannot cover the whole fee, the wallet keeps the difference
+    const cardFee = fee > 0 && order.paymentIntentId ? Math.min(fee, await this.payments.cardAtStake(order)) : 0;
     const walletKeeps = round2(fee - cardFee);
-    if (cardFee > 0) await this.payments.capture(order, cardFee);
+    await this.payments.refundOnCancel(order, cardFee);
     if (fee > 0) await this.ledger.add({ partyType: PartyType.PLATFORM, partyId: null, orderId: order.id, type: LedgerType.ADJUSTMENT, amount: fee, description: `Late-cancellation fee on ${order.code}` });
-    if (cardFee <= 0) await this.payments.release(order);
-    order.paymentStatus = fee > 0 ? PaymentStatus.PARTIALLY_REFUNDED : PaymentStatus.RELEASED;
+    order.paymentStatus = fee > 0 ? PaymentStatus.PARTIALLY_REFUNDED : oldHold ? PaymentStatus.RELEASED : PaymentStatus.REFUNDED;
     const walletBack = round2(Number(order.walletUsed) - Math.min(Number(order.walletUsed), walletKeeps));
     if (walletBack > 0) await this.wallet.credit(order.customerId, walletBack, 'ADJUSTMENT', { orderId: order.id, note: 'Order cancelled - wallet portion returned' });
   }

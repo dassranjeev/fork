@@ -18,6 +18,7 @@
  *   POST /_fake/pm       { customer?, brand?, last4?, wallet?, instant? }   -> a payment method (as if typed in the Payment Element)
  *   POST /_fake/confirm/:pi { payment_method?, scenario?: 'ok'|'declined'|'3ds'|'3ds_fail' }   -> what Stripe.js does in the browser
  *   POST /_fake/authenticate/:pi { success? }   complete a 3-D Secure challenge
+ *   POST /_fake/age-charge { payment_intent, minutes? }   make the charge of a paid intent look that much older (default 60 minutes)
  *   POST /_fake/webhook  { type, object, account?, url?, secret?, tamper?, badSignature?, id? }   deliver a signed event
  *   POST /_fake/account/:id/complete { debitCard?, restricted? }   finish onboarding (account.updated is delivered)
  *   POST /_fake/dispute  { payment_intent, reason?, amount?, status? }   open a dispute (charge.dispute.created is delivered)
@@ -371,6 +372,12 @@ ctl('POST', /^\/_fake\/authenticate\/([^/]+)$/, (m, b) => {
   if (b.success === false || pi.scenario === '3ds_fail') { pi.status = 'requires_payment_method'; pi.last_payment_error = { code: 'payment_intent_authentication_failure', message: 'We are unable to authenticate your payment method.', type: 'invalid_request_error' }; emit('payment_intent.payment_failed', piObj(pi)); return piObj(pi); }
   pi.authenticated = true; pi.status = 'requires_confirmation';
   return piObj(confirmIntent(pi, { payment_method: pi.payment_method }));
+});
+ctl('POST', /^\/_fake\/age-charge$/, (m, b) => {
+  const pi = S.intents[b.payment_intent]; if (!pi) throw missing(b.payment_intent, 'payment_intent');
+  const ch = S.charges[pi.latest_charge]; if (!ch) throw bad('The intent has no charge yet.', 'resource_missing');
+  ch.created -= Math.round(Number(b.minutes ?? 60) * 60);
+  return chargeObj(ch);
 });
 ctl('POST', /^\/_fake\/webhook$/, async (m, b) => {
   const ev = makeEvent(b.type, b.object ?? {}, b.account, { id: b.id });

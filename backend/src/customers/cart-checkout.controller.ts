@@ -62,7 +62,7 @@ export class CustomerCheckoutController {
 
 /**
  * /customer/payments - on-page Stripe payments. Step 1 of paying: the server prices the cart and creates the PaymentIntent
- * (manual capture); the page confirms it with the Stripe Payment Element, then POST /customer/orders { paymentIntentId }.
+ * (automatic capture: the card is charged when the customer pays); the page confirms it with the Stripe Payment Element, then POST /customer/orders { paymentIntentId }.
  */
 @CustomerController('payments')
 export class CustomerPaymentsController {

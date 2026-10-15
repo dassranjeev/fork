@@ -4,7 +4,7 @@ import { BaseEntity, MoneyColumn } from '../../common/base.entity';
 /**
  * Every Stripe PaymentIntent FORKSY created for a customer (checkout hold, wallet top-up, gift card purchase).
  * It is the server-side record that lets us (a) prove an intent belongs to the customer, (b) credit a top-up exactly once,
- * (c) cancel intents that never became an order (hold clean-up cron) and (d) show provider ids in the admin.
+ * (c) cancel or refund payments that never became an order (clean-up cron) and (d) show provider ids in the admin.
  */
 @Entity('stripe_intents')
 export class StripeIntent extends BaseEntity {
@@ -16,7 +16,7 @@ export class StripeIntent extends BaseEntity {
   @Column({ type: 'uuid' })
   customerId: string;
 
-  /** ORDER (manual-capture hold) | TOPUP (wallet) | GIFT_CARD (purchase) */
+  /** ORDER (the card payment of an order, charged at checkout) | TOPUP (wallet) | GIFT_CARD (purchase) */
   @Column({ type: 'varchar' })
   purpose: 'ORDER' | 'TOPUP' | 'GIFT_CARD';
 

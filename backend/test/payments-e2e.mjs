@@ -94,10 +94,16 @@ async function addressId(token) {
 }
 const quoteBody = (addr, extra = {}) => ({ type: 'DELIVERY', addressId: addr, tip: 2, ...extra });
 const getQuote = async (token, body) => (await api('POST', '/customer/checkout/quote', token, body)).j;
-const intentFor = async (token, body) => (await api('POST', '/customer/payments/intent', token, body));
+/** the API rate-limits POST /customer/orders (20 a minute) and payment intents (30 a minute): when the suite is quicker than that, wait and try again */
+async function limited(fn) {
+  let r;
+  for (let i = 0; i < 6; i++) { r = await fn(); if (r.s !== 429) return r; await sleep(12000); }
+  return r;
+}
+const intentFor = (token, body) => limited(() => api('POST', '/customer/payments/intent', token, body));
 const payOk = (piId, extra = {}) => fake('/_fake/confirm/' + piId, extra);
 async function place(token, body, extra = {}) {
-  const r = await api('POST', '/customer/orders', token, { paymentMethod: 'CARD', ...body, ...extra });
+  const r = await limited(() => api('POST', '/customer/orders', token, { paymentMethod: 'CARD', ...body, ...extra }));
   if (r.s < 300 && r.j?.id) cleanup.orders.push(r.j.id);
   return r;
 }
@@ -152,7 +158,7 @@ async function main() {
   const pi1 = r.j;
   const fpi = (await fake('/_fake/state')).intents[pi1.intentId];
   check('amount = quote total (cents) computed by the server', fpi.amount === cents(quote.total - quote.walletUsed) && money(pi1.amount) === money(quote.total - quote.walletUsed), { fake: fpi.amount, quote: quote.total });
-  check('PaymentIntent is manual capture, cad, automatic payment methods without redirects', fpi.capture_method === 'manual' && fpi.currency === 'cad' && fpi.automatic_payment_methods?.enabled && fpi.automatic_payment_methods.allow_redirects === 'never', fpi);
+  check('PaymentIntent is AUTOMATIC capture (the card is charged at checkout, not held), cad, automatic payment methods without redirects', fpi.capture_method === 'automatic' && fpi.currency === 'cad' && fpi.automatic_payment_methods?.enabled && fpi.automatic_payment_methods.allow_redirects === 'never', fpi);
   check('metadata carries customerId and quoteHash; a Stripe customer is attached', fpi.metadata.customerId && fpi.metadata.quoteHash && fpi.customer?.startsWith('cus_'), fpi);
   S.c1payload = (await api('GET', '/auth/me', S.c1)).j.id;
   const prof = (await q(`SELECT "stripeCustomerId" FROM customer_profiles WHERE "userId" = $1`, [S.c1payload]))[0];
@@ -189,19 +195,19 @@ async function main() {
   r = await place(S.c1, { ...body, tip: 5, paymentIntentId: pi1.intentId });
   check('order refused while the bank challenge is open (409 PAYMENT_ACTION_REQUIRED)', r.s === 409 && r.j.code === 'PAYMENT_ACTION_REQUIRED', r.text);
   const au = await fake('/_fake/authenticate/' + pi1.intentId, { success: true });
-  check('after 3-D Secure the hold exists (requires_capture)', au.status === 'requires_capture', au);
+  check('after 3-D Secure the card is CHARGED right away (succeeded, full amount received)', au.status === 'succeeded' && au.amount_received === au.amount && au.amount > 0, au);
   const walletBefore = await walletOf(S.c1);
   r = await place(S.c1, { ...body, tip: 5, paymentIntentId: pi1.intentId });
-  check('order placed with a confirmed intent (201)', r.s === 201 && r.j.id, r.text);
+  check('order placed with a paid intent (201)', r.s === 201 && r.j.id, r.text);
   S.orderA = r.j;
-  check('order is bound to the intent, AUTHORIZED, card payment method', S.orderA.paymentIntentId === pi1.intentId && S.orderA.paymentStatus === 'AUTHORIZED' && S.orderA.paymentMethod === 'CARD', S.orderA);
+  check('order is bound to the intent, paymentStatus CAPTURED (paid at checkout), card payment method', S.orderA.paymentIntentId === pi1.intentId && S.orderA.paymentStatus === 'CAPTURED' && S.orderA.paymentMethod === 'CARD', S.orderA);
   const rowA = (await q(`SELECT "orderId", status FROM stripe_intents WHERE "intentId" = $1`, [pi1.intentId]))[0];
-  check('stripe_intents row points at the order', rowA.orderId === S.orderA.id, rowA);
+  check('stripe_intents row points at the order and says succeeded', rowA.orderId === S.orderA.id && rowA.status === 'succeeded', rowA);
   const payA = await q(`SELECT kind, provider, "externalId", amount FROM payments WHERE "orderId" = $1`, [S.orderA.id]);
-  check('AUTHORIZE payment row with the provider id', payA.some((p) => p.kind === 'AUTHORIZE' && p.provider === 'stripe' && p.externalId === pi1.intentId), payA);
+  check('CAPTURE payment row (Stripe charge id, the amount charged) is written at checkout; there is no AUTHORIZE row', payA.some((p) => p.kind === 'CAPTURE' && p.provider === 'stripe' && /^ch_/.test(p.externalId) && Math.round(Number(p.amount) * 100) === au.amount) && !payA.some((p) => p.kind === 'AUTHORIZE'), payA);
   const fa = (await fake('/_fake/state')).intents[pi1.intentId];
   check('Stripe intent was tagged with the order id / transfer group', fa.metadata.orderId === S.orderA.id && /^order_/.test(fa.transfer_group || ''), fa);
-  check('the card was NOT charged yet (hold only)', fa.status === 'requires_capture' && fa.amount_received === 0, fa);
+  check('the card WAS charged at checkout (money received, nothing left to capture)', fa.status === 'succeeded' && fa.amount_received === fa.amount && fa.amount_capturable === 0 && fa.capture_method === 'automatic', fa);
   // reuse
   await setCart(S.c1);
   r = await place(S.c1, { ...body, tip: 5, paymentIntentId: pi1.intentId });
@@ -209,16 +215,24 @@ async function main() {
   const cnt = await q(`SELECT COUNT(*)::int n FROM orders WHERE "paymentIntentId" = $1`, [pi1.intentId]);
   check('unique index: exactly one order per intent in the database', cnt[0].n === 1);
   const admOrder = (await api('GET', `/admin/orders/${S.orderA.id}/payments`, S.admin)).j;
-  check('admin sees the gateway payment records with provider ids', admOrder.paymentIntentId === pi1.intentId && admOrder.payments.some((p) => p.kind === 'AUTHORIZE' && p.externalId === pi1.intentId) && /dashboard\.stripe\.com\/test\/payments\//.test(admOrder.dashboardUrl || ''), admOrder);
+  check('admin sees the gateway payment records with provider ids', admOrder.paymentIntentId === pi1.intentId && admOrder.payments.some((p) => p.kind === 'CAPTURE' && /^ch_/.test(p.externalId)) && /dashboard\.stripe\.com\/test\/payments\//.test(admOrder.dashboardUrl || ''), admOrder);
 
-  // ============================================================ cancel within the window releases the hold
-  section('B. cancellation window releases the hold');
+  // ============================================================ cancel within the window refunds the card
+  section('B. cancellation window refunds the payment in full');
   r = await api('POST', `/customer/orders/${S.orderA.id}/cancel`, S.c1, { reason: 'changed my mind' });
   check('customer cancels inside the window', r.s < 300, r.text);
-  const fa2 = (await fake('/_fake/state')).intents[pi1.intentId];
-  check('Stripe hold was cancelled (customer is not charged)', fa2.status === 'canceled', fa2.status);
+  const stA = await fake('/_fake/state');
+  const fa2 = stA.intents[pi1.intentId];
+  const refA = Object.values(stA.refunds).filter((x) => x.payment_intent === pi1.intentId);
+  check('the charge is refunded to the card in full (one Stripe refund for everything that was charged)', fa2.status === 'succeeded' && refA.length === 1 && refA[0].amount === fa2.amount && stA.charges[fa2.latest_charge].amount_refunded === fa2.amount, { status: fa2.status, refunds: refA });
+  check('the refund used an idempotency key tied to the order (a replay can never refund twice)', stA.idemKeys.some((k) => k === `refund-cancel-${S.orderA.id}`), stA.idemKeys.filter((k) => k.startsWith('refund')));
   const oa = (await api('GET', `/customer/orders/${S.orderA.id}`, S.c1)).j;
-  check('order is CANCELLED with paymentStatus RELEASED', oa.status === 'CANCELLED' && oa.paymentStatus === 'RELEASED', { s: oa.status, p: oa.paymentStatus });
+  check('order is CANCELLED with paymentStatus REFUNDED', oa.status === 'CANCELLED' && oa.paymentStatus === 'REFUNDED', { s: oa.status, p: oa.paymentStatus });
+  const refRowsA = await q(`SELECT kind, amount, "externalId", meta FROM payments WHERE "orderId" = $1 ORDER BY "createdAt"`, [S.orderA.id]);
+  check('payments: CAPTURE at checkout, then one REFUND row (re_ id) for the same amount, nothing else', refRowsA.length === 2 && refRowsA[0].kind === 'CAPTURE' && refRowsA[1].kind === 'REFUND' && /^re_/.test(refRowsA[1].externalId) && Number(refRowsA[1].amount) === Number(refRowsA[0].amount) && refRowsA[1].meta?.reason === 'ORDER_CANCELLED', refRowsA);
+  check('no ledger entries exist for an order that was never delivered (nothing to reverse)', (await q(`SELECT COUNT(*)::int n FROM ledger_entries WHERE "orderId" = $1`, [S.orderA.id]))[0].n === 0);
+  await sleep(800);
+  check('the charge.refunded webhook for our own refund does not record it a second time', (await q(`SELECT COUNT(*)::int n FROM payments WHERE "orderId" = $1 AND kind = 'REFUND'`, [S.orderA.id]))[0].n === 1);
 
   // ============================================================ drift / tampering
   section('B. price drift (409) and tampering');
@@ -226,9 +240,15 @@ async function main() {
   const dBody = quoteBody(S.addr1, { tip: 3 });
   const dI = (await intentFor(S.c1, dBody)).j;
   await payOk(dI.intentId, {});
+  const dCharged = (await fake('/_fake/state')).intents[dI.intentId];
+  check('the card was charged for the OLD price the moment the customer paid', dCharged.status === 'succeeded' && dCharged.amount_received > 0, dCharged);
   r = await place(S.c1, { ...dBody, tip: 9, paymentIntentId: dI.intentId });
-  check('quote drifted (tip changed after paying) -> 409 PAYMENT_QUOTE_CHANGED', r.s === 409 && r.j.code === 'PAYMENT_QUOTE_CHANGED', r.text);
-  check('...and the stale hold was released so the customer is not held twice', (await fake('/_fake/state')).intents[dI.intentId].status === 'canceled');
+  check('quote drifted (tip changed after paying) -> 409 PAYMENT_QUOTE_CHANGED and the message says the payment is being refunded', r.s === 409 && r.j.code === 'PAYMENT_QUOTE_CHANGED' && /refund/i.test(r.j.message), r.text);
+  const stD = await fake('/_fake/state');
+  check('...and that payment was refunded in full at once, so the customer is not charged twice', Object.values(stD.refunds).some((x) => x.payment_intent === dI.intentId && x.amount === dCharged.amount) && stD.charges[dCharged.latest_charge].amount_refunded === dCharged.amount, stD.refunds);
+  check('...the payment is closed in our records and no order exists for it', (await q(`SELECT "canceledAt" FROM stripe_intents WHERE "intentId" = $1`, [dI.intentId]))[0].canceledAt !== null && (await q(`SELECT COUNT(*)::int n FROM orders WHERE "paymentIntentId" = $1`, [dI.intentId]))[0].n === 0);
+  r = await place(S.c1, { ...dBody, tip: 3, paymentIntentId: dI.intentId });
+  check('a payment that was given back can never be used for an order afterwards (409 PAYMENT_REFUNDED)', r.s === 409 && r.j.code === 'PAYMENT_REFUNDED', r.text);
   const dI2 = (await intentFor(S.c1, { ...dBody, tip: 9, intentId: dI.intentId })).j;
   check('the page can create a fresh intent after the 409 (different id)', dI2.intentId && dI2.intentId !== dI.intentId, dI2);
   await payOk(dI2.intentId, {});
@@ -243,6 +263,7 @@ async function main() {
   await payOk(tI.intentId, {});
   r = await place(S.c1, { ...tB, paymentIntentId: tI.intentId });
   check('an intent whose amount was lowered behind our back cannot place an order (409)', r.s === 409 && r.j.code === 'PAYMENT_QUOTE_CHANGED', r.text);
+  check('...and what that intent had charged was refunded', Object.values((await fake('/_fake/state')).refunds).some((x) => x.payment_intent === tI.intentId && x.amount === 100));
   // cart changed after paying (different items, same intent)
   await setCart(S.c1, 2);
   const iB = quoteBody(S.addr1, { tip: 4 });
@@ -251,6 +272,8 @@ async function main() {
   await setCart(S.c1, 4);
   r = await place(S.c1, { ...iB, paymentIntentId: iI.intentId });
   check('cart contents changed after paying -> 409', r.s === 409 && r.j.code === 'PAYMENT_QUOTE_CHANGED', r.text);
+  const stI = await fake('/_fake/state');
+  check('...and that payment was refunded in full', Object.values(stI.refunds).some((x) => x.payment_intent === iI.intentId && x.amount === stI.intents[iI.intentId].amount), stI.refunds);
   // declined card
   await setCart(S.c1);
   const xB = quoteBody(S.addr1, { tip: 1 });
@@ -261,33 +284,31 @@ async function main() {
   check('placing with a declined payment -> 400 PAYMENT_NOT_CONFIRMED, no order', r.s === 400 && r.j.code === 'PAYMENT_NOT_CONFIRMED', r.text);
   const retry = await payOk(xI.intentId, {});
   r = await place(S.c1, { ...xB, paymentIntentId: xI.intentId });
-  check('the same intent works after the customer retries with a good card', retry.status === 'requires_capture' && r.s === 201, r.text);
+  check('the same intent works after the customer retries with a good card (charged, order placed)', retry.status === 'succeeded' && r.s === 201, r.text);
   S.orderC = r.j;
 
   // ============================================================ capture on delivery / tip / refunds
-  section('B. capture on delivery, tip adjustment, refunds');
+  section('B. delivery takes no further payment; tip changes; refunds');
+  // a LIVE order (order B, tip 9): a lower tip gives the difference back to the card at once
+  const tipB0 = Number(S.orderB.tip);
+  r = await api('PATCH', `/customer/orders/${S.orderB.id}/tip`, S.c1, { tip: 5 });
+  check('tip lowered while the order is live: the difference is refunded to the card straight away', r.s < 300 && Object.values((await fake('/_fake/state')).refunds).some((x) => x.payment_intent === S.orderB.paymentIntentId && x.amount === cents(tipB0 - 5)), r.text);
+  const tipRowsB = await q(`SELECT amount, meta FROM payments WHERE "orderId" = $1 AND kind = 'TIP_ADJUST'`, [S.orderB.id]);
+  check('TIP_ADJUST (phase post) recorded with the negative delta', tipRowsB.length === 1 && Math.abs(Number(tipRowsB[0].amount) + (tipB0 - 5)) < 0.011 && tipRowsB[0].meta.phase === 'post', tipRowsB);
+  r = await api('PATCH', `/customer/orders/${S.orderB.id}/tip`, S.c1, { tip: 12 });
+  check('raising the tip of an already paid order on a card that was not saved is refused clearly (409 TIP_CARD_NOT_SAVED)', r.s === 409 && r.j.code === 'TIP_CARD_NOT_SAVED', r.text);
+  // order C: paid at checkout, then delivered
   const tipBefore = Number(S.orderC.tip);
-  // lower tip while on hold: capture smaller
-  r = await api('PATCH', `/customer/orders/${S.orderC.id}/tip`, S.c1, { tip: 0 });
-  check('tip lowered while the card is on hold (allowed)', r.s < 300, r.text);
-  const holdAdj = await q(`SELECT amount, meta FROM payments WHERE "orderId" = $1 AND kind = 'TIP_ADJUST'`, [S.orderC.id]);
-  check('TIP_ADJUST (phase hold) recorded with the negative delta', holdAdj.length === 1 && Math.abs(Number(holdAdj[0].amount) + tipBefore) < 0.011 && holdAdj[0].meta.phase === 'hold', holdAdj);
-  r = await api('PATCH', `/customer/orders/${S.orderC.id}/tip`, S.c1, { tip: 6 });
-  check('raising the tip on an unsaved card without incremental authorisation is refused clearly (409 TIP_CARD_NOT_SAVED)', r.s === 409 && r.j.code === 'TIP_CARD_NOT_SAVED', r.text);
-  await fake('/_fake/config', { incrementAuth: true });
-  r = await api('PATCH', `/customer/orders/${S.orderC.id}/tip`, S.c1, { tip: 3 });
-  const fc = (await fake('/_fake/state')).intents[S.orderC.paymentIntentId];
-  check('with incremental authorisation the hold itself is raised', r.s < 300 && fc.amount === cents(Number(S.orderC.total) - tipBefore + 3), { s: r.s, amount: fc.amount, expected: cents(Number(S.orderC.total) - tipBefore + 3), t: r.text });
-  await fake('/_fake/config', { incrementAuth: false });
+  const chargedC = (await fake('/_fake/state')).intents[S.orderC.paymentIntentId];
+  check('order C: the card was charged at checkout for the full order total', chargedC.status === 'succeeded' && chargedC.amount_received === cents(S.orderC.total), chargedC);
   r = await api('PATCH', `/admin/orders/${S.orderC.id}/status`, S.admin, { status: 'DELIVERED', reason: 'payments-e2e' });
   check('order delivered (forced by admin)', r.s < 300, r.text);
   const fc2 = (await fake('/_fake/state')).intents[S.orderC.paymentIntentId];
-  const expectCap = cents(Number(S.orderC.total) - tipBefore + 3);
-  check('card captured on delivery for exactly the final amount (tip changes included)', fc2.status === 'succeeded' && fc2.amount_received === expectCap, { status: fc2.status, got: fc2.amount_received, expectCap });
+  check('delivery captured nothing more: the amount received is exactly what was charged at checkout', fc2.status === 'succeeded' && fc2.amount_received === chargedC.amount_received, { status: fc2.status, got: fc2.amount_received, atCheckout: chargedC.amount_received });
   const oc = (await api('GET', `/admin/orders/${S.orderC.id}`, S.admin)).j;
   check('order paymentStatus CAPTURED', (oc.order || oc).paymentStatus === 'CAPTURED', (oc.order || oc).paymentStatus);
   const capRows = await q(`SELECT amount, provider, "externalId" FROM payments WHERE "orderId" = $1 AND kind = 'CAPTURE'`, [S.orderC.id]);
-  check('CAPTURE payment row carries the charge id', capRows.length === 1 && capRows[0].provider === 'stripe' && /^ch_/.test(capRows[0].externalId) && Math.round(Number(capRows[0].amount) * 100) === expectCap, capRows);
+  check('exactly one CAPTURE payment row (written at checkout) carrying the charge id and the amount charged', capRows.length === 1 && capRows[0].provider === 'stripe' && /^ch_/.test(capRows[0].externalId) && Math.round(Number(capRows[0].amount) * 100) === chargedC.amount_received, capRows);
   const led = await q(`SELECT type FROM ledger_entries WHERE "orderId" = $1`, [S.orderC.id]);
   check('ledger rows were posted at settlement', led.length > 0, led);
   // refunds
@@ -304,9 +325,9 @@ async function main() {
   // tip after delivery (captured): increase via off-session charge on a card that is not saved -> clear error
   r = await api('PATCH', `/customer/orders/${S.orderC.id}/tip`, S.c1, { tip: 8 });
   check('tip increase after capture on a card that was not saved -> 409 TIP_CARD_NOT_SAVED', r.s === 409 && r.j.code === 'TIP_CARD_NOT_SAVED', r.text);
-  r = await api('PATCH', `/customer/orders/${S.orderC.id}/tip`, S.c1, { tip: 1 });
+  r = await api('PATCH', `/customer/orders/${S.orderC.id}/tip`, S.c1, { tip: 0 });
   st = await fake('/_fake/state');
-  check('tip decrease after capture is refunded to the card', r.s < 300 && Object.values(st.refunds).some((x) => x.payment_intent === S.orderC.paymentIntentId && x.amount === 200), r.text);
+  check('tip decrease after delivery is refunded to the card', r.s < 300 && Object.values(st.refunds).some((x) => x.payment_intent === S.orderC.paymentIntentId && x.amount === cents(tipBefore)), r.text);
   // charge.refunded made in the dashboard is recorded
   const piC = st.intents[S.orderC.paymentIntentId];
   await stripeApi('POST', '/v1/refunds', { payment_intent: S.orderC.paymentIntentId, amount: 100 });
@@ -430,20 +451,111 @@ async function main() {
   const tipRows = await q(`SELECT amount, meta FROM payments WHERE "orderId" = $1 AND kind = 'TIP_ADJUST'`, [S.orderS.id]);
   check('...and recorded as TIP_ADJUST (phase post)', tipRows.some((t) => t.meta.phase === 'post' && Math.abs(Number(t.amount) - 2) < 0.001), tipRows);
 
+  // ============================================================ every way an order can end gives the money back
+  section('B. rejected / cancelled orders: everything that was charged goes back');
+  // (1) saved card, the tip is raised while the order is live (an extra off-session charge), then the customer cancels inside the window: BOTH charges are refunded
+  await setCart(S.c1);
+  const mB = quoteBody(S.addr1, { tip: 2 });
+  const mI = (await intentFor(S.c1, { ...mB, paymentMethodId: pmA.id })).j;
+  await payOk(mI.intentId, { payment_method: pmA.id });
+  r = await place(S.c1, { ...mB, paymentIntentId: mI.intentId });
+  check('order paid with the saved card (it is cancelled below)', r.s === 201, r.text);
+  const oM = r.j;
+  r = await api('PATCH', `/customer/orders/${oM.id}/tip`, S.c1, { tip: Number(oM.tip) + 3 });
+  const extraM = Object.values((await fake('/_fake/state')).intents).find((i) => i.metadata?.kind === 'tip' && i.metadata.orderId === oM.id);
+  check('tip raised while the order is live on a saved card: charged as its own payment', r.s < 300 && extraM?.status === 'succeeded' && extraM.amount === 300, { s: r.s, t: r.text, extraM });
+  r = await api('POST', `/customer/orders/${oM.id}/cancel`, S.c1, { reason: 'changed my mind' });
+  const stM = await fake('/_fake/state');
+  const origM = stM.intents[oM.paymentIntentId];
+  check('cancelled inside the window: the checkout payment AND the extra tip charge are both refunded in full', r.s < 300 && stM.charges[origM.latest_charge].amount_refunded === origM.amount && stM.charges[extraM.latest_charge].amount_refunded === 300, { orig: stM.charges[origM.latest_charge], extra: stM.charges[extraM.latest_charge] });
+  const rowsM = await q(`SELECT kind, amount FROM payments WHERE "orderId" = $1`, [oM.id]);
+  const sumM = (k) => rowsM.filter((x) => x.kind === k).reduce((a, x) => a + Number(x.amount), 0);
+  check('payments: what was refunded equals everything that was charged (checkout payment + the extra tip)', Math.abs(sumM('REFUND') - (sumM('CAPTURE') + 3)) < 0.011 && sumM('REFUND') > 3, rowsM);
+  check('order is CANCELLED and REFUNDED', (await api('GET', `/customer/orders/${oM.id}`, S.c1)).j.paymentStatus === 'REFUNDED');
+  // (2) the restaurant side refuses the order (reject): refunded in full
+  await setCart(S.c1);
+  const jB = quoteBody(S.addr1, { tip: 1 });
+  const jI = (await intentFor(S.c1, jB)).j;
+  await payOk(jI.intentId, {});
+  r = await place(S.c1, { ...jB, paymentIntentId: jI.intentId });
+  const oJ = r.j;
+  r = await api('PATCH', `/admin/orders/${oJ.id}/status`, S.admin, { status: 'REJECTED', reason: 'payments-e2e rejected' });
+  const stJ = await fake('/_fake/state');
+  const fJ = stJ.intents[oJ.paymentIntentId];
+  check('a rejected order: the payment is refunded to the card in full', r.s < 300 && stJ.charges[fJ.latest_charge].amount_refunded === fJ.amount, { s: r.s, t: r.text, charge: stJ.charges[fJ.latest_charge] });
+  check('...order REJECTED with paymentStatus REFUNDED and a REFUND payment row', (await api('GET', `/customer/orders/${oJ.id}`, S.c1)).j.paymentStatus === 'REFUNDED' && (await q(`SELECT COUNT(*)::int n FROM payments WHERE "orderId" = $1 AND kind = 'REFUND'`, [oJ.id]))[0].n === 1);
+  // (3) the customer's window is over (restaurant already has the order): staff can only cancel with the restaurant's approval, and that refunds in full too
+  await api('PUT', '/admin/settings', S.admin, { values: { 'orders.customerCancelGraceSeconds': 0 } });
+  await setCart(S.c1);
+  const gB = quoteBody(S.addr1, { tip: 1 });
+  const gI = (await intentFor(S.c1, gB)).j;
+  await payOk(gI.intentId, {});
+  r = await place(S.c1, { ...gB, paymentIntentId: gI.intentId });
+  const oG = r.j;
+  r = await api('POST', `/customer/orders/${oG.id}/cancel`, S.c1, { reason: 'too late' });
+  check('after the window the customer cannot cancel in the app (403) and nothing is refunded', r.s === 403, r.text);
+  r = await api('POST', `/admin/orders/${oG.id}/cancel`, S.admin, { reason: 'e2e', restaurantApproval: { contactName: 'Pat at the restaurant', channel: 'PHONE' } });
+  const stG = await fake('/_fake/state');
+  const fG = stG.intents[oG.paymentIntentId];
+  check('staff cancel with the restaurant\'s approval: the payment is refunded to the card in full', r.s < 300 && stG.charges[fG.latest_charge].amount_refunded === fG.amount, { s: r.s, t: r.text });
+  await api('PUT', '/admin/settings', S.admin, { values: { 'orders.customerCancelGraceSeconds': cleanup.settings.grace } });
+  await setCart(S.c1);
+
   // ============================================================ abandoned intents
-  section('B. abandoned holds');
+  section('B. payments that never became an order');
   await setCart(S.c1);
   const aB = quoteBody(S.addr1, { tip: 7 });
   const aI = (await intentFor(S.c1, aB)).j;
   await payOk(aI.intentId, {});
-  check('a confirmed hold exists with no order', (await fake('/_fake/state')).intents[aI.intentId].status === 'requires_capture');
+  const aPaid = (await fake('/_fake/state')).intents[aI.intentId];
+  check('the customer paid (the card is charged) but has no order yet', aPaid.status === 'succeeded' && aPaid.amount_received === aPaid.amount && (await q(`SELECT COUNT(*)::int n FROM orders WHERE "paymentIntentId" = $1`, [aI.intentId]))[0].n === 0, aPaid);
   r = await api('POST', '/admin/integrations/stripe/sweep-intents', S.fin, {});
-  check('only a Super Admin can run the abandoned-hold clean-up (403)', r.s === 403, r.text);
+  check('only a Super Admin can run the unused-payment clean-up (403)', r.s === 403, r.text);
+  // the customer comes back (reload, retry) with the same cart: the payment they made is offered again, they are not charged twice
+  const aAgain = await intentFor(S.c1, aB);
+  check('asking for a payment for the same cart again returns the payment already made (alreadyPaid, succeeded), not a new charge', aAgain.s === 201 && aAgain.j.intentId === aI.intentId && aAgain.j.alreadyPaid === true && aAgain.j.status === 'succeeded', aAgain.text);
   r = await api('POST', '/admin/integrations/stripe/sweep-intents', S.admin, {});
-  check('a young hold is left alone by the clean-up', (await fake('/_fake/state')).intents[aI.intentId].status === 'requires_capture', r.text);
-  await q(`UPDATE stripe_intents SET "createdAt" = now() - interval '90 minutes' WHERE "intentId" = $1`, [aI.intentId]);
+  check('a payment made a moment ago is left alone by the clean-up (the page may still be placing the order)', Object.values((await fake('/_fake/state')).refunds).every((x) => x.payment_intent !== aI.intentId) && r.j.refunded === 0, r.text);
+  await q(`UPDATE stripe_intents SET "createdAt" = now() - interval '90 minutes', "updatedAt" = now() - interval '90 minutes' WHERE "intentId" = $1`, [aI.intentId]);
   r = await api('POST', '/admin/integrations/stripe/sweep-intents', S.admin, {});
-  check('a hold older than 60 minutes without an order is cancelled', r.s < 300 && (await fake('/_fake/state')).intents[aI.intentId].status === 'canceled' && r.j.cancelled >= 1, r.text);
+  check('...even when our record is old: Stripe says the charge is only seconds old, so it is not refunded yet', Object.values((await fake('/_fake/state')).refunds).every((x) => x.payment_intent !== aI.intentId) && r.j.refunded === 0, r.text);
+  await fake('/_fake/age-charge', { payment_intent: aI.intentId, minutes: 30 });
+  r = await api('POST', '/admin/integrations/stripe/sweep-intents', S.admin, {});
+  const stAb = await fake('/_fake/state');
+  check('a payment older than 10 minutes that never became an order is REFUNDED in full by the clean-up', r.s < 300 && r.j.refunded >= 1 && Object.values(stAb.refunds).some((x) => x.payment_intent === aI.intentId && x.amount === aPaid.amount) && stAb.charges[aPaid.latest_charge].amount_refunded === aPaid.amount, { r: r.text, refunds: stAb.refunds });
+  const aRow = (await q(`SELECT "canceledAt", meta FROM stripe_intents WHERE "intentId" = $1`, [aI.intentId]))[0];
+  check('...the payment is closed in our records with the refund id and reason', aRow.canceledAt !== null && /^re_/.test(aRow.meta?.returned?.refundId || '') && aRow.meta.returned.reason === 'ABANDONED', aRow);
+  r = await api('POST', '/admin/integrations/stripe/sweep-intents', S.admin, {});
+  check('running the clean-up again refunds nothing more (one refund only)', Object.values((await fake('/_fake/state')).refunds).filter((x) => x.payment_intent === aI.intentId).length === 1 && r.j.refunded === 0, r.text);
+  r = await place(S.c1, { ...aB, paymentIntentId: aI.intentId });
+  check('a payment the clean-up returned cannot be used for an order any more (409 PAYMENT_REFUNDED)', r.s === 409 && r.j.code === 'PAYMENT_REFUNDED', r.text);
+  // a payment attempt that was never paid is cancelled after 60 minutes (nothing to refund)
+  await setCart(S.c1);
+  const uI = (await intentFor(S.c1, quoteBody(S.addr1, { tip: 8 }))).j;
+  await q(`UPDATE stripe_intents SET "createdAt" = now() - interval '90 minutes' WHERE "intentId" = $1`, [uI.intentId]);
+  r = await api('POST', '/admin/integrations/stripe/sweep-intents', S.admin, {});
+  check('a payment attempt that was never paid is cancelled after 60 minutes', r.s < 300 && (await fake('/_fake/state')).intents[uI.intentId].status === 'canceled' && r.j.cancelled >= 1, r.text);
+  // the customer paid, but the order is refused for a clear reason (here: the delivery address no longer exists): the charge is refunded at once and the message says so
+  await setCart(S.c1);
+  const rB = quoteBody(S.addr1, { tip: 6 });
+  const rI = (await intentFor(S.c1, rB)).j;
+  await payOk(rI.intentId, {});
+  r = await place(S.c1, { ...rB, addressId: '00000000-0000-4000-8000-000000000000', paymentIntentId: rI.intentId });
+  const stRf = await fake('/_fake/state');
+  check('order refused after payment -> 404 ORDER_NOT_PLACED_REFUNDED, the message says the payment is refunded', r.s === 404 && r.j.code === 'ORDER_NOT_PLACED_REFUNDED' && /refunded automatically/i.test(r.j.message) && /Address not found/.test(r.j.message), r.text);
+  check('...and the charge really was refunded at Stripe, in full, at once', Object.values(stRf.refunds).some((x) => x.payment_intent === rI.intentId && x.amount === stRf.intents[rI.intentId].amount), stRf.refunds);
+  check('...no order exists and the payment is closed', (await q(`SELECT COUNT(*)::int n FROM orders WHERE "paymentIntentId" = $1`, [rI.intentId]))[0].n === 0 && (await q(`SELECT "canceledAt" FROM stripe_intents WHERE "intentId" = $1`, [rI.intentId]))[0].canceledAt !== null);
+  // the customer paid and the page retries with the same payment: it is used once, never charged twice
+  await setCart(S.c1);
+  const pB = quoteBody(S.addr1, { tip: 7.5 });
+  const pI = (await intentFor(S.c1, pB)).j;
+  await payOk(pI.intentId, {});
+  const pAgain = await intentFor(S.c1, pB);
+  r = await place(S.c1, { ...pB, paymentIntentId: pAgain.j.intentId });
+  const stPp = await fake('/_fake/state');
+  check('a payment already made is used for the order (201) and the cart was charged exactly once', pAgain.j.intentId === pI.intentId && r.s === 201 && Object.values(stPp.intents).filter((i) => i.metadata?.quoteHash === stPp.intents[pI.intentId].metadata.quoteHash && i.status === 'succeeded').length === 1, r.text);
+  if (r.j?.id) await adminCancel(r.j.id);
+  await setCart(S.c1); // placing an order empties the cart
 
   // ============================================================ webhooks
   section('C. webhook security + idempotency');
@@ -835,6 +947,7 @@ try {
 } finally {
   // cleanup: cancel what is still open, restore settings
   try {
+    if (S.admin && cleanup.settings.grace !== undefined) await api('PUT', '/admin/settings', S.admin, { values: { 'orders.customerCancelGraceSeconds': cleanup.settings.grace } }).catch(() => undefined);
     for (const id of cleanup.orders) await adminCancel(id).catch(() => undefined);
     await fake('/_fake/config', { incrementAuth: false, autoEvents: true }).catch(() => undefined);
   } catch { /* ignore */ }

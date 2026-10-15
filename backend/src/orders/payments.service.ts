@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, IsNull, Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { CustomerProfile, Order, Payment, StripeIntent, User } from '../database/entities';
 import { PaymentMethod } from '../common/enums';
@@ -26,20 +26,30 @@ export interface IntentOptions {
   existingIntentId?: string;
 }
 
-export interface Hold {
+/** A card payment that was verified for an order that is being placed. */
+export interface PaidIntent {
   intentId: string;
   provider: 'stripe' | 'mock';
   method: PaymentMethod;
   amount: number;
+  /** the Stripe charge (ch_...) that took the money: it is recorded as the CAPTURE row of the order */
+  chargeId: string | null;
+  /** false only for a payment made before "charge at checkout" (manual capture): it is still a hold and is captured when the order is placed */
+  charged: boolean;
 }
 
 /**
  * Card payments, always through Stripe (PCI SAQ-A: card data never touches our servers - the browser talks to Stripe.js).
  *
- *  Checkout:  POST /customer/payments/intent  -> server prices the cart again and creates a manual-capture PaymentIntent
- *             (amount is ALWAYS computed here) -> the page confirms it with the Payment Element -> POST /customer/orders with
- *             paymentIntentId -> verifyHold() retrieves the intent from Stripe and checks owner / status / amount / currency / quote.
- *  Order:     capture on delivery, cancel (release) on cancel / reject, refunds against the intent, tip adjustments.
+ *  Checkout:  POST /customer/payments/intent  -> server prices the cart again and creates an automatic-capture PaymentIntent
+ *             (amount is ALWAYS computed here) -> the page confirms it with the Payment Element: THE CARD IS CHARGED RIGHT THERE ->
+ *             POST /customer/orders with paymentIntentId -> verifyPayment() retrieves the intent from Stripe and checks owner / status
+ *             (succeeded) / amount / currency / quote, then the order is created and its CAPTURE row recorded.
+ *  Order:     nothing is captured later. Rejected / cancelled orders are refunded to the card at once (refundOnCancel), refunds go against the
+ *             intent, tip changes are an extra charge or a partial refund.
+ *  Failures:  a payment whose order cannot be placed is refunded automatically (returnUnusedMoney); a clean-up cron does the same for a customer
+ *             who paid and never came back. Orders placed before this rule still hold a manual-capture authorisation: they are captured at
+ *             delivery and released on cancel exactly as before.
  *
  *  The mock provider (no Stripe key AND NODE_ENV != production AND ALLOW_MOCK_PAYMENTS=true) exists for automated tests and a developer
  *  machine only. With a Stripe key present it is never used. Order rows whose intent id contains "_mock_" are old demo data: they are
@@ -79,12 +89,32 @@ export class PaymentsService implements IPaymentsService {
     await this.payments.insert({ orderId: order.id, provider, kind: kind as any, amount, status, externalId, ...(meta ? { meta } : {}) } as any);
   }
 
-  /** What the card is charged for this order: total minus the wallet part, plus tip changes applied to the hold. */
+  /** What the card is charged for this order: total minus the wallet part, plus tip changes applied to the hold (orders that are still a manual-capture hold). */
   async cardDue(order: Order): Promise<number> {
     const base = round2(Number(order.total) - Number(order.walletUsed ?? 0));
     const rows = await this.payments.find({ where: { orderId: order.id, kind: 'TIP_ADJUST', status: 'SUCCEEDED' } });
     const holdAdj = rows.filter((r) => r.meta?.phase === 'hold').reduce((a, r) => a + Number(r.amount), 0);
     return round2(base + holdAdj);
+  }
+
+  /** The card has been charged for this order (at checkout, or at delivery for an order placed as a hold): there is a CAPTURE record. */
+  async hasCharge(order: Pick<Order, 'id'>): Promise<boolean> {
+    return this.payments.exist({ where: { orderId: order.id, kind: 'CAPTURE', status: 'SUCCEEDED' } });
+  }
+
+  /** What was taken from the card for the order (checkout charge + extra tip charges) and what was already given back. `extras` are the separate tip charges (their own PaymentIntents). */
+  private async chargedAndRefunded(order: Pick<Order, 'id'>): Promise<{ captured: number; refunded: number; room: number; extras: string[] }> {
+    const rows = await this.payments.find({ where: { orderId: order.id, status: 'SUCCEEDED' } });
+    const captured = rows.filter((r) => r.kind === 'CAPTURE' || (r.kind === 'TIP_ADJUST' && r.meta?.phase === 'post' && Number(r.amount) > 0)).reduce((a, r) => a + Number(r.amount), 0);
+    const refunded = rows.filter((r) => r.kind === 'REFUND' || (r.kind === 'TIP_ADJUST' && r.meta?.phase === 'post' && Number(r.amount) < 0)).reduce((a, r) => a + Math.abs(Number(r.amount)), 0);
+    const extras = rows.filter((r) => r.kind === 'TIP_ADJUST' && r.meta?.phase === 'post' && Number(r.amount) > 0 && typeof r.meta?.extraIntent === 'string').map((r) => String(r.meta!.extraIntent));
+    return { captured, refunded, room: Math.max(0, round2(captured - refunded)), extras };
+  }
+
+  /** What is on the card for this order right now: the amount charged and not refunded yet, or for an old manual-capture hold the amount held. */
+  async cardAtStake(order: Order): Promise<number> {
+    if (!(await this.hasCharge(order))) return this.cardDue(order);
+    return (await this.chargedAndRefunded(order)).room;
   }
 
   // ------------------------------------------------------------------ Stripe customer
@@ -125,7 +155,7 @@ export class PaymentsService implements IPaymentsService {
 
   // ------------------------------------------------------------------ checkout: create / update the intent
   /**
-   * The card part of a priced cart as a PaymentIntent (manual capture = authorise now, capture on delivery).
+   * The card part of a priced cart as a PaymentIntent (automatic capture: the card is charged the moment the customer pays at checkout).
    * `quote` was computed by the server just now; nothing the browser sends can change the amount.
    */
   async createCheckoutIntent(customerId: string, quote: Quote, hash: string, opts: IntentOptions = {}) {
@@ -168,7 +198,7 @@ export class PaymentsService implements IPaymentsService {
     if (opts.existingIntentId) {
       const row = await this.intents.findOne({ where: { intentId: opts.existingIntentId, customerId, purpose: 'ORDER' } });
       if (row && !row.orderId) {
-        const pi = await stripe.paymentIntents.retrieve(row.intentId).catch(() => null);
+        const pi = await stripe.paymentIntents.retrieve(row.intentId, { expand: ['latest_charge'] }).catch(() => null);
         if (pi && pi.status === 'requires_payment_method' && !isMockId(pi.id)) {
           const upd = await stripe.paymentIntents.update(pi.id, {
             amount: toCents(cardAmount),
@@ -182,18 +212,24 @@ export class PaymentsService implements IPaymentsService {
           await this.intents.save(row);
           return { required: true, mock: false, intentId: upd.id, clientSecret: upd.client_secret, amount: cardAmount, currency: 'cad', publishableKey: cfg.publishableKey || null, status: upd.status, updated: true };
         }
-        // the customer already paid for the OLD cart and then changed it: release that hold now so they are not held twice
-        if (pi && pi.status === 'requires_capture' && !isMockId(pi.id)) {
-          await stripe.paymentIntents.cancel(pi.id).then(() => this.intents.update({ id: row.id }, { status: 'canceled', canceledAt: new Date() })).catch(() => undefined);
+        if (pi && !isMockId(pi.id) && (pi.status === 'succeeded' || pi.status === 'requires_capture')) {
+          // already paid: for exactly this cart the payment is simply offered again; for an OLD cart it is given back now so the customer is not charged twice
+          const same = pi.amount === toCents(cardAmount) && row.quoteHash === hash && !(Number(pi.latest_charge?.amount_refunded ?? 0) > 0);
+          if (same) return this.paidResponse(pi, cardAmount, cfg.publishableKey);
+          await this.returnUnusedMoney(pi.id, 'CART_CHANGED').catch((e: any) => this.logger.warn(`could not return the payment for the old cart ${pi.id}: ${e?.code ?? e?.message}`));
         }
       }
     }
+
+    // the customer already paid for exactly this cart (the order could not be placed, or the page was reloaded): offer that payment again instead of charging twice
+    const paid = await this.findPaidIntent(stripe, customerId, hash, cardAmount);
+    if (paid) return this.paidResponse(paid, cardAmount, cfg.publishableKey);
 
     let pi = await stripe.paymentIntents.create(
       {
         amount: toCents(cardAmount),
         currency: 'cad',
-        capture_method: 'manual',
+        capture_method: 'automatic',
         customer,
         // wallets and cards only: nothing that redirects the customer away from the page
         automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
@@ -205,19 +241,40 @@ export class PaymentsService implements IPaymentsService {
       { idempotencyKey: `intent-${customer}-${hash}-${savedPm ?? ''}${opts.saveCard ? 's' : ''}-${Math.floor(Date.now() / 60_000)}` },
     );
     // an idempotent replay returns the ORIGINAL response (a stale status) for an intent that may have moved on (confirmed / cancelled): look again
-    if (await this.intents.exist({ where: { intentId: pi.id } })) pi = await stripe.paymentIntents.retrieve(pi.id);
+    if (await this.intents.exist({ where: { intentId: pi.id } })) pi = await stripe.paymentIntents.retrieve(pi.id, { expand: ['latest_charge'] });
     if (pi.status !== 'requires_payment_method') {
-      if (pi.status === 'requires_capture' || pi.status === 'requires_action' || pi.status === 'processing') {
+      if (pi.status === 'succeeded' || pi.status === 'requires_capture' || pi.status === 'requires_action' || pi.status === 'processing') {
         const known = await this.intents.findOne({ where: { intentId: pi.id } });
-        if (known && !known.orderId) return { required: true, mock: false, intentId: pi.id, clientSecret: pi.client_secret, amount: cardAmount, currency: 'cad', publishableKey: cfg.publishableKey || null, status: pi.status, updated: false };
+        const charged = pi.status === 'succeeded' || pi.status === 'requires_capture';
+        // a payment that was already given back (refunded, or closed by the clean-up) is never offered again
+        const returned = charged && (!!known?.canceledAt || Number(pi.latest_charge?.amount_refunded ?? 0) > 0);
+        if (known && !known.orderId && !returned) {
+          return { required: true, mock: false, intentId: pi.id, clientSecret: pi.client_secret, amount: cardAmount, currency: 'cad', publishableKey: cfg.publishableKey || null, status: pi.status, updated: false, ...(charged ? { alreadyPaid: true } : {}) };
+        }
       }
       const fresh = await stripe.paymentIntents.create({
-        amount: toCents(cardAmount), currency: 'cad', capture_method: 'manual', customer, automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
+        amount: toCents(cardAmount), currency: 'cad', capture_method: 'automatic', customer, automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
         ...(savedPm ? { payment_method: savedPm } : {}), ...(opts.saveCard && !savedPm ? { setup_future_usage: 'off_session' } : {}), description: 'FORKSY order', metadata,
       }, { idempotencyKey: `intent-${randomUUID()}` });
       return this.rememberIntent(customerId, fresh, cardAmount, hash, cfg.publishableKey);
     }
     return this.rememberIntent(customerId, pi, cardAmount, hash, cfg.publishableKey);
+  }
+
+  /** The response for a payment the customer has already made for this cart: the page skips the card form and places the order with it. */
+  private paidResponse(pi: any, amount: number, publishableKey: string) {
+    return { required: true, mock: false, intentId: pi.id, clientSecret: pi.client_secret, amount, currency: 'cad', publishableKey: publishableKey || null, status: pi.status, updated: false, alreadyPaid: true };
+  }
+
+  /** A payment of this customer for exactly this priced cart that went through but is not bound to any order yet (verified at Stripe). */
+  private async findPaidIntent(stripe: any, customerId: string, hash: string, cardAmount: number): Promise<any | null> {
+    const row = await this.intents.findOne({ where: { customerId, purpose: 'ORDER', quoteHash: hash, orderId: IsNull(), canceledAt: IsNull(), status: 'succeeded' }, order: { createdAt: 'DESC' } });
+    if (!row || isMockId(row.intentId)) return null;
+    const pi = await stripe.paymentIntents.retrieve(row.intentId, { expand: ['latest_charge'] }).catch(() => null);
+    if (!pi || pi.status !== 'succeeded' || pi.metadata?.customerId !== customerId) return null;
+    if (pi.amount_received !== toCents(cardAmount) || Number(pi.latest_charge?.amount_refunded ?? 0) > 0) return null;
+    if (await this.orders.exist({ where: { paymentIntentId: pi.id } })) return null;
+    return pi;
   }
 
   private async rememberIntent(customerId: string, pi: any, amount: number, hash: string, publishableKey: string) {
@@ -226,13 +283,17 @@ export class PaymentsService implements IPaymentsService {
     return { required: true, mock: false, intentId: pi.id, clientSecret: pi.client_secret, amount, currency: 'cad', publishableKey: publishableKey || null, status: pi.status, updated: false };
   }
 
-  // ------------------------------------------------------------------ checkout: verify the hold before the order exists
+  // ------------------------------------------------------------------ checkout: verify the payment before the order exists
   /**
-   * Called by OrdersService.placeOrder BEFORE any order row is written. Returns the hold to bind to the order or throws:
+   * Called by OrdersService.placeOrder BEFORE any order row is written. The card must already have been charged (the intent is `succeeded`).
+   * Returns the payment to bind to the order or throws:
    *   400 PAYMENT_INTENT_REQUIRED / PAYMENT_INTENT_INVALID / PAYMENT_NOT_CONFIRMED
-   *   409 PAYMENT_QUOTE_CHANGED (price drifted: re-create the intent), PAYMENT_ACTION_REQUIRED, PAYMENT_INTENT_USED, PAYMENT_INTENT_CANCELED, PAYMENT_PROCESSING
+   *   409 PAYMENT_QUOTE_CHANGED (price drifted: the charge is refunded, re-create the intent), PAYMENT_REFUNDED, PAYMENT_ACTION_REQUIRED,
+   *       PAYMENT_INTENT_USED, PAYMENT_INTENT_CANCELED, PAYMENT_PROCESSING
+   * An intent that is still a manual-capture hold (`requires_capture`: a checkout page opened before "charge at checkout") is accepted too and
+   * captured when the order is placed.
    */
-  async verifyHold(customerId: string, o: { paymentIntentId?: string; paymentToken?: string; amount: number; quoteHash: string; declaredMethod: PaymentMethod }): Promise<Hold> {
+  async verifyPayment(customerId: string, o: { paymentIntentId?: string; paymentToken?: string; amount: number; quoteHash: string; declaredMethod: PaymentMethod }): Promise<PaidIntent> {
     const stripe = this.stripe();
     const expectedCents = toCents(o.amount);
     const alreadyUsed = async (id: string) => !!(await this.orders.exist({ where: { paymentIntentId: id } }));
@@ -244,11 +305,11 @@ export class PaymentsService implements IPaymentsService {
         if (!row || row.customerId !== customerId || row.purpose !== 'ORDER' || !isMockId(row.intentId)) throw payError(HttpStatus.BAD_REQUEST, 'PAYMENT_INTENT_INVALID', 'This payment was not found. Please go back to payment and try again.');
         if (row.orderId || (await alreadyUsed(row.intentId))) throw payError(HttpStatus.CONFLICT, 'PAYMENT_INTENT_USED', 'This payment was already used for another order.');
         if (toCents(Number(row.amount)) !== expectedCents || row.quoteHash !== o.quoteHash) throw payError(HttpStatus.CONFLICT, 'PAYMENT_QUOTE_CHANGED', 'Your total changed. Please review it and pay again.');
-        return { intentId: row.intentId, provider: 'mock', method: o.declaredMethod, amount: o.amount };
+        return { intentId: row.intentId, provider: 'mock', method: o.declaredMethod, amount: o.amount, chargeId: null, charged: true };
       }
       if (!o.paymentToken) throw payError(HttpStatus.BAD_REQUEST, 'PAYMENT_INTENT_REQUIRED', 'Complete the card payment before placing the order.');
-      const row = await this.intents.save(this.intents.create({ intentId: mockId('pi'), customerId, purpose: 'ORDER', amount: o.amount, currency: 'cad', quoteHash: o.quoteHash, status: 'requires_capture' }));
-      return { intentId: row.intentId, provider: 'mock', method: o.declaredMethod, amount: o.amount };
+      const row = await this.intents.save(this.intents.create({ intentId: mockId('pi'), customerId, purpose: 'ORDER', amount: o.amount, currency: 'cad', quoteHash: o.quoteHash, status: 'succeeded' }));
+      return { intentId: row.intentId, provider: 'mock', method: o.declaredMethod, amount: o.amount, chargeId: null, charged: true };
     }
 
     if (!o.paymentIntentId || typeof o.paymentIntentId !== 'string' || !/^pi_[A-Za-z0-9_]+$/.test(o.paymentIntentId)) {
@@ -261,13 +322,16 @@ export class PaymentsService implements IPaymentsService {
     try {
       pi = await stripe.paymentIntents.retrieve(row.intentId, { expand: ['latest_charge'] });
     } catch (e: any) {
-      this.logger.warn(`verifyHold: Stripe retrieve failed: ${e?.code ?? e?.message}`);
+      this.logger.warn(`verifyPayment: Stripe retrieve failed: ${e?.code ?? e?.message}`);
       throw new ServiceUnavailableException('Payments are temporarily unavailable. Please try again in a moment.');
     }
     if (pi.metadata?.customerId !== customerId) throw payError(HttpStatus.BAD_REQUEST, 'PAYMENT_INTENT_INVALID', 'This payment was not found. Please go back to payment and try again.');
+    if (row.status !== pi.status) await this.intents.update({ id: row.id }, { status: pi.status }).catch(() => undefined);
     if (row.orderId || (await alreadyUsed(pi.id))) throw payError(HttpStatus.CONFLICT, 'PAYMENT_INTENT_USED', 'This payment was already used for another order.');
+    if (row.canceledAt && pi.status === 'succeeded') throw payError(HttpStatus.CONFLICT, 'PAYMENT_REFUNDED', 'This payment was already returned to your card. Please pay again.');
     switch (pi.status) {
-      case 'requires_capture':
+      case 'succeeded': // the card was charged at checkout
+      case 'requires_capture': // an old manual-capture hold: captured when the order is placed
         break;
       case 'requires_action':
       case 'requires_confirmation':
@@ -276,67 +340,166 @@ export class PaymentsService implements IPaymentsService {
         throw payError(HttpStatus.CONFLICT, 'PAYMENT_PROCESSING', 'Your payment is still processing. Please wait a moment and try again.');
       case 'canceled':
         throw payError(HttpStatus.CONFLICT, 'PAYMENT_INTENT_CANCELED', 'This payment was cancelled. Please enter your card again.');
-      case 'succeeded':
-        throw payError(HttpStatus.CONFLICT, 'PAYMENT_INTENT_USED', 'This payment was already used for another order.');
       default:
         throw payError(HttpStatus.BAD_REQUEST, 'PAYMENT_NOT_CONFIRMED', 'Your payment was not completed. Please enter your card details and try again.');
     }
     if (String(pi.currency).toLowerCase() !== 'cad') throw payError(HttpStatus.BAD_REQUEST, 'PAYMENT_INTENT_INVALID', 'Invalid payment currency.');
+    const charge = pi.latest_charge && typeof pi.latest_charge === 'object' ? pi.latest_charge : null;
+    const charged = pi.status === 'succeeded';
+    // a payment that was already given back (refunded by the clean-up or the dashboard) can never place an order
+    if (charged && Number(charge?.amount_refunded ?? 0) > 0) throw payError(HttpStatus.CONFLICT, 'PAYMENT_REFUNDED', 'This payment was already returned to your card. Please pay again.');
     // the amount is compared with the price the SERVER just recomputed: a tampered or outdated intent can never place an order
-    if (pi.amount !== expectedCents || pi.amount_capturable !== pi.amount || pi.metadata?.quoteHash !== o.quoteHash || row.quoteHash !== o.quoteHash) {
-      // the customer's money is on hold for the OLD price: release it now so the page can start again without a double hold
-      await stripe.paymentIntents.cancel(pi.id).then(() => this.intents.update({ id: row.id }, { status: 'canceled', canceledAt: new Date() })).catch(() => undefined);
-      throw payError(HttpStatus.CONFLICT, 'PAYMENT_QUOTE_CHANGED', 'Your total changed since you entered your card. Please review it and pay again.');
+    const settled = charged ? pi.amount_received : pi.amount_capturable;
+    if (pi.amount !== expectedCents || settled !== pi.amount || pi.metadata?.quoteHash !== o.quoteHash || row.quoteHash !== o.quoteHash) {
+      // the customer's money was taken (or held) for the OLD price: give it back now so the page can start again without being charged twice
+      await this.returnUnusedMoney(pi.id, 'QUOTE_CHANGED').catch((e: any) => this.logger.warn(`could not return the payment ${pi.id} for the old price: ${e?.code ?? e?.message}`));
+      throw payError(
+        HttpStatus.CONFLICT,
+        'PAYMENT_QUOTE_CHANGED',
+        charged
+          ? 'Your total changed after your card was charged. We are refunding that payment to your card automatically (it can take 5-10 business days to show on your statement). Please review the new total and pay again.'
+          : 'Your total changed since you entered your card. Please review it and pay again.',
+      );
     }
-    const wallet = pi.latest_charge?.payment_method_details?.card?.wallet?.type;
+    const wallet = charge?.payment_method_details?.card?.wallet?.type;
     const method = wallet === 'apple_pay' ? PaymentMethod.APPLE_PAY : wallet === 'google_pay' ? PaymentMethod.GOOGLE_PAY : PaymentMethod.CARD;
-    return { intentId: pi.id, provider: 'stripe', method, amount: o.amount };
+    return { intentId: pi.id, provider: 'stripe', method, amount: o.amount, chargeId: charge?.id ?? (typeof pi.latest_charge === 'string' ? pi.latest_charge : null), charged };
   }
 
-  /** The order row exists (its unique paymentIntentId already claims the intent): link both sides and write the AUTHORIZE record. */
-  async bindHold(order: Order, hold: Hold): Promise<void> {
-    await this.intents.update({ intentId: hold.intentId }, { orderId: order.id, status: hold.provider === 'mock' ? 'requires_capture' : 'requires_capture' });
-    await this.record(order, 'AUTHORIZE', hold.amount, hold.provider, hold.intentId);
-    if (hold.provider === 'stripe') {
+  /**
+   * The order row exists (its unique paymentIntentId already claims the intent): link both sides. A payment that is still an old manual-capture
+   * hold is captured now. The CAPTURE record is written by recordCharge() once the whole placement worked (nothing to undo if it did not).
+   * Throws 409 PAYMENT_REFUNDED when the clean-up already returned this payment in the meantime.
+   */
+  async bindPayment(order: Order, paid: PaidIntent): Promise<void> {
+    if (!paid.charged && paid.provider === 'stripe') {
+      const stripe = this.stripe();
+      const intent = await stripe.paymentIntents.capture(paid.intentId, { amount_to_capture: toCents(paid.amount) }, { idempotencyKey: `order-${order.id}-capture-${toCents(paid.amount)}` });
+      paid.chargeId = typeof intent.latest_charge === 'string' ? intent.latest_charge : intent.latest_charge?.id ?? paid.chargeId;
+      paid.charged = true;
+    }
+    // claim the payment: one that the clean-up has already closed (and refunded) can no longer be bound to an order
+    const claim = await this.intents.update({ intentId: paid.intentId, canceledAt: IsNull() }, { orderId: order.id, status: 'succeeded' });
+    if (!claim.affected) throw payError(HttpStatus.CONFLICT, 'PAYMENT_REFUNDED', 'This payment was already returned to your card. Please pay again.');
+    if (paid.provider === 'stripe') {
       const stripe = this.stripeClient.client();
       await stripe?.paymentIntents
-        .update(hold.intentId, { metadata: { orderId: order.id, orderCode: order.code }, description: `FORKSY order ${order.code}`, transfer_group: `order_${order.code}` })
-        .catch((e: any) => this.logger.warn(`could not tag intent ${hold.intentId} with order ${order.code}: ${e?.code ?? e?.message}`));
+        .update(paid.intentId, { metadata: { orderId: order.id, orderCode: order.code }, description: `FORKSY order ${order.code}`, transfer_group: `order_${order.code}` })
+        .catch((e: any) => this.logger.warn(`could not tag intent ${paid.intentId} with order ${order.code}: ${e?.code ?? e?.message}`));
     }
   }
 
-  /** The hold was verified but the order could not be created: free the customer's money again. Best effort, never throws. */
-  async releaseUnusedHold(hold: Hold, opts: { keepIfUsed?: boolean } = {}): Promise<void> {
-    // keepIfUsed: the order insert lost a race for this intent - another order owns the hold, so do not cancel it
-    if (opts.keepIfUsed) return;
-    await this.intents.update({ intentId: hold.intentId }, { orderId: null }).catch(() => undefined);
-    if (hold.provider === 'mock') return;
+  /** The order is placed: write the CAPTURE record (the money the card paid) once. */
+  async recordCharge(order: Order, paid: PaidIntent): Promise<void> {
+    if (await this.payments.exist({ where: { orderId: order.id, kind: 'CAPTURE' } })) return;
+    await this.record(order, 'CAPTURE', paid.amount, paid.provider, paid.chargeId ?? paid.intentId, 'SUCCEEDED', { intentId: paid.intentId, at: 'checkout' });
+  }
+
+  /** The order could not be placed after all: forget the payment rows written for it (the order row is being deleted; there is no foreign key). */
+  async forgetPayments(orderId: string): Promise<void> {
+    await this.payments.delete({ orderId }).catch(() => undefined);
+  }
+
+  /**
+   * The payment was verified but the order could not be created: unlink the payment from it again. The payment itself stays the customer's: a retry
+   * uses it, a clear refusal refunds it (refundUnusedCharge) and the clean-up cron returns it when no order ever takes it. Never throws.
+   */
+  async unbindPayment(paid: PaidIntent): Promise<void> {
+    await this.intents.update({ intentId: paid.intentId, canceledAt: IsNull() }, { orderId: null }).catch(() => undefined);
+  }
+
+  /**
+   * An order was refused although the customer's card has been charged (the cart emptied, the restaurant closed, an item sold out, a promo ran out...).
+   * A clear refusal (a 4xx that is not one of the payment checks) refunds the charge at once and the error says so (code ORDER_NOT_PLACED_REFUNDED).
+   * An unexpected error (5xx) keeps the payment for a retry; the clean-up cron returns it if no order ever uses it. Returns the error to throw.
+   */
+  async refundAfterRefusedOrder(customerId: string, intentId: string | undefined, e: any): Promise<any> {
+    if (!intentId || !(e instanceof HttpException) || e.getStatus() >= 500) return e;
+    const body: any = e.getResponse();
+    if (typeof body?.code === 'string' && body.code.startsWith('PAYMENT_')) return e; // the payment checks have already dealt with the money themselves
+    if (!(await this.refundUnusedCharge(customerId, intentId, 'ORDER_NOT_PLACED'))) return e;
+    const text = String(typeof body === 'string' ? body : Array.isArray(body?.message) ? body.message.join('. ') : body?.message ?? e.message);
+    return payError(e.getStatus(), 'ORDER_NOT_PLACED_REFUNDED', `${text}${/[.!?]$/.test(text) ? '' : '.'} Your card payment is being refunded automatically (it can take 5-10 business days to show on your statement).`);
+  }
+
+  /**
+   * The customer paid but the order was refused: refund that payment now.
+   * Only the customer's own, unused, charged payment is touched. Returns true when money was refunded. Never throws.
+   */
+  async refundUnusedCharge(customerId: string, intentId: string, reason: string): Promise<boolean> {
     try {
-      await this.stripeClient.client()?.paymentIntents.cancel(hold.intentId);
-      await this.intents.update({ intentId: hold.intentId }, { status: 'canceled', canceledAt: new Date() });
+      if (!/^pi_[A-Za-z0-9_]+$/.test(intentId)) return false;
+      const row = await this.intents.findOne({ where: { intentId } });
+      if (!row || row.customerId !== customerId || row.purpose !== 'ORDER') return false;
+      return (await this.returnUnusedMoney(intentId, reason)) === 'refunded';
     } catch (e: any) {
-      this.logger.warn(`could not release hold ${hold.intentId}: ${e?.code ?? e?.message}`);
+      this.logger.warn(`could not return the payment ${intentId}: ${e?.code ?? e?.message}`);
+      return false;
     }
   }
 
-  /** Cancel a customer's unused ORDER intent (hold clean-up cron). Returns true when it was cancelled. */
-  async cancelAbandoned(row: StripeIntent): Promise<boolean> {
+  /**
+   * Give back what the customer paid on an ORDER intent that never became an order: a charge that went through is refunded in full, a hold or an
+   * unpaid attempt is cancelled. Safe to repeat: the intent is claimed first (a payment an order has taken is never touched), the refund carries an
+   * idempotency key and a charge that is already refunded is left alone. `minAgeMinutes` leaves a payment alone that was made that recently (the page
+   * is probably still placing the order). Returns what happened.
+   */
+  async returnUnusedMoney(intentId: string, reason: string, opts: { minAgeMinutes?: number } = {}): Promise<'refunded' | 'cancelled' | 'none'> {
+    const row = await this.intents.findOne({ where: { intentId } });
+    const closeRow = (patch: Record<string, any> = {}) => (row ? this.intents.update({ id: row.id }, { canceledAt: row.canceledAt ?? new Date(), ...patch } as any) : Promise.resolve());
+    const stripe = this.stripeClient.client();
+    if (!stripe || isMockId(intentId)) {
+      if (row && !row.orderId) await closeRow({ status: 'canceled' });
+      return row && !row.orderId ? 'cancelled' : 'none';
+    }
+    if (row?.orderId || (await this.orders.exist({ where: { paymentIntentId: intentId } }))) return 'none'; // an order has taken this payment
+    const pi = await stripe.paymentIntents.retrieve(intentId, { expand: ['latest_charge'] });
+    if (pi.status === 'succeeded') {
+      // money that left the card is only ever handed back for an ORDER payment (a top-up or gift card payment is fulfilled, never refunded here)
+      if (!row || row.purpose !== 'ORDER') return 'none';
+      const charge = pi.latest_charge && typeof pi.latest_charge === 'object' ? pi.latest_charge : null;
+      const left = Number(pi.amount_received ?? 0) - Number(charge?.amount_refunded ?? 0);
+      if (left <= 0) {
+        await closeRow({ status: 'succeeded' });
+        return 'none';
+      }
+      if (opts.minAgeMinutes && charge?.created && Date.now() / 1000 - Number(charge.created) < opts.minAgeMinutes * 60) return 'none';
+      // claim it: from now on no order can bind this payment
+      const claim = await this.intents.update({ id: row.id, orderId: IsNull(), canceledAt: IsNull() }, { canceledAt: new Date() });
+      if (!claim.affected) return 'none';
+      try {
+        const r = await stripe.refunds.create(
+          { payment_intent: pi.id, amount: left, reason: 'requested_by_customer', metadata: { purpose: 'unused_order_payment', reason: reason.slice(0, 60), customerId: row.customerId } },
+          { idempotencyKey: `unused-${pi.id}-${left}` },
+        );
+        await this.intents.update({ id: row.id }, { status: 'succeeded', meta: { ...(row.meta ?? {}), returned: { refundId: r.id, amount: round2(left / 100), reason, at: new Date().toISOString() } } } as any);
+        return 'refunded';
+      } catch (e) {
+        await this.intents.update({ id: row.id }, { canceledAt: null as any }).catch(() => undefined); // the refund did not go through: try again later
+        throw e;
+      }
+    }
+    if (['requires_payment_method', 'requires_confirmation', 'requires_action', 'requires_capture', 'processing'].includes(pi.status)) {
+      await stripe.paymentIntents.cancel(intentId, { cancellation_reason: reason === 'ABANDONED' ? 'abandoned' : 'requested_by_customer' });
+      await closeRow({ status: 'canceled' });
+      return 'cancelled';
+    }
+    await closeRow({ status: pi.status });
+    return 'none';
+  }
+
+  /** Clean-up cron: a payment attempt that never became an order. Unpaid or held: cancelled. Already charged: refunded. Returns what happened. */
+  async cancelAbandoned(row: StripeIntent, opts: { minAgeMinutes?: number } = {}): Promise<'cancelled' | 'refunded' | 'skipped'> {
     const stripe = this.stripeClient.client();
     if (!stripe || isMockId(row.intentId)) {
       await this.intents.update({ id: row.id }, { status: 'canceled', canceledAt: new Date() });
-      return true;
+      return 'cancelled';
     }
     try {
-      const pi = await stripe.paymentIntents.retrieve(row.intentId);
-      if (['requires_payment_method', 'requires_confirmation', 'requires_action', 'requires_capture', 'processing'].includes(pi.status)) {
-        await stripe.paymentIntents.cancel(row.intentId, { cancellation_reason: 'abandoned' });
-        await this.intents.update({ id: row.id }, { status: 'canceled', canceledAt: new Date() });
-        return true;
-      }
-      await this.intents.update({ id: row.id }, { status: pi.status });
-      return false;
+      const r = await this.returnUnusedMoney(row.intentId, 'ABANDONED', opts);
+      return r === 'none' ? 'skipped' : r;
     } catch (e: any) {
-      if (e?.code === 'payment_intent_unexpected_state') return false;
+      if (e?.code === 'payment_intent_unexpected_state') return 'skipped';
       throw e;
     }
   }
@@ -358,18 +521,22 @@ export class PaymentsService implements IPaymentsService {
     if (!stripe) throw new ServiceUnavailableException('Payments are temporarily unavailable');
     if (due <= 0.009) return this.release(order);
     let intent: any;
+    let recorded = due;
     try {
       intent = await stripe.paymentIntents.capture(intentId, { amount_to_capture: toCents(due) }, { idempotencyKey: `order-${order.id}-capture-${toCents(due)}` });
     } catch (e: any) {
       if (e?.code === 'payment_intent_unexpected_state') {
         const cur = await stripe.paymentIntents.retrieve(intentId);
-        if (cur.status === 'succeeded') intent = cur; // captured already (retry after a crash): fine
-        else throw e;
+        if (cur.status === 'succeeded') {
+          // charged already (at checkout, or captured before a crash): nothing to do but make sure it is recorded, for what was really taken
+          intent = cur;
+          recorded = round2(Number(cur.amount_received ?? 0) / 100) || due;
+        } else throw e;
       } else throw e;
     }
     const charge = typeof intent.latest_charge === 'string' ? intent.latest_charge : intent.latest_charge?.id;
     const dup = charge ? await this.payments.exist({ where: { orderId: order.id, kind: 'CAPTURE', externalId: charge } }) : false;
-    if (!dup) await this.record(order, 'CAPTURE', due, 'stripe', charge ?? intent.id, 'SUCCEEDED', { intentId });
+    if (!dup) await this.record(order, 'CAPTURE', recorded, 'stripe', charge ?? intent.id, 'SUCCEEDED', { intentId });
     await this.intents.update({ intentId }, { status: 'succeeded' });
   }
 
@@ -393,6 +560,24 @@ export class PaymentsService implements IPaymentsService {
   }
 
   /**
+   * The order is rejected or cancelled. Its card payment goes back to the card: all of it, or all except `keep` (the late-cancellation fee).
+   * An order placed before "charge at checkout" is still a hold: it is released, or partially captured for the fee (Stripe releases the rest).
+   * Returns what happened so the caller can word the message: 'refunded' (money was charged and went back), 'released' (an old hold) or 'none' (no card payment).
+   */
+  async refundOnCancel(order: Order, keep = 0): Promise<{ mode: 'refunded' | 'released' | 'none'; refunded: number; kept: number }> {
+    if (!order.paymentIntentId) return { mode: 'none', refunded: 0, kept: 0 }; // wallet only: the caller returns the wallet credit
+    if (!(await this.hasCharge(order))) {
+      if (keep > 0.009) await this.capture(order, keep);
+      else await this.release(order);
+      return { mode: 'released', refunded: 0, kept: keep > 0.009 ? keep : 0 };
+    }
+    const charged = (await this.chargedAndRefunded(order)).room;
+    const back = round2(Math.max(0, charged - keep));
+    if (back >= 0.01) await this.refund(order, back, 'ORDER_CANCELLED', `cancel-${order.id}`);
+    return { mode: 'refunded', refunded: back >= 0.01 ? back : 0, kept: round2(Math.min(keep, charged)) };
+  }
+
+  /**
    * Money back to the customer's card. `refundId` (the FORKSY refund row) makes the Stripe call idempotent: replaying the same
    * refund can never pay twice. Whatever the card cannot take (no card payment, hold not captured yet, more than was charged to the
    * card because part of the order was paid with wallet credit) is returned as `walletCredit` for the caller to credit.
@@ -408,19 +593,36 @@ export class PaymentsService implements IPaymentsService {
     if (!intentId) return { cardAmount: 0, walletCredit: round2(amount) };
     const stripe = this.stripe();
     if (!stripe) throw new ServiceUnavailableException('Payments are temporarily unavailable');
-    const rows = await this.payments.find({ where: { orderId: order.id, status: 'SUCCEEDED' } });
-    const captured = rows.filter((r) => r.kind === 'CAPTURE' || (r.kind === 'TIP_ADJUST' && r.meta?.phase === 'post' && Number(r.amount) > 0)).reduce((a, r) => a + Number(r.amount), 0);
-    const refunded = rows.filter((r) => r.kind === 'REFUND' || (r.kind === 'TIP_ADJUST' && r.meta?.phase === 'post' && Number(r.amount) < 0)).reduce((a, r) => a + Math.abs(Number(r.amount)), 0);
-    const room = Math.max(0, round2(captured - refunded));
+    const { room, extras } = await this.chargedAndRefunded(order);
     const toCard = Math.min(round2(amount), room);
     const walletCredit = round2(amount - toCard);
     if (toCard < 0.01) return { cardAmount: 0, walletCredit };
-    const r = await stripe.refunds.create(
-      { payment_intent: intentId, amount: toCents(toCard), metadata: { orderId: order.id, refundId: refundId ?? '', reason: (reason ?? '').slice(0, 200) } },
-      { idempotencyKey: `refund-${refundId ?? `${order.id}-${toCents(toCard)}-${randomUUID()}`}` },
-    );
-    await this.record(order, 'REFUND', toCard, 'stripe', r.id, 'SUCCEEDED', { intentId, ...(reason ? { reason } : {}) });
-    return { externalId: r.id, cardAmount: toCard, walletCredit };
+    const key = refundId ?? `${order.id}-${toCents(toCard)}-${randomUUID()}`;
+    const metadata = { orderId: order.id, refundId: refundId ?? '', reason: (reason ?? '').slice(0, 200) };
+
+    // normally everything was charged by the checkout payment. When an extra tip was charged separately (its own PaymentIntent) the checkout
+    // payment is refunded first, as far as it goes, and the rest comes back from the tip charges
+    const parts: { intent: string; cents: number; key: string }[] = [];
+    if (!extras.length) parts.push({ intent: intentId, cents: toCents(toCard), key: `refund-${key}` });
+    else {
+      let remaining = toCents(toCard);
+      for (const id of [intentId, ...[...extras].reverse()]) {
+        if (remaining <= 0) break;
+        const pi = await stripe.paymentIntents.retrieve(id, { expand: ['latest_charge'] }).catch(() => null);
+        const left = pi ? Number(pi.amount_received ?? 0) - Number(pi.latest_charge?.amount_refunded ?? 0) : 0;
+        const take = Math.min(remaining, Math.max(0, left));
+        if (take > 0) parts.push({ intent: id, cents: take, key: id === intentId ? `refund-${key}` : `refund-${key}-${id}` });
+        remaining -= take;
+      }
+      if (remaining > 0) parts.push({ intent: intentId, cents: remaining, key: `refund-${key}-rest` }); // let Stripe answer if the books and the card disagree
+    }
+    let first: any = null;
+    for (const p of parts) {
+      const r = await stripe.refunds.create({ payment_intent: p.intent, amount: p.cents, metadata }, { idempotencyKey: p.key });
+      first = first ?? r;
+      await this.record(order, 'REFUND', round2(p.cents / 100), 'stripe', r.id, 'SUCCEEDED', { intentId: p.intent, ...(reason ? { reason } : {}) });
+    }
+    return { externalId: first.id, cardAmount: toCard, walletCredit };
   }
 
   /** Tip changed after the order was placed. Returns nothing; throws a 400/409 with a clear message when the card cannot take it. */
@@ -430,7 +632,8 @@ export class PaymentsService implements IPaymentsService {
     const intentId = order.paymentIntentId;
     if (isMockId(intentId) || (!intentId && this.stripeClient.provider() === 'mock')) {
       if (process.env.NODE_ENV === 'production') throw new ServiceUnavailableException('Payments are temporarily unavailable');
-      return this.record(order, 'TIP_ADJUST', delta, 'mock', mockId('tip'), 'SUCCEEDED', { phase: 'hold' });
+      // charged at checkout: a bigger tip is one more charge, a smaller one a partial refund ('post'); an old hold only moves what will be captured ('hold')
+      return this.record(order, 'TIP_ADJUST', delta, 'mock', mockId('tip'), 'SUCCEEDED', { phase: (await this.hasCharge(order)) ? 'post' : 'hold' });
     }
     if (!intentId) {
       // the whole order was paid with FORKSY wallet credit: the tip moves in the wallet
