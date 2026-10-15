@@ -293,7 +293,7 @@ export default function Track() {
   const canCancel = t.canCancel === true;
   const dropoff = t.dropoff || {};
   const cancelOrder = async () => {
-    if (!(await confirm({ title: "Cancel this order?", message: "You are still inside the cancellation window. Your payment hold is released in full.", confirmText: "Cancel order", cancelText: "Keep order", danger: true }))) return;
+    if (!(await confirm({ title: "Cancel this order?", message: "You are still inside the cancellation window. Your payment is refunded to your card in full.", confirmText: "Cancel order", cancelText: "Keep order", danger: true }))) return;
     setCancelling(true);
     try {
       await sfHttp.post(`/customer/orders/${id}/cancel`, { reason: "Cancelled by customer on the website" });
@@ -326,7 +326,7 @@ export default function Track() {
       {active && <PushBanner />}
 
       {cancelled && (
-        <Notice tone="danger">This order was {t.status === "REJECTED" ? "declined by the restaurant" : "cancelled"}. Any payment hold is released automatically.</Notice>
+        <Notice tone="danger">This order was {t.status === "REJECTED" ? "declined by the restaurant" : "cancelled"}. Your payment is refunded to your card automatically; it can take 5-10 business days to show on your statement.</Notice>
       )}
       {active && !cancelled && (
         <div className="sf-eta">

@@ -26,6 +26,8 @@ jobs:
         run: npx ts-node --transpile-only test/system-health.test.ts
       - name: Registration and verification policy (instant / manual / automatic, force verification, Certn retries; with fakes)
         run: npx ts-node --transpile-only test/verification.test.ts
+      - name: Money back (card charged at checkout is refunded on cancel / reject / refused order; unused payments; with fakes)
+        run: npx ts-node --transpile-only test/payments-refund.test.ts
 
   # The production schema comes from migrations, so they must exactly match the entities: apply them to an empty database and
   # fail if TypeORM still sees a difference. Fix: npm run migration:generate -- src/database/migrations/<Name>  (commit the file)

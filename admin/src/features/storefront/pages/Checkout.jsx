@@ -315,9 +315,9 @@ export default function Checkout() {
       navigate(`/order/track/${order.id}`, { replace: true });
     } catch (e) {
       const code = e?.code || errorCode(e);
-      if (code === "PAYMENT_QUOTE_CHANGED" || code === "PAYMENT_INTENT_CANCELED" || code === "PAYMENT_INTENT_USED") {
-        // the price moved (or the old payment was released): the server freed the hold, a fresh payment is prepared
-        setPlaceErr(code === "PAYMENT_QUOTE_CHANGED" ? "Your total changed since you entered your card, so we released the hold. Please review the new total and press the button again." : errorMessage(e));
+      if (code === "PAYMENT_QUOTE_CHANGED" || code === "PAYMENT_INTENT_CANCELED" || code === "PAYMENT_INTENT_USED" || code === "PAYMENT_REFUNDED" || code === "ORDER_NOT_PLACED_REFUNDED") {
+        // the price moved, or the payment was already given back to the card (the server says so in its message): a fresh payment is prepared
+        setPlaceErr(errorMessage(e));
         payRef.current?.reset?.();
         setQuote(null);
         seq.current += 1;
@@ -534,7 +534,11 @@ export default function Checkout() {
             <button type="button" className="sf-btn sf-btn-primary sf-btn-block sf-btn-lg mt-2" disabled={!canPlace} onClick={place} data-testid="place-order">
               {placing ? <Spinner size={18} /> : null} {placing ? "Processing payment..." : cardAmount > 0.009 && payState.provider === "stripe" ? `Pay ${money(cardAmount)} and place order` : `Place order${q ? ` - ${money(q.total)}` : ""}`}
             </button>
-            <p className="sf-small sf-muted mt-2 mb-0">{payState.provider === "mock" ? "Test payment only. " : ""}You can follow your order live after you place it.</p>
+            <p className="sf-small sf-muted mt-2 mb-0">
+              {payState.provider === "mock" ? "Test payment only. " : ""}
+              {cardAmount > 0.009 && payState.provider === "stripe" ? "Your card is charged when you place the order. If the restaurant cannot take it, the full amount is refunded. " : ""}
+              You can follow your order live after you place it.
+            </p>
           </div>
         </aside>
       </div>

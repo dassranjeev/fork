@@ -187,10 +187,16 @@ export interface IDispatchService {
 }
 
 export interface IPaymentsService {
-  /** Checkout step 1: a manual-capture PaymentIntent for the card part of the priced cart (amount is always computed by the server). */
+  /** Checkout step 1: an automatic-capture PaymentIntent for the card part of the priced cart (amount is always computed by the server). The card is charged when the customer pays. */
   createCheckoutIntent(customerId: string, quote: Quote, quoteHash: string, opts?: { saveCard?: boolean; paymentMethodId?: string; existingIntentId?: string }): Promise<any>;
+  /** Only for an order that is still an old manual-capture hold: capture it (all, or `amount` of it). Orders charged at checkout never need this. */
   capture(order: Order, amount?: number): Promise<void>;
+  /** Only for an order that is still an old manual-capture hold: release it. */
   release(order: Order): Promise<void>;
+  /** A rejected / cancelled order: its card payment goes back to the card (all of it, or all except `keep`, the late-cancellation fee). */
+  refundOnCancel(order: Order, keep?: number): Promise<{ mode: 'refunded' | 'released' | 'none'; refunded: number; kept: number }>;
+  /** An order was refused after the customer's card was charged: a clear refusal refunds the charge at once. Returns the error to throw (decorated when refunded). */
+  refundAfterRefusedOrder(customerId: string, paymentIntentId: string | undefined, error: any): Promise<any>;
   /** card part is refunded to the card (idempotent per refundId); `walletCredit` is what the card could not take and must be credited to the wallet */
   refund(order: Order, amount: number, reason?: string, refundId?: string): Promise<{ externalId?: string; cardAmount: number; walletCredit: number }>;
   adjustTip(order: Order, newTip: number): Promise<void>;

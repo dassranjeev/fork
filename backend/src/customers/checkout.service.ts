@@ -79,7 +79,19 @@ export class CheckoutService {
     return { ...r, quote: { total: quote.total, walletUsed: quote.walletUsed, cardAmount: Math.round((quote.total - quote.walletUsed) * 100) / 100 } };
   }
 
+  /**
+   * POST /customer/orders. The customer has already paid (the card is charged when they pay at checkout). If the order is refused for a clear reason
+   * anywhere on the way (empty cart, restaurant closed, an item sold out ...) that charge is refunded at once and the error says so.
+   */
   async placeOrder(customerId: string, dto: PlaceOrderDto) {
+    try {
+      return await this.placeOrderPaid(customerId, dto);
+    } catch (e) {
+      throw await this.ext.payments.refundAfterRefusedOrder(customerId, dto.paymentIntentId, e);
+    }
+  }
+
+  private async placeOrderPaid(customerId: string, dto: PlaceOrderDto) {
     const input = (await this.buildQuoteInput(customerId, dto)) as PlaceOrderInput;
     input.paymentMethod = dto.paymentMethod;
     input.paymentIntentId = dto.paymentIntentId;

@@ -53,7 +53,8 @@ const PaymentSection = forwardRef(function PaymentSection({ quoteBody, quoteRead
   const [stripeFail, setStripeFail] = useState("");
   const confirmer = useRef(null);
   const pending = useRef(null);
-  const confirmed = useRef(null); // intent id that already holds the money
+  const confirmed = useRef(null); // intent id whose payment already went through (the card was charged)
+  const [paidId, setPaidId] = useState(null); // the same, for rendering
   const intentRef = useRef(null);
   intentRef.current = intent;
   const seq = useRef(0);
@@ -99,9 +100,15 @@ const PaymentSection = forwardRef(function PaymentSection({ quoteBody, quoteRead
         const next = { intentId: r.intentId, clientSecret: r.clientSecret, mock: !!r.mock };
         if (!cur || cur.intentId !== next.intentId) {
           confirmed.current = null;
+          setPaidId(null);
           setReady(false);
         } else if (r.updated && confirmer.current?.elements) {
           confirmer.current.elements.fetchUpdates?.().catch(() => undefined);
+        }
+        // the customer has already paid for exactly this cart (an earlier try failed after the card was charged): no second payment, just place the order
+        if (r.alreadyPaid) {
+          confirmed.current = r.intentId;
+          setPaidId(r.intentId);
         }
         setIntent(next);
         return r;
@@ -126,8 +133,8 @@ const PaymentSection = forwardRef(function PaymentSection({ quoteBody, quoteRead
   }, [cfg, stripeMode, mockMode, quoteReady, needsCard, bodyKey, choice, saveCard]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    onState?.({ provider: cfg?.provider, stripeReady: stripeMode ? !!intent && (choice !== "new" || ready) : true, loading: !cfg || creating, error: intentErr || stripeFail });
-  }, [cfg, stripeMode, intent, choice, ready, creating, intentErr, stripeFail]); // eslint-disable-line react-hooks/exhaustive-deps
+    onState?.({ provider: cfg?.provider, stripeReady: stripeMode ? !!intent && (choice !== "new" || ready || paidId === intent.intentId) : true, loading: !cfg || creating, error: intentErr || stripeFail });
+  }, [cfg, stripeMode, intent, choice, ready, paidId, creating, intentErr, stripeFail]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const register = useCallback((c) => {
     confirmer.current = c;
@@ -148,11 +155,13 @@ const PaymentSection = forwardRef(function PaymentSection({ quoteBody, quoteRead
         const cur = intentRef.current;
         if (!cur) throw payFail("The payment form is not ready yet. Please wait a moment.", "not_ready");
         if (cur.mock) return { intentId: cur.intentId, mock: true };
-        if (confirmed.current === cur.intentId) return { intentId: cur.intentId }; // the hold exists already (a previous try failed after paying)
+        if (confirmed.current === cur.intentId) return { intentId: cur.intentId }; // already paid (a previous try failed after the card was charged): do not charge again
         if (!confirmer.current) throw payFail("The secure payment form is still loading. Please wait a moment.", "not_ready");
         const pi = await confirmer.current.confirm();
-        if (pi.status === "requires_capture") {
+        // "succeeded" = the card was charged just now; "requires_capture" only for an intent created by an older version of the page
+        if (pi.status === "succeeded" || pi.status === "requires_capture") {
           confirmed.current = pi.id;
+          setPaidId(pi.id);
           return { intentId: pi.id };
         }
         if (pi.status === "processing") throw payFail("Your payment is still processing. Please wait a moment and try again.", "processing");
@@ -162,6 +171,7 @@ const PaymentSection = forwardRef(function PaymentSection({ quoteBody, quoteRead
       /** The server refused the old intent (the price changed): start over with a new one. */
       async reset() {
         confirmed.current = null;
+        setPaidId(null);
         setReady(false);
         setIntent(null);
         await makeIntent({ fresh: true }).catch(() => undefined);
@@ -236,7 +246,12 @@ const PaymentSection = forwardRef(function PaymentSection({ quoteBody, quoteRead
       {!intent && !intentErr && !stripeFail && (
         <div className="sf-muted" data-testid="pay-preparing"><Spinner size={16} /> Preparing the secure payment form...</div>
       )}
-      {intent && stripePromise && (
+      {intent && paidId === intent.intentId && (
+        <Notice tone="success" icon="bank-card-line" className="mb-2">
+          <span data-testid="pay-received">Your payment of ${cardAmount.toFixed(2)} was received. Press the button to finish placing your order. You will not be charged again.</span>
+        </Notice>
+      )}
+      {intent && paidId !== intent.intentId && stripePromise && (
         <Elements key={intent.intentId} stripe={stripePromise} options={{ clientSecret: intent.clientSecret, appearance: STRIPE_APPEARANCE }}>
           <Confirmer clientSecret={intent.clientSecret} choice={choice} register={register}>
             {choice === "new" ? (
@@ -253,13 +268,13 @@ const PaymentSection = forwardRef(function PaymentSection({ quoteBody, quoteRead
                 {elementErr && <div className="sf-error">{elementErr}</div>}
               </>
             ) : (
-              <p className="sf-small sf-muted mb-0">Your card is charged only when the order is delivered. If your bank asks, you will be able to verify the payment here.</p>
+              <p className="sf-small sf-muted mb-0">Your card is charged when you place the order. If your bank asks, you will be able to verify the payment here.</p>
             )}
           </Confirmer>
         </Elements>
       )}
       <p className="sf-small sf-muted mt-2 mb-0">
-        <Ri name="lock-line" /> Secure payment by Stripe. FORKY never sees your card number. Your card is only <b>held</b> now and charged when the order is delivered.
+        <Ri name="lock-line" /> Secure payment by Stripe. FORKY never sees your card number. Your card is <b>charged</b> when you place the order, and refunded in full if the restaurant cannot take it.
       </p>
     </div>
   );

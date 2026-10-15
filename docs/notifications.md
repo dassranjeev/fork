@@ -210,7 +210,7 @@ Before this work, only the restaurant's `order.placed`, the customer's accept / 
 | Restaurant never told: order cancelled, picked up, delivered, prep overdue, review received, auto-restock, store paused / resumed | `order.cancelled`, `order.picked_up`, `order.delivered`, `order.prep_overdue`, `review.received`, `menu.item_restocked`, `store.paused`, `store.resumed` |
 | Driver: cancel / reassign / offer expired / offer cancelled / order ready / trip complete / tip | `order.cancelled`, `order.reassigned`, `driver.offer_expired`, `driver.offer_cancelled` (replace the ringing offer push through the same collapse tag), `order.ready`, `order.delivered`, `order.tip_updated` (it was sent to the wrong id before: driver profile id instead of user id) |
 | `offer.accepted` had no copy (the title was the raw key) | copy added |
-| Payment problems | `payment.failed` (staff) and `payment.issue` (customer) when the capture fails |
+| Payment problems | `payment.failed` (staff) and `payment.issue` (customer) when the payment cannot be settled (only an old manual-capture hold can fail at delivery now: the card is charged at checkout) |
 | Staff: late orders, live chat waiting, SOS | `order.late` (to staff with `orders:view`), `chat.waiting` (`support:view`), SOS now also reaches phones (push, critical, sticky) |
 | Staff received every event regardless of role | `ADMIN` events carry a `module`; only staff whose role grants `<module>:view` (and super admins) receive them |
 | `delivery.driver_arrived` put the PIN in the text | in-app text still has it (the customer needs it); the push says "Have your delivery PIN ready" only |

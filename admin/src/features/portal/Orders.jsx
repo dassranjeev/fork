@@ -96,7 +96,7 @@ function RejectModal({ order, onClose, onDone }) {
     <FormModal open onClose={onClose} title={`Reject ${order.code}`} onSubmit={submit} busy={!!busy} submitText="Reject order" submitVariant="danger">
       <Select label="Reason" value={reason} onChange={setReason} options={REJECT_REASONS} allowEmpty={false} />
       <TextArea label="Note (optional)" value={note} onChange={setNote} rows={2} />
-      <p className="text-secondary-light text-sm mb-0">The customer is notified and the payment authorisation is released.</p>
+      <p className="text-secondary-light text-sm mb-0">The customer is notified and their payment is refunded in full.</p>
     </FormModal>
   );
 }

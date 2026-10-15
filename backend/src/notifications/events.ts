@@ -114,7 +114,7 @@ export const EVENTS: Record<string, EventDef> = {
     category: 'orders',
     pushVars: ['code', 'restaurant'],
     pushData: ['orderId'],
-    audiences: { CUSTOMER: { channels: ['PUSH', 'SMS', 'IN_APP'], push: { title: 'Order declined', body: '{{restaurant}} could not take order {{code}}. You have not been charged.' }, url: C_TRACK, urgency: 'high', tag: 'order:{orderId}' } },
+    audiences: { CUSTOMER: { channels: ['PUSH', 'SMS', 'IN_APP'], push: { title: 'Order declined', body: '{{restaurant}} could not take order {{code}}. Your payment is refunded in full.' }, url: C_TRACK, urgency: 'high', tag: 'order:{orderId}' } },
   },
   'order.ready': {
     category: 'orders',

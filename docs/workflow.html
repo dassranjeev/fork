@@ -169,7 +169,7 @@
   <div class="scroll"><table>
     <thead><tr><th>Step</th><th>Who does it</th><th>How</th><th>Switch</th></tr></thead>
     <tbody>
-      <tr><td>Order placement and payment hold</td><td><span class="tag t-auto">Automatic</span></td><td>Instant. The order is PLACED the moment the card hold succeeds.</td><td>-</td></tr>
+      <tr><td>Payment and order placement</td><td><span class="tag t-auto">Automatic</span></td><td>Instant. The customer pays at checkout: the card is charged right then, and the order is PLACED the moment that payment is confirmed.</td><td>-</td></tr>
       <tr><td>Cancellation window</td><td><span class="tag t-auto">Automatic</span></td><td>For 120 seconds after the payment is confirmed the customer can cancel for free. During that time the order is held by FORKY and the restaurant does not see it. After it, the order goes to the restaurant and the customer can no longer cancel.</td><td><code>orders.customerCancelGraceSeconds</code></td></tr>
       <tr><td>Order acceptance</td><td><span class="tag t-auto">Automatic</span></td><td>As soon as the order is sent to the restaurant (after the window), it is accepted with a prep estimate that includes the kitchen load. Waits for the restaurant only if the kitchen is overloaded, the store is paused or closed, or the restaurant turned it off.</td><td><code>automation.orders.autoAccept</code> + per restaurant</td></tr>
       <tr><td>Start of preparation</td><td><span class="tag t-auto">Automatic</span></td><td>Moves to PREPARING and starts the kitchen ticket. Scheduled orders start in time to be ready.</td><td><code>automation.orders.autoStartPrep</code> + per restaurant</td></tr>
@@ -180,7 +180,7 @@
       <tr><td>Driver wait-time pay</td><td><span class="tag t-auto">Automatic</span></td><td>If a driver has to wait at the restaurant more than 5 minutes after the promised ready time (or after arriving, if later), the extra minutes are paid to the driver ($0.50 a minute, up to $10) and deducted from the restaurant's payout. The restaurant is warned while the driver waits. Staff can waive a charge after a dispute.</td><td><code>orders.waitFee.*</code></td></tr>
       <tr><td>Pickup handoff</td><td><span class="tag t-manual">Driver</span></td><td>The driver enters the pickup code from the restaurant (a physical handover).</td><td>-</td></tr>
       <tr><td>Delivery confirmation</td><td><span class="tag t-manual">Driver</span></td><td>Customer PIN, or a photo, or a recorded hand-over. Needed as proof. See section 6.</td><td>customer's choice</td></tr>
-      <tr><td>Payment capture, ledger, driver earnings</td><td><span class="tag t-auto">Automatic</span></td><td>On delivery.</td><td>-</td></tr>
+      <tr><td>Ledger and driver earnings</td><td><span class="tag t-auto">Automatic</span></td><td>On delivery. The customer's card was already charged at checkout, so nothing more is taken.</td><td>-</td></tr>
       <tr><td>Rating prompts, late alerts, stuck-order alerts, payouts, reports</td><td><span class="tag t-auto">Automatic</span></td><td>Scheduled jobs (section 15).</td><td>settings</td></tr>
     </tbody>
   </table></div>
@@ -195,9 +195,9 @@
   <ol class="steps">
     <li><div class="who"><span class="tag t-manual">Customer</span></div><h4>Browse and build a cart</h4><p>Discovery shows only restaurants that are open and offer what the customer wants (delivery or pickup, based on the store's service mode). Items that are out of stock (86'd) cannot be added.</p></li>
     <li><div class="who"><span class="tag t-manual">Customer</span> <span class="tag t-auto">System</span></div><h4>Checkout quote</h4><p>The system prices the order: items, delivery fee (zone and distance), service fee, tax, promo code, wallet or gift card, tip. The customer picks an address, the handoff (hand to me, leave at door, meet outside), whether to use a private delivery PIN, notes for the driver, and notes for the kitchen.</p></li>
-    <li><div class="who"><span class="tag t-auto">System</span></div><h4>Place the order and hold the money</h4><p>Checks hours, service mode, delivery zone and minimum order; reserves the promo; authorises the card (a hold, not a charge); debits the wallet portion. The order becomes <code>PLACED</code> instantly. The restaurant and operations are notified.</p></li>
-    <li><div class="who"><span class="tag t-auto">System</span> <span class="tag t-manual">Customer (optional)</span></div><h4>Cancellation window (120 seconds)</h4><p>The order is held by FORKY and is <strong>not</strong> given to the kitchen. The customer sees a countdown and can cancel for free; if they do, the restaurant never hears about it and the card hold is released. When the countdown ends the order is sent to the restaurant (the restaurant is notified at that moment) and the customer can no longer cancel.</p></li>
-    <li><div class="who"><span class="tag t-auto">System</span></div><h4>Accept automatically</h4><p>As soon as the order is sent to the restaurant it is accepted with a prep time based on the restaurant's usual time plus kitchen load (a minute per order beyond three, up to 15 extra minutes). The customer gets "accepted, ready in about N minutes". If auto-accept is off or blocked, the restaurant accepts by hand; an order nobody acts on within 180 seconds is rejected and the hold released.</p></li>
+    <li><div class="who"><span class="tag t-auto">System</span></div><h4>Pay and place the order</h4><p>The customer pays on the checkout page and <strong>the card is charged at that moment</strong>, for the full amount (nothing is only held for later). The system then checks hours, service mode, delivery zone and minimum order, verifies the payment with Stripe, reserves the promo and debits the wallet portion. The order becomes <code>PLACED</code> instantly. If the order cannot be placed after the card was charged, the charge is refunded automatically. The restaurant and operations are notified.</p></li>
+    <li><div class="who"><span class="tag t-auto">System</span> <span class="tag t-manual">Customer (optional)</span></div><h4>Cancellation window (120 seconds)</h4><p>The order is held by FORKY and is <strong>not</strong> given to the kitchen. The customer sees a countdown and can cancel for free; if they do, the restaurant never hears about it and the card payment is refunded in full. When the countdown ends the order is sent to the restaurant (the restaurant is notified at that moment) and the customer can no longer cancel.</p></li>
+    <li><div class="who"><span class="tag t-auto">System</span></div><h4>Accept automatically</h4><p>As soon as the order is sent to the restaurant it is accepted with a prep time based on the restaurant's usual time plus kitchen load (a minute per order beyond three, up to 15 extra minutes). The customer gets "accepted, ready in about N minutes". If auto-accept is off or blocked, the restaurant accepts by hand; an order nobody acts on within 180 seconds is rejected and the payment refunded.</p></li>
     <li><div class="who"><span class="tag t-auto">System</span></div><h4>Start preparing</h4><p>Status moves to <code>PREPARING</code> and the ticket appears on the kitchen display. Scheduled orders wait until it is time to start.</p></li>
     <li><div class="who"><span class="tag t-manual">Kitchen (optional)</span></div><h4>Cook</h4><p>The kitchen cooks. It can bump items, mark an item out of stock, extend the prep time (the automatic "ready" then waits), or mark the order ready early.</p></li>
     <li><div class="who"><span class="tag t-auto">System</span></div><h4>Mark ready</h4><p>When the prep time has elapsed the order becomes <code>READY</code>. The driver was already found shortly before this, so pickup can happen right away.</p></li>
@@ -206,7 +206,7 @@
     <li><div class="who"><span class="tag t-manual">Restaurant</span> <span class="tag t-manual">Driver</span></div><h4>Pickup (and wait-time pay)</h4><p>The restaurant hands the bag over; the driver enters the pickup code. If the driver waited more than 5 minutes past the promised ready time, the waiting beyond that is paid to the driver per minute and deducted from the restaurant's payout. Status becomes <code>PICKED_UP</code>, then <code>ON_THE_WAY</code>. The customer is notified.</p></li>
     <li><div class="who"><span class="tag t-auto">System</span></div><h4>Arrival at the customer</h4><p>Within 80 m of the address, arrival is recorded and the customer is told the driver is outside, with wording for the handoff they chose.</p></li>
     <li><div class="who"><span class="tag t-manual">Driver</span></div><h4>Confirm the delivery with proof</h4><p>PIN, photo, or recorded hand-over, and the driver must be within 100 m of the address. Rules in section 6. Status becomes <code>DELIVERED</code>.</p></li>
-    <li><div class="who"><span class="tag t-auto">System</span></div><h4>Settle</h4><p>The card hold is captured. The ledger records the restaurant's share, the driver's earnings, tip, tax and the platform's share. Referral rewards are processed.</p></li>
+    <li><div class="who"><span class="tag t-auto">System</span></div><h4>Settle</h4><p>Nothing more is taken from the customer: the card was charged at checkout. The ledger records the restaurant's share, the driver's earnings, tip, tax and the platform's share. Referral rewards are processed.</p></li>
     <li><div class="who"><span class="tag t-auto">System</span> <span class="tag t-manual">Customer</span></div><h4>Rate</h4><p>The customer is prompted to rate the restaurant and the driver; the driver and restaurant privately rate the customer. Section 13.</p></li>
   </ol>
 
@@ -214,7 +214,7 @@
   <div class="scroll"><table>
     <thead><tr><th>Customer</th><th>System</th><th>Restaurant</th><th>Driver</th><th>Admin</th></tr></thead>
     <tbody>
-      <tr><td>Orders and pays</td><td>Holds payment, accepts, starts prep, marks ready, runs dispatch, detects arrivals, settles</td><td>Cooks. Optionally: extend, mark ready early, mark items out of stock, accept by hand</td><td>Accepts the offer, picks up with the code, delivers with proof</td><td>Watches the live map. Steps in only when an order is flagged</td></tr>
+      <tr><td>Pays (card charged at checkout) and orders</td><td>Verifies the payment, accepts, starts prep, marks ready, runs dispatch, detects arrivals, settles</td><td>Cooks. Optionally: extend, mark ready early, mark items out of stock, accept by hand</td><td>Accepts the offer, picks up with the code, delivers with proof</td><td>Watches the live map. Steps in only when an order is flagged</td></tr>
     </tbody>
   </table></div>
 </section>
@@ -244,7 +244,7 @@
       <rect class="box end" x="130" y="150" width="120" height="40" rx="10"/><text x="190" y="175" text-anchor="middle" font-weight="700" font-size="13">REJECTED</text>
       <rect class="box end" x="270" y="150" width="120" height="40" rx="10"/><text x="330" y="175" text-anchor="middle" font-weight="700" font-size="13">CANCELLED</text>
       <path class="ln" d="M55 84 L170 150" marker-end="url(#b)"/><path class="ln" d="M315 84 L330 150" marker-end="url(#b)"/>
-      <text class="sm" x="190" y="208" text-anchor="middle">hold released / refunded</text>
+      <text class="sm" x="190" y="208" text-anchor="middle">payment refunded</text>
     </svg>
     <div class="legend"><span class="tag t-auto">green = driven by the system</span><span class="tag t-manual">orange = needs a person (driver / restaurant)</span><span class="tag t-bad">red = ends the order</span></div>
   </div>
@@ -308,12 +308,13 @@
 <section id="money">
   <h2>7. Money</h2>
   <div class="flow">
-    <span class="n">Place order</span><span class="arr">&rarr;</span><span class="n">Card hold (authorise)</span><span class="arr">&rarr;</span><span class="n">Delivered</span><span class="arr">&rarr;</span>
-    <span class="n ok">Capture the payment</span><span class="arr">&rarr;</span><span class="n">Ledger entries</span><span class="arr">&rarr;</span><span class="n ok">Payouts</span>
+    <span class="n">Checkout</span><span class="arr">&rarr;</span><span class="n ok">Card charged (payment is mandatory)</span><span class="arr">&rarr;</span><span class="n">Order placed</span><span class="arr">&rarr;</span><span class="n">Delivered</span><span class="arr">&rarr;</span>
+    <span class="n">Ledger entries</span><span class="arr">&rarr;</span><span class="n ok">Payouts</span>
   </div>
   <div class="grid">
-    <div class="card"><h3 style="margin-top:0">At placement</h3><p>Only a hold on the card. Wallet balance and gift cards are debited. If the order is rejected or cancelled early, the hold is released and the wallet portion returned.</p></div>
-    <div class="card"><h3 style="margin-top:0">At delivery</h3><p>The hold is captured and the ledger splits the money: the restaurant's share (less commission), the driver's earnings and tip, tax, and the platform's share. Everything is double-entry and traceable per order.</p></div>
+    <div class="card"><h3 style="margin-top:0">At checkout</h3><p>The customer cannot place an order without paying. The card is <strong>charged in full, right then</strong>: it is not a hold. The order is created only after the payment has been confirmed and checked with Stripe. Wallet balance and gift cards are debited. An order covered entirely by wallet credit needs no card. If the order cannot be placed after the card was charged (for example the restaurant closed a moment before), the charge is refunded automatically, at once; if the customer closes the page right after paying, a clean-up job refunds that payment after about 10 minutes.</p></div>
+    <div class="card"><h3 style="margin-top:0">If the order is rejected or cancelled</h3><p>The customer's payment is <strong>refunded to the card in full</strong> (a bank usually shows it within 5-10 business days) and the wallet portion is returned at once. When a late-cancellation fee applies, only the fee is kept and the rest is refunded. Stripe does not give back its own processing fee on a refund, so every refunded order costs FORKY that fee.</p></div>
+    <div class="card"><h3 style="margin-top:0">At delivery</h3><p>Nothing more is taken from the customer: the money was received at checkout. The ledger splits it: the restaurant's share (less commission), the driver's earnings and tip, tax, and the platform's share. Everything is double-entry and traceable per order.</p></div>
     <div class="card"><h3 style="margin-top:0">Payouts</h3><p>Restaurants and drivers are paid from the ledger on a schedule; drivers can also cash out early. Finance staff review holds, adjustments and payout batches in the Admin Console.</p></div>
     <div class="card"><h3 style="margin-top:0">Refunds</h3><p>Issued from support tickets with approval limits per role. Refunds update the ledger and the customer's payment or wallet.</p></div>
   </div>
@@ -326,15 +327,16 @@
   <div class="scroll"><table>
     <thead><tr><th>Situation</th><th>What happens by itself</th><th>Who steps in</th></tr></thead>
     <tbody>
-      <tr><td>Restaurant does not respond (auto-accept off)</td><td>After 180 s the order is rejected, the hold released, the customer told. Ops get an amber then red flag first.</td><td>Optional: ops call the restaurant</td></tr>
-      <tr><td>Restaurant rejects</td><td>Order REJECTED, payment released, wallet portion returned.</td><td>-</td></tr>
+      <tr><td>Restaurant does not respond (auto-accept off)</td><td>After 180 s the order is rejected, the payment refunded, the customer told. Ops get an amber then red flag first.</td><td>Optional: ops call the restaurant</td></tr>
+      <tr><td>Restaurant rejects</td><td>Order REJECTED, payment refunded to the card, wallet portion returned.</td><td>-</td></tr>
       <tr><td>Kitchen is overloaded</td><td>Auto-accept pauses for that restaurant; orders wait for manual acceptance.</td><td>Restaurant</td></tr>
       <tr><td>Driver declines or ignores an offer</td><td>Counts against their acceptance rate; next driver is offered the order; radius widens.</td><td>-</td></tr>
       <tr><td>No driver found</td><td>Escalation alert to operations.</td><td>Ops assign manually from the live map, or offer an alternative</td></tr>
       <tr><td>Driver goes missing mid-trip</td><td>Order is flagged on the live map.</td><td>Ops unassign and re-dispatch (needs support approval after pickup)</td></tr>
       <tr><td>Driver kept waiting at the restaurant</td><td>The restaurant is warned a couple of minutes before charges start. After 5 minutes past the promised ready time, wait-time pay accrues per minute: paid to the driver, deducted from the restaurant payout (shown on the order and the restaurant statement).</td><td>Staff can waive it after a dispute (FORKY then absorbs the cost; the driver keeps the pay)</td></tr>
       <tr><td>Order running late</td><td>Flagged as late; customer can be notified.</td><td>Support if the customer contacts them</td></tr>
-      <tr><td>Customer cancels within 120 s</td><td>Order cancelled, card hold released in full, restaurant never notified.</td><td>-</td></tr>
+      <tr><td>Customer cancels within 120 s</td><td>Order cancelled, card payment refunded in full, restaurant never notified.</td><td>-</td></tr>
+      <tr><td>Customer paid but the order could not be placed</td><td>The charge is refunded automatically at once and the customer is told. If the customer closed the page right after paying, a clean-up job (every 5 minutes) refunds a payment that never became an order once it is 10 minutes old.</td><td>-</td></tr>
       <tr><td>Customer wants to cancel after 120 s</td><td>Not possible in the app: the order is already with the restaurant.</td><td>FORKY support, <strong>only with the restaurant's approval</strong>: staff send a cancellation request that the restaurant approves or declines in its portal, or record who at the restaurant agreed by phone or chat. Both are written to the order timeline and audit log.</td></tr>
       <tr><td>Wrong or missing item</td><td>Self-serve help flow offers a refund or credit within limits.</td><td>Support tier 1 / 2 for larger cases</td></tr>
       <tr><td>"Never delivered"</td><td>Decided from the delivery proof (section 6).</td><td>Tier 2 if proof exists</td></tr>

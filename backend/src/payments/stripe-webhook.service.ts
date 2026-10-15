@@ -142,7 +142,8 @@ export class StripeWebhookService {
         const r = await this.topups.fulfil(pi.id);
         return r.status !== 'ignored';
       }
-      // ORDER intents succeed when we capture (delivery / late-cancel fee): make sure the order shows it even if our own write was lost
+      // ORDER intents: the card is charged at checkout, BEFORE the order exists, and the order records that payment itself, so there is normally nothing to do here.
+      // An order placed as an old manual-capture hold succeeds when it is captured (delivery / late-cancel fee): make sure the order shows it even if our own write was lost.
       const order = await this.orders.findOne({ where: { paymentIntentId: pi.id } });
       if (order && [PaymentStatus.AUTHORIZED, PaymentStatus.PENDING].includes(order.paymentStatus) && [OrderStatus.DELIVERED, OrderStatus.COLLECTED].includes(order.status) && (pi.amount_received ?? 0) > 0) {
         await this.orders.update(order.id, { paymentStatus: PaymentStatus.CAPTURED });
@@ -160,7 +161,7 @@ export class StripeWebhookService {
     if (event.type === 'payment_intent.canceled') {
       if (row) await this.intents.update({ id: row.id }, { canceledAt: row.canceledAt ?? new Date() });
       const order = await this.orders.findOne({ where: { paymentIntentId: pi.id } });
-      // a hold that disappeared under a live order (it expires after 7 days, or someone cancelled it in the Stripe dashboard)
+      // a hold that disappeared under a live order (only an order placed as an old manual-capture hold can have one: it expires after 7 days, or someone cancelled it in the Stripe dashboard)
       if (order && order.paymentStatus === PaymentStatus.AUTHORIZED && ![OrderStatus.CANCELLED, OrderStatus.REJECTED].includes(order.status)) {
         await this.orders.update(order.id, { meta: { ...(order.meta ?? {}), paymentAlert: { at: new Date().toISOString(), reason: 'The card hold was cancelled in Stripe while the order was still active' } } } as any);
         await this.notifications.notifyOps('finance.stripe_alert', { message: `The card hold for order ${order.code} was cancelled in Stripe while the order is ${order.status}. Check the payment before the order is delivered.` }, { orderId: order.id });

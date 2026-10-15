@@ -59,7 +59,7 @@ const BASE_MESSAGES: Record<string, Partial<Record<Audience, { title: string; bo
     RESTAURANT: { title: 'New order {{code}}', body: 'New {{type}} order {{code}} - {{itemCount}} items, {{total}}. Accept it within {{acceptMinutes}} min.' },
   },
   'order.accepted': { CUSTOMER: { title: 'Order accepted', body: '{{restaurant}} accepted your order {{code}}. Ready in about {{prepMinutes}} min.' } },
-  'order.rejected': { CUSTOMER: { title: 'Order declined', body: '{{restaurant}} could not take order {{code}} ({{reason}}). You have not been charged.' } },
+  'order.rejected': { CUSTOMER: { title: 'Order declined', body: '{{restaurant}} could not take order {{code}} ({{reason}}). Your payment is refunded in full.' } },
   'driver.offer': { DRIVER: { title: 'New delivery offer', body: '{{restaurant}} - {{pickupKm}} km to pickup, {{dropKm}} km to drop-off. Est. pay {{pay}}. Respond in {{seconds}}s.' } },
   'driver.assigned': {
     CUSTOMER: { title: 'Driver on the way to the restaurant', body: '{{driverName}} ({{vehicle}}) will pick up your order {{code}}.' },

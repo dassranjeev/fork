@@ -109,7 +109,8 @@ export const SETTING_DEFINITIONS: any[] = [
   { key: 'payments.reconciliationToleranceCad', group: 'payments', label: 'Reconciliation gap tolerance ($)', value: 1, inputType: 'number' },
   { key: 'payments.topUpMin', group: 'payments', label: 'Wallet top-up: minimum amount ($)', value: 5, inputType: 'number', isPublic: true },
   { key: 'payments.topUpMax', group: 'payments', label: 'Wallet top-up: maximum amount ($)', value: 500, inputType: 'number', isPublic: true },
-  { key: 'payments.abandonedIntentMinutes', group: 'payments', label: 'Cancel card holds (PaymentIntents) that never became an order after this many minutes', value: 60, inputType: 'number' },
+  { key: 'payments.abandonedIntentMinutes', group: 'payments', label: 'Cancel payment attempts (PaymentIntents) that were never paid and never became an order after this many minutes', value: 60, inputType: 'number' },
+  { key: 'payments.paidWithoutOrderMinutes', group: 'payments', label: 'Refund a card payment that went through but never became an order (the customer paid and left) after this many minutes', value: 10, inputType: 'number' },
   { key: 'payments.dailyPayoutsEnabled', group: 'payments', label: 'Pay DAILY-schedule restaurants automatically every day', value: true, inputType: 'boolean' },
   // ---- integrations (edited in Admin > System > Integrations; secrets are encrypted at rest and never returned by any API) ----
   { key: 'integrations.stripe.secretKey', group: 'integrations', label: 'Stripe secret key (sk_test_ / sk_live_ / rk_)', value: '', inputType: 'password', isSecret: true },
