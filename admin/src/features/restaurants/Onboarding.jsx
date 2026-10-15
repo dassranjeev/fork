@@ -22,7 +22,7 @@ export default function Onboarding() {
 
   return (
     <>
-      <PageHeader title="Onboarding pipeline" subtitle="SOP-01: documents review, menu review, test order, go-live" crumbs={[{ label: "Restaurants", to: "/restaurants" }, { label: "Onboarding" }]} />
+      <PageHeader title="Onboarding pipeline" subtitle="SOP-01: documents review, menu review, test order, go-live" crumbs={[{ label: "Businesses", to: "/restaurants" }, { label: "Onboarding" }]} />
       {error && <ErrorState error={error} onRetry={reload} />}
       {loading && !data ? (
         <Loading />

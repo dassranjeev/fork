@@ -42,7 +42,7 @@ export default function RestaurantCreate() {
 
   return (
     <>
-      <PageHeader title="Add restaurant or store" subtitle="Creates the location in APPLIED status; continue with documents review from the detail page" back="/restaurants" crumbs={[{ label: "Restaurants", to: "/restaurants" }, { label: "Add" }]} />
+      <PageHeader title="Add a business" subtitle="Creates the location in APPLIED status; continue with documents review from the detail page" back="/restaurants" crumbs={[{ label: "Restaurants", to: "/restaurants" }, { label: "Add" }]} />
       <div className="row gy-4">
         <div className="col-lg-8">
           <Card title="Restaurant or store">

@@ -78,6 +78,6 @@ Without a key (or with a rejected one) every route answers `{ "enabled": false }
 "Address search is not configured".
 
 * Storefront: the "Add a delivery address" dialog and the "Deliver to" dialog get a debounced, keyboard-accessible search (arrow keys, Enter, Escape) that fills street, city, postal code and the map position.
-* Admin: **Find address** in Restaurants > Add, Restaurants > Location (fills address, city, postal code and moves the pin) and the Zones editor (centres the map). Drivers have no address field.
+* Admin: **Find address** in Businesses > Add Business, business detail > Location (fills address, city, postal code and moves the pin) and the Zones editor (centres the map). Drivers have no address field.
 * `MAPBOX_API_BASE` / `GOOGLE_API_BASE` point the API at fake servers (tests only; the API refuses to start in production when one is set).
 * Tests: `backend/test/maps-e2e.mjs` (59 checks against `fakes/fake-mapbox.mjs` and `fakes/fake-google.mjs`), `backend/test/maps.test.ts` (unit, in CI). Neither provider has been called for real: the first run with real keys may show small differences.

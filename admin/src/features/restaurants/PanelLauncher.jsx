@@ -34,9 +34,9 @@ export default function PanelLauncher() {
   return (
     <>
       <PageHeader
-        title="Restaurant panels"
-        subtitle="Open the restaurant portal exactly as its owner sees it. Every session is audited and expires after 2 hours."
-        crumbs={[{ label: "Restaurants", to: "/restaurants" }, { label: "Panels" }]}
+        title="Business panels"
+        subtitle="Open the business portal exactly as its owner sees it. Every session is audited and expires after 2 hours."
+        crumbs={[{ label: "Businesses", to: "/restaurants" }, { label: "Panels" }]}
       />
       <Card>
         <ListToolbar list={list} placeholder="Search restaurants by name, phone, email…" />

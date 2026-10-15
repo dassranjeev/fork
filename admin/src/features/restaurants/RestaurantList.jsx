@@ -53,9 +53,9 @@ export default function RestaurantList() {
   return (
     <>
       <PageHeader
-        title="Restaurants and stores"
+        title="Businesses"
         subtitle="Every location on the platform: restaurants, cafes, bakeries, grocery, convenience and specialty food stores"
-        crumbs={[{ label: "Restaurants" }]}
+        crumbs={[{ label: "Businesses" }]}
         actions={
           can("restaurants", "create") && (
             <Link to="/restaurants/new" className="btn btn-primary-600 btn-sm radius-8 px-16 py-8">

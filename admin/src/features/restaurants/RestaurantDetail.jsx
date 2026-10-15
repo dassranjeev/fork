@@ -27,7 +27,7 @@ export default function RestaurantDetail() {
   if (error && !r)
     return (
       <>
-        <PageHeader title="Restaurant" back="/restaurants" />
+        <PageHeader title="Business" back="/restaurants" />
         <ErrorState error={error} onRetry={reload} />
       </>
     );
@@ -75,7 +75,7 @@ export default function RestaurantDetail() {
           </span>
         }
         subtitle={[r.addressLine1, r.city, r.zone?.name].filter(Boolean).join(" · ")}
-        crumbs={[{ label: "Restaurants", to: "/restaurants" }, { label: r.name }]}
+        crumbs={[{ label: "Businesses", to: "/restaurants" }, { label: r.name }]}
         actions={<OpenPanelButton restaurant={r} small={false} />}
       />
       {(r.statusReason || r.pausedUntil) && r.status !== "LIVE" && (

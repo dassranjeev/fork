@@ -2,7 +2,7 @@ import React from "react";
 import { useAuth, useOpenPanel } from "../../lib/auth";
 
 /** "Open restaurant panel": view the restaurant portal as its owner (audited, short-lived). Needs restaurants:edit. */
-export default function OpenPanelButton({ restaurant, small = true, label = "Open restaurant panel" }) {
+export default function OpenPanelButton({ restaurant, small = true, label = "Open business panel" }) {
   const { can } = useAuth();
   const { openPanel, busy } = useOpenPanel();
   if (!can("restaurants", "edit")) return null;

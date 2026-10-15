@@ -19,7 +19,7 @@ const NewOrderPopup = React.lazy(() => import("../features/notifications/NewOrde
 export const SECTION_ORDER = [
   "MAIN",
   "ADMIN & SUPER ADMIN",
-  "RESTAURANTS",
+  "BUSINESSES",
   "DRIVERS",
   "CUSTOMERS",
   "OPERATIONS",

@@ -89,7 +89,7 @@ export default function Merchants() {
 
   return (
     <>
-      <PageHeader title="Merchants" subtitle="Legal entities that own one or more restaurant locations" crumbs={[{ label: "Restaurants", to: "/restaurants" }, { label: "Merchants" }]} />
+      <PageHeader title="Merchants" subtitle="Legal entities that own one or more businesses (restaurants, cafes, bakeries and stores)" crumbs={[{ label: "Businesses", to: "/restaurants" }, { label: "Merchants" }]} />
       <Card>
         <ListToolbar
           list={list}
