@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import { Address, Order, Restaurant } from '../database/entities';
 import { retailView } from '../common/store-types';
 import { ActorType, OrderStatus, OrderType } from '../common/enums';
@@ -51,9 +51,11 @@ export class CheckoutService {
     if (dto.type !== OrderType.PICKUP && !deliveryAddress) throw new BadRequestException('A delivery address is required');
     // the hand-over method is part of the quote: baskets with age-restricted products cannot be left at the door (ID is checked)
     let dropoffMethod: string | undefined;
+    let dropoffExplicit = false;
     if (dto.type !== OrderType.PICKUP) {
       const def = dto.addressId ? await this.addressDefaults(customerId, dto.addressId) : null;
       const contactless = (dto as { contactless?: boolean }).contactless;
+      dropoffExplicit = dto.dropoffMethod !== undefined || contactless !== undefined;
       dropoffMethod = dto.dropoffMethod ?? (contactless !== undefined ? (contactless ? 'LEAVE_AT_DOOR' : 'HAND_TO_ME') : def?.dropoffMethod ?? 'HAND_TO_ME');
     }
     return {
@@ -69,12 +71,15 @@ export class CheckoutService {
       scheduledFor: dto.scheduledFor ? new Date(dto.scheduledFor) : null,
       ageConfirmed: dto.ageConfirmed === true,
       dropoffMethod,
+      dropoffExplicit,
     };
   }
 
   async quote(customerId: string, dto: CheckoutQuoteDto) {
     const input = await this.buildQuoteInput(customerId, dto);
-    return this.ext.pricing.quote(input);
+    // the quote shows the totals of a basket with age-restricted products before the customer has confirmed their age (`ageConfirmationRequired`);
+    // the payment intent and the order always insist on the confirmation
+    return this.ext.pricing.quote({ ...input, requireAgeConfirmation: false });
   }
 
   /**
@@ -162,7 +167,18 @@ export class CheckoutService {
   async list(customerId: string, q: PageQueryDto & { status?: string }) {
     const qb = this.orders().createQueryBuilder('o').where('o.customerId = :customerId', { customerId });
     if (q.status) qb.andWhere('o.status = :status', { status: q.status });
-    return paginateQb(qb, q, { sortable: { createdAt: 'o.createdAt', total: 'o.total' }, defaultSort: ['o.createdAt', 'DESC'] });
+    const page = await paginateQb(qb, q, { sortable: { createdAt: 'o.createdAt', total: 'o.total' }, defaultSort: ['o.createdAt', 'DESC'] });
+    // what kind of store each order came from, so a list can word the status in the store's own words ("Picking your items") and show who it was
+    const ids = [...new Set(page.data.map((o) => o.restaurantId))];
+    const stores = ids.length ? await this.ds.getRepository(Restaurant).find({ where: { id: In(ids) }, select: ['id', 'name', 'slug', 'storeType'] }) : [];
+    const byId = new Map(stores.map((s) => [s.id, s]));
+    return {
+      ...page,
+      data: page.data.map((o) => {
+        const s = byId.get(o.restaurantId);
+        return Object.assign(o, { ...retailView({ status: o.status, requiresIdCheck: o.requiresIdCheck, minAge: o.minAge, meta: o.meta, basket: o.basket }, s?.storeType), restaurantName: s?.name ?? null, restaurantSlug: s?.slug ?? null });
+      }),
+    };
   }
 
   async detail(customerId: string, id: string): Promise<Order> {

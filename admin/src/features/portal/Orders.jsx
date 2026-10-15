@@ -232,7 +232,7 @@ function OrderCard({ order, reload, highlight }) {
           {order.type !== "PICKUP" && order.dropoffMethod === "LEAVE_AT_DOOR" && <Badge tone="info">Contactless</Badge>}
           {order.type !== "PICKUP" && order.dropoffMethod === "MEET_OUTSIDE" && <Badge tone="neutral">Meet outside</Badge>}
           {order.requiresIdCheck && <Badge tone="danger">ID check {order.minAge}+ at hand-over</Badge>}
-          {retail && order.basket && <Badge tone="neutral">{order.basket.units} unit{order.basket.units === 1 ? "" : "s"}{order.basket.weighed ? ` · ${order.basket.weighed} weighed` : ""}</Badge>}
+          {retail && order.basket && <Badge tone="neutral">{order.basket.units} item{order.basket.units === 1 ? "" : "s"}{order.basket.weighed ? ` · ${order.basket.weighed} weighed` : ""}</Badge>}
         </div>
         {retail && ["ACCEPTED", "DRIVER_ASSIGNED", "PREPARING", "READY"].includes(s) ? <PickingList order={order} reload={reload} /> : <OrderItems order={order} onRemove={retail ? undefined : removeItem} removing={isBusy("rm")} />}
         {order.customerNotes && <div className="alert alert-warning py-8 px-12 radius-8 text-sm mt-8 mb-0">Customer note: {order.customerNotes}</div>}

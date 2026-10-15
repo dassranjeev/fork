@@ -81,7 +81,16 @@ async function skuMap(slug) {
 const stockOf = async (itemId) => Number((await sql(`SELECT "stockQty" FROM menu_items WHERE id = $1`, [itemId]))[0]?.stockQty);
 const orderOf = async (id) => (await api('GET', `/customer/orders/${id}`, S.c1)).j;
 const adminOrder = async (id) => { const j = (await api('GET', `/admin/orders/${id}`, S.admin)).j; return j.order || j; };
-const cancelAdmin = (id) => api('POST', `/admin/orders/${id}/cancel`, S.admin, { reason: 'store-types-e2e cleanup', restaurantApproval: { contactName: 'Store Types E2E', channel: 'CHAT' } });
+async function cancelAdmin(id) {
+  // an order that was just placed may still be moving (automatic acceptance, dispatch): a busy answer (409 / 429 / 5xx) is tried again
+  let r;
+  for (let i = 0; i < 8; i++) {
+    r = await api('POST', `/admin/orders/${id}/cancel`, S.admin, { reason: 'store-types-e2e cleanup', restaurantApproval: { contactName: 'Store Types E2E', channel: 'CHAT' } });
+    if (r.s !== 409 && r.s !== 429 && r.s < 500) break;
+    await sleep(700);
+  }
+  return r;
+}
 const refundsOf = async (orderId) => (await sql(`SELECT amount, "reasonCode", status FROM refunds WHERE "orderId" = $1 ORDER BY "createdAt"`, [orderId])).map((r) => ({ ...r, amount: money(r.amount) }));
 const refundSum = async (orderId) => money((await refundsOf(orderId)).filter((r) => r.status === 'PROCESSED').reduce((s, r) => s + r.amount, 0));
 const paidBack = async (orderId) => money((await sql(`SELECT COALESCE(SUM(amount), 0) s FROM payments WHERE "orderId" = $1 AND kind = 'REFUND'`, [orderId]))[0].s);
@@ -305,14 +314,23 @@ async function main() {
     check('cart tells the store type and the most each line can hold', cart.restaurant.storeType === 'GROCERY' && cart.restaurant.retail === true && cl('FB-D-001').maxQuantity >= 20);
 
     r = await getQuote();
-    check('quote refuses an age-restricted basket until the customer confirms their age (400 AGE_CONFIRMATION_REQUIRED)', r.s === 400 && r.j.code === 'AGE_CONFIRMATION_REQUIRED' && r.j.details?.minAge === 19, r);
+    check('quote still prices an age-restricted basket before the age is confirmed, and says so (ageConfirmationRequired)', r.s < 300 && r.j.ageConfirmationRequired === true && r.j.requiresIdCheck === true && r.j.minAge === 19 && r.j.total > 0, r);
     r = await getQuote({ ageConfirmed: 'false' });
-    check('the string "false" does not count as a confirmation', r.s === 400, r);
+    check('the string "false" does not count as a confirmation', r.s === 400 || r.j.ageConfirmationRequired === true, r);
+    r = await api('POST', '/customer/orders', S.c1, { ...quoteBody(), paymentMethod: 'CARD', paymentToken: 'pm_mock', dropoffMethod: 'HAND_TO_ME' });
+    check('placing the order without the age confirmation is refused (400 AGE_CONFIRMATION_REQUIRED)', r.s === 400 && r.j.code === 'AGE_CONFIRMATION_REQUIRED' && r.j.details?.minAge === 19, r);
+    r = await api('POST', '/customer/payments/intent', S.c1, { ...quoteBody() });
+    check('...and so is the payment intent', r.s === 400 && r.j.code === 'AGE_CONFIRMATION_REQUIRED', r);
     r = await getQuote({ ageConfirmed: true, dropoffMethod: 'LEAVE_AT_DOOR' });
-    check('...and age-restricted products can never be left at the door (400 ID_CHECK_NO_LEAVE_AT_DOOR)', r.s === 400 && r.j.code === 'ID_CHECK_NO_LEAVE_AT_DOOR', r);
+    check('...an explicit "leave at the door" is refused for age-restricted products (400 ID_CHECK_NO_LEAVE_AT_DOOR)', r.s === 400 && r.j.code === 'ID_CHECK_NO_LEAVE_AT_DOOR', r);
+    // the address default of a customer who normally wants "leave at the door" must not break an age-restricted basket
+    await sql(`UPDATE addresses SET "dropoffMethod" = 'LEAVE_AT_DOOR' WHERE id = $1`, [S.addr]);
+    r = await getQuote({ ageConfirmed: true });
+    check('a saved "leave at the door" is replaced by an in-person hand-over for an ID-check basket (no error)', r.s < 300 && r.j.dropoffMethod === 'HAND_TO_ME' && r.j.requiresIdCheck === true, r);
+    await sql(`UPDATE addresses SET "dropoffMethod" = 'HAND_TO_ME' WHERE id = $1`, [S.addr]);
     r = await getQuote({ ageConfirmed: true });
     const q = r.j;
-    check('quote with the age confirmed: requiresIdCheck, minAge, basket, store type', r.s < 300 && q.requiresIdCheck === true && q.minAge === 19 && q.storeType === 'GROCERY' && q.basket.units >= 5, r);
+    check('quote with the age confirmed: requiresIdCheck, minAge, basket, store type', r.s < 300 && q.requiresIdCheck === true && q.minAge === 19 && q.storeType === 'GROCERY' && q.ageConfirmationRequired === false && q.basket.units === 5, r);
     const ql = (sku) => q.lines.find((l) => l.sku === sku);
     check('quote lines: weighed line priced per step with the estimated weight; ZERO_RATED groceries carry no tax, beer 13% HST', money(ql('FB-P-001').lineTotal) === 2.18 && ql('FB-P-001').estimatedWeight === 1 && money(ql('FB-P-001').taxAmount) === 0 && money(ql('FB-A-001').taxAmount) === money(14.95 * 0.13), { w: ql('FB-P-001'), a: ql('FB-A-001') });
     check('quote: retail prep time is longer than the store\'s base (a basket takes time to pick)', q.prepTimeMin >= 11 && q.storeType === 'GROCERY', q.prepTimeMin);
@@ -341,11 +359,13 @@ async function main() {
     r = await place();
     check('order placed (grocery, weighed + pieces)', r.s < 300 && r.j.id, r);
     const o1 = r.j;
-    check('order records the basket and no ID check', o1.requiresIdCheck === false && o1.basket?.units === 10 && o1.basket.weighed === 1, o1.basket);
+    check('order records the basket and no ID check', o1.requiresIdCheck === false && o1.basket?.units === 9 && o1.basket.weighed === 1, o1.basket);
     check('stock taken off the shelf: milk -2, bananas -1 kg (2 steps of 0.5)', (await stockOf(P('FB-D-001').id)) === milk0 - 2 && (await stockOf(P('FB-P-001').id)) === ban0 - 1, { milk: await stockOf(P('FB-D-001').id), bananas: await stockOf(P('FB-P-001').id) });
     const d1 = await orderOf(o1.id);
     check('order items keep the weighed facts and prices', d1.items.find((i) => i.sku === 'FB-P-001')?.sellBy === 'WEIGHT' && Number(d1.items.find((i) => i.sku === 'FB-P-001').estimatedWeight) === 1 && d1.statusLabel && d1.retail === true && d1.picking?.lines === 3, { label: d1.statusLabel, picking: d1.picking });
     check('the customer reads the status in grocery words once accepted', await waitFor(async () => /confirmed|picking/i.test((await orderOf(o1.id)).statusLabel), 15000), (await orderOf(o1.id)).statusLabel);
+    const listed = ((await api('GET', '/customer/orders?limit=20', S.c1)).j.data || []).find((x) => x.id === o1.id);
+    check('the order list words the status for the store too, and says which store and kind of store it was', listed && /confirmed|picking/i.test(listed.statusLabel) && listed.retail === true && listed.storeType === 'GROCERY' && listed.restaurantName === 'Fresh Basket Supermarket' && listed.restaurantSlug === SUPER, listed);
     r = await cancelAdmin(o1.id);
     check('order cancelled (admin, with the store\'s approval)', r.s < 300, r);
     check('cancelling puts the products back on the shelf', (await stockOf(P('FB-D-001').id)) === milk0 && (await stockOf(P('FB-P-001').id)) === ban0, { milk: await stockOf(P('FB-D-001').id), bananas: await stockOf(P('FB-P-001').id) });
@@ -373,8 +393,8 @@ async function main() {
     check('two customers each want 2 of the last 3 eggs: exactly one order is placed', okOnes.length === 1 && refused.length === 1, both.map((x) => x.s + ':' + (x.j?.code || x.j?.message || '')));
     check('the other is refused with INSUFFICIENT_STOCK', refused[0]?.j?.code === 'INSUFFICIENT_STOCK', refused[0]?.j);
     check('only 2 eggs left the shelf (never negative)', (await stockOf(P('FB-D-002').id)) === 1, await stockOf(P('FB-D-002').id));
-    if (okOnes[0]) await cancelAdmin(okOnes[0].j.id);
-    check('cancelled: the eggs are back (3)', (await stockOf(P('FB-D-002').id)) === 3, await stockOf(P('FB-D-002').id));
+    const eggCancel = okOnes[0] ? await cancelAdmin(okOnes[0].j.id) : null;
+    check('cancelled: the eggs are back (3)', (await stockOf(P('FB-D-002').id)) === 3, { stock: await stockOf(P('FB-D-002').id), cancel: eggCancel && { s: eggCancel.s, j: eggCancel.j } });
 
     // ============================================================ F. picking
     section('F. picking: weights, out of stock, replacements');

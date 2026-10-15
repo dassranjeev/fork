@@ -127,12 +127,14 @@ Requires `restaurants:approve`. Issues a short-lived (1 h) access token, **no re
 
 | Method & path | Role | Body | Response |
 |---|---|---|---|
-| GET `/` | any | `?includeInactive=false` | `{categories:[{...,items}], uncategorized, combos, modifierGroups, stations, counts}` |
+| GET `/` | any | `?includeInactive=false`, `?items=false` | `{categories:[{...,items}], uncategorized, combos, modifierGroups, stations, counts, access}`. `items=false` = the light structure for big catalogs: departments with `itemCount`, no items |
+| GET `/items` | any | `ProductListQuery{q|search,categoryId|none,stock:out|low|in|tracked|untracked,available,active,sortBy:name|price|stock|updated|sku|sort,sortDir,page,limit}` | `{data:[item + categoryName + stockState], meta, counts:{total,tracked,lowStock,outOfStock}}` (paged product list, docs/store-types.md) |
+| POST `/stock` | managers, CASHIER | `StockUpdateDto{updates:[{sku\|barcode\|itemId, stockQty\|delta, available?}]}` (at most 5000) | `{updated, unchanged, notFound:[{row,key}], errors:[{row,error}]}`. Starts stock tracking on a product that had none; prices are not touched |
 | POST `/categories` | managers* | `CategoryDto` | row |
 | PATCH `/categories/reorder` | managers | `ReorderDto{ids}` | `{ok}` |
 | PATCH `/categories/:id` | managers | `UpdateCategoryDto` | row |
 | DELETE `/categories/:id` | managers | `?moveItemsTo=categoryId` | `{ok}` |
-| POST `/items` | managers | `ItemDto` (price, pickupPrice, taxClassCode, allergens, dietaryTags, dayparts, isCombo/comboItems, stationId, prepTimeMin, groupIds...) | item + modifierGroups |
+| POST `/items` | managers | `ItemDto` (price, pickupPrice, taxClassCode, allergens, dietaryTags, dayparts, isCombo/comboItems, stationId, prepTimeMin, groupIds... and the catalog fields `sku, barcode, brand, packSize, sellBy, weightUnit, stepSize, trackStock, stockQty, lowStockThreshold, maxPerOrder, minAge, temperature`: 409 for a repeated SKU, 400 `LICENCE_REQUIRED` for `minAge` > 0 without an approved liquor / tobacco licence) | item + modifierGroups |
 | PATCH `/items/reorder` | managers | `ReorderDto` | `{ok}` |
 | GET `/items/:id` | any | - | item + modifierGroups |
 | PATCH `/items/:id` | managers | `UpdateItemDto` | item |
@@ -167,6 +169,7 @@ Requires `restaurants:approve`. Issues a short-lived (1 h) access token, **no re
 | POST `/:id/ready` | any | - | order -> READY |
 | POST `/:id/handoff` | any | `HandoffDto{code}` | order -> PICKED_UP (delivery) or COLLECTED (pickup); code checked against pickup code |
 | POST `/:id/items/:itemId/remove` | any | `RemoveItemDto{reason?}` | order item removed -> customer approval + partial refund flow (`OrdersService.removeItem`) |
+| POST `/:id/items/:itemId/pick` | any | `PickItemDto{status:'PICKED'\|'OUT_OF_STOCK'\|'REPLACED', actualWeight?, replacementItemId?, replacementQuantity?, note?}` (grocery picking list: weighed lighter = refund, out of stock = refund, replaced = the customer pays the lower price; an order with every line out of stock is cancelled and refunded) | order (docs/store-types.md) |
 | POST `/:id/extend-prep` | any | `ExtendPrepDto{addMinutes}` | order `estimatedReadyAt`/`estimatedDeliveryAt` pushed back |
 
 All order actions go through `OrdersService.transition` / `removeItem` / `setEta` (single source of truth for the state machine); this module never re-implements the transition rules.

@@ -54,6 +54,13 @@ export interface QuoteInput {
   ageConfirmed?: boolean;
   /** HAND_TO_ME | LEAVE_AT_DOOR | MEET_OUTSIDE: age-restricted baskets cannot be left at the door */
   dropoffMethod?: string;
+  /** the customer chose `dropoffMethod` in this request (true) or it is only the saved default of the address (false / missing) */
+  dropoffExplicit?: boolean;
+  /**
+   * true (default): a basket with age-restricted products is refused until `ageConfirmed` (the payment and the order always insist).
+   * false: the quote is still priced and says `ageConfirmationRequired` (the page shows the totals first and asks for the confirmation before paying).
+   */
+  requireAgeConfirmation?: boolean;
 }
 
 export interface QuoteLine {
@@ -92,6 +99,10 @@ export interface Quote {
   /** age-restricted goods in the basket: ID is checked at hand-over */
   requiresIdCheck?: boolean;
   minAge?: number;
+  /** the basket has age-restricted products and the customer has not confirmed their age yet: the payment and the order will refuse until they do */
+  ageConfirmationRequired?: boolean;
+  /** delivery: the hand-over the order will use. An age-restricted basket is always handed over in person (a saved "leave at the door" is replaced) */
+  dropoffMethod?: string | null;
   /** what the picker and the driver need to know about the basket */
   basket?: { units: number; lines: number; weighed: number; chilled: number; frozen: number; estimatedKg: number };
   lines: QuoteLine[];

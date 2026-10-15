@@ -484,3 +484,49 @@ textarea.sf-input { min-height: 72px; resize: vertical; }
 @media (max-width: 420px) {
   .sf-nchan { grid-template-columns: 1fr 1fr; }
 }
+
+/* ---- grocery / convenience / specialty stores: type tiles, departments, product cards, weights, picking */
+.sf .me-1 { margin-right: 4px; } .sf .me-2 { margin-right: 8px; }
+.sf-tag > i { margin-right: 4px; }
+.sf-tag-store { background: #e2f3f3; color: #0b6266; }
+.sf-tag-cold { background: #e6f3fb; color: #11628f; }
+.sf-rcard-name .sf-tag-store { margin: 2px 0; }
+.sf-types { display: flex; gap: 10px; overflow-x: auto; padding: 2px 2px 10px; scrollbar-width: thin; }
+.sf-type { flex: 0 0 auto; min-width: 92px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--sf-line); background: #fff; text-align: center; line-height: 1.2; }
+.sf-type > i { font-size: 22px; color: var(--sf-brand); }
+.sf-type b { font-size: 13px; }
+.sf-type .sf-small { font-size: 12px; color: var(--sf-muted); }
+.sf-type.on { border-color: var(--sf-brand); background: var(--sf-brand-soft); }
+.sf-strip { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; scroll-snap-type: x proximity; }
+.sf-strip-item { flex: 0 0 min(280px, 80vw); scroll-snap-align: start; }
+.sf-catnav button { flex: 0 0 auto; display: inline-block; padding: 7px 14px; border-radius: 999px; background: #fff; border: 1px solid var(--sf-line); color: var(--sf-ink); font-weight: 600; font-size: 14px; text-align: left; }
+.sf-catnav button.on, .sf-catnav button:hover { background: var(--sf-brand-soft); border-color: #f3a77f; }
+.sf-count { margin-left: 4px; font-size: 12px; font-weight: 600; color: var(--sf-muted); }
+.sf-storebar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; scroll-margin-top: 120px; }
+.sf-storesearch { flex: 1 1 220px; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; background: #fff; border: 1px solid #d9d2cb; border-radius: 12px; }
+.sf-storesearch:focus-within { border-color: var(--sf-brand); outline: 3px solid rgba(249, 90, 22, 0.2); }
+.sf-storesearch > i { font-size: 18px; color: var(--sf-muted); }
+.sf-storesearch input { flex: 1; min-width: 0; border: 0; outline: 0; padding: 8px 2px; font: inherit; background: transparent; color: var(--sf-ink); }
+.sf-products { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.sf-products.is-busy { opacity: 0.6; }
+.sf-product { position: relative; display: flex; flex-direction: column; min-width: 0; background: #fff; border: 1px solid var(--sf-line); border-radius: 14px; }
+.sf-product.is-disabled .sf-product-main { opacity: 0.6; }
+.sf-product-main { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; padding: 10px 10px 52px; text-align: left; background: transparent; border: 0; }
+.sf-product-img { width: 100% !important; height: 110px !important; margin-bottom: 6px; border-radius: 10px; }
+.sf-product .sf-addbtn { right: 8px; bottom: 8px; }
+.sf-select-sm { width: auto; min-height: 34px; padding: 4px 8px; font-size: 13px; border-radius: 8px; }
+.sf-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.sf-qty span { padding: 0 4px; white-space: nowrap; }
+.sf-agebox { padding: 10px 12px; background: var(--sf-warn-soft); border: 1px solid #f0d28a; border-radius: 12px; font-size: 14px; font-weight: 600; }
+.sf-pickbar { height: 8px; margin: 6px 0; overflow: hidden; background: var(--sf-line); border-radius: 4px; }
+.sf-pickbar > span { display: block; height: 100%; background: var(--sf-ok); transition: width 0.3s; }
+.sf-pickcounts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.sf-pickcounts > div { display: flex; flex-direction: column-reverse; align-items: center; padding: 8px 4px; text-align: center; background: #f6f2ee; border-radius: 10px; }
+.sf-pickcounts dd { font-size: 18px; font-weight: 800; }
+.sf-pickcounts dt { font-size: 12px; font-weight: 400; color: var(--sf-muted); }
+@media (min-width: 576px) {
+  .sf-products { grid-template-columns: repeat(3, 1fr); }
+}
+@media (min-width: 900px) {
+  .sf-catnav:has(> button) { max-height: calc(100vh - 96px); overflow-y: auto; }
+}

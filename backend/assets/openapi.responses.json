@@ -36519,7 +36519,8 @@
                 },
                 "acceptedAt": {
                   "type": "string",
-                  "format": "date-time"
+                  "format": "date-time",
+                  "nullable": true
                 },
                 "accessCodePurgedAt": {
                   "nullable": true
@@ -36559,20 +36560,17 @@
                   ]
                 },
                 "cancelReason": {
-                  "type": "string",
-                  "nullable": true
+                  "type": "string"
                 },
                 "cancellationFee": {
                   "type": "integer"
                 },
                 "cancelledAt": {
                   "type": "string",
-                  "format": "date-time",
-                  "nullable": true
+                  "format": "date-time"
                 },
                 "cancelledBy": {
-                  "type": "string",
-                  "nullable": true
+                  "type": "string"
                 },
                 "cityId": {
                   "type": "string",
@@ -36602,8 +36600,6 @@
                   "nullable": true
                 },
                 "deliveredAt": {
-                  "type": "string",
-                  "format": "date-time",
                   "nullable": true
                 },
                 "deliveryAddress": {
@@ -36639,45 +36635,40 @@
                     "lng",
                     "postalCode",
                     "province"
-                  ]
+                  ],
+                  "nullable": true
                 },
                 "deliveryFee": {
                   "type": "number"
                 },
                 "deliveryPin": {
-                  "type": "string"
+                  "type": "string",
+                  "nullable": true
                 },
                 "discountTotal": {
                   "type": "integer"
                 },
                 "distanceKm": {
-                  "type": "number"
+                  "type": "number",
+                  "nullable": true
                 },
                 "driverArrivedCustomerAt": {
-                  "type": "string",
-                  "format": "date-time",
                   "nullable": true
                 },
                 "driverArrivedRestaurantAt": {
-                  "type": "string",
-                  "format": "date-time",
                   "nullable": true
                 },
                 "driverAssignedAt": {
-                  "type": "string",
-                  "format": "date-time",
                   "nullable": true
                 },
                 "driverBoost": {
                   "type": "integer"
                 },
                 "driverId": {
-                  "type": "string",
-                  "format": "uuid",
                   "nullable": true
                 },
                 "driverPay": {
-                  "type": "number"
+                  "type": "integer"
                 },
                 "driverWaitFee": {
                   "type": "integer"
@@ -36712,6 +36703,27 @@
                   "type": "string",
                   "format": "uuid"
                 },
+                "idCheck": {
+                  "type": "object",
+                  "properties": {
+                    "minAge": {
+                      "type": "integer"
+                    },
+                    "required": {
+                      "type": "boolean"
+                    },
+                    "result": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "minAge",
+                    "required",
+                    "result"
+                  ],
+                  "nullable": true
+                },
                 "isLate": {
                   "type": "boolean"
                 },
@@ -36724,7 +36736,8 @@
                 },
                 "kitchenReleasedAt": {
                   "type": "string",
-                  "format": "date-time"
+                  "format": "date-time",
+                  "nullable": true
                 },
                 "meta": {
                   "type": "object",
@@ -36761,10 +36774,6 @@
                     "dispatch": {
                       "type": "object",
                       "properties": {
-                        "assignedDriverId": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
                         "boost": {
                           "type": "integer"
                         },
@@ -36786,20 +36795,11 @@
                         },
                         "nextAttemptAt": {
                           "type": "string",
-                          "format": "date-time",
-                          "nullable": true
+                          "format": "date-time"
                         },
                         "offeredIds": {
                           "type": "array",
-                          "items": {
-                            "oneOf": [
-                              {},
-                              {
-                                "type": "string",
-                                "format": "uuid"
-                              }
-                            ]
-                          }
+                          "items": {}
                         },
                         "offersInRound": {
                           "type": "integer"
@@ -36842,6 +36842,7 @@
                         "nextAttemptAt",
                         "offeredIds",
                         "offersInRound",
+                        "pendingOfferId",
                         "radiusKm",
                         "sequence",
                         "startAt",
@@ -36854,10 +36855,6 @@
                     "idCheck": {
                       "type": "object",
                       "properties": {
-                        "at": {
-                          "type": "string",
-                          "format": "date-time"
-                        },
                         "minAge": {
                           "type": "integer"
                         },
@@ -36866,7 +36863,6 @@
                         }
                       },
                       "required": [
-                        "at",
                         "minAge",
                         "result"
                       ]
@@ -36877,47 +36873,10 @@
                     },
                     "stockRestored": {
                       "type": "boolean"
-                    },
-                    "waitFee": {
-                      "type": "object",
-                      "properties": {
-                        "amount": {
-                          "type": "integer"
-                        },
-                        "chargeableMinutes": {
-                          "type": "integer"
-                        },
-                        "from": {
-                          "type": "string",
-                          "format": "date-time"
-                        },
-                        "graceMinutes": {
-                          "type": "integer"
-                        },
-                        "perMinute": {
-                          "type": "number"
-                        },
-                        "to": {
-                          "type": "string",
-                          "format": "date-time"
-                        },
-                        "waitMinutes": {
-                          "type": "integer"
-                        }
-                      },
-                      "required": [
-                        "amount",
-                        "chargeableMinutes",
-                        "from",
-                        "graceMinutes",
-                        "perMinute",
-                        "to",
-                        "waitMinutes"
-                      ]
                     }
                   },
                   "required": [
-                    "promisedReadyAt"
+                    "stockRestored"
                   ]
                 },
                 "minAge": {
@@ -36936,8 +36895,34 @@
                   "type": "string"
                 },
                 "pickedUpAt": {
-                  "type": "string",
-                  "format": "date-time",
+                  "nullable": true
+                },
+                "picking": {
+                  "type": "object",
+                  "properties": {
+                    "lines": {
+                      "type": "integer"
+                    },
+                    "outOfStock": {
+                      "type": "integer"
+                    },
+                    "pending": {
+                      "type": "integer"
+                    },
+                    "picked": {
+                      "type": "integer"
+                    },
+                    "replaced": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "lines",
+                    "outOfStock",
+                    "pending",
+                    "picked",
+                    "replaced"
+                  ],
                   "nullable": true
                 },
                 "pickupCode": {
@@ -36967,8 +36952,6 @@
                   "nullable": true
                 },
                 "readyAt": {
-                  "type": "string",
-                  "format": "date-time",
                   "nullable": true
                 },
                 "rejectReason": {
@@ -36984,11 +36967,20 @@
                   "type": "string",
                   "format": "uuid"
                 },
+                "restaurantName": {
+                  "type": "string"
+                },
                 "restaurantPayout": {
                   "type": "number"
                 },
                 "restaurantPromoAmount": {
                   "type": "integer"
+                },
+                "restaurantSlug": {
+                  "type": "string"
+                },
+                "retail": {
+                  "type": "boolean"
                 },
                 "scheduledFor": {
                   "nullable": true
@@ -37005,6 +36997,15 @@
                 "status": {
                   "type": "string"
                 },
+                "statusLabel": {
+                  "type": "string"
+                },
+                "storeType": {
+                  "type": "string"
+                },
+                "storeTypeLabel": {
+                  "type": "string"
+                },
                 "subtotal": {
                   "type": "number"
                 },
@@ -37012,7 +37013,7 @@
                   "type": "number"
                 },
                 "tip": {
-                  "type": "integer"
+                  "type": "number"
                 },
                 "tipEditableUntil": {
                   "nullable": true
@@ -37081,6 +37082,7 @@
                 "fulfilment",
                 "hasAllergyFlag",
                 "id",
+                "idCheck",
                 "isLate",
                 "isScheduled",
                 "kitchenReleaseAt",
@@ -37092,6 +37094,7 @@
                 "paymentMethod",
                 "paymentStatus",
                 "pickedUpAt",
+                "picking",
                 "pickupCode",
                 "platformPromoAmount",
                 "platformRevenue",
@@ -37105,13 +37108,19 @@
                 "requiresIdCheck",
                 "requiresPin",
                 "restaurantId",
+                "restaurantName",
                 "restaurantPayout",
                 "restaurantPromoAmount",
+                "restaurantSlug",
+                "retail",
                 "scheduledFor",
                 "serviceFee",
                 "smallOrderFee",
                 "source",
                 "status",
+                "statusLabel",
+                "storeType",
+                "storeTypeLabel",
                 "subtotal",
                 "taxAmount",
                 "tip",
@@ -37158,101 +37167,93 @@
       "example": {
         "data": [
           {
-            "id": "ec60ee26-d7ff-49a5-bc0e-29c9c4889cb6",
-            "createdAt": "2026-10-15T18:27:00.875Z",
-            "updatedAt": "2026-10-15T18:27:02.983Z",
-            "code": "FK-352142",
+            "id": "65f374f7-10cf-4dd5-9d70-e13a4ed7558e",
+            "createdAt": "2026-10-15T19:44:55.431Z",
+            "updatedAt": "2026-10-15T19:44:56.472Z",
+            "code": "FK-557841",
             "customerId": "ef653976-10da-4495-93b2-4fc41048e729",
             "restaurantId": "ce48f8d2-13e2-44d5-9a83-af9625316e97",
-            "driverId": "97bbacad-c05b-4b01-8fd7-ec67b01a426e",
+            "driverId": null,
             "zoneId": "d9bdacc0-de7c-45b3-8243-5c2927a34bee",
             "cityId": "47af69c0-a727-4831-8cd7-1ef9e34a102e",
-            "type": "DELIVERY",
-            "fulfilment": "PLATFORM_DRIVER",
-            "status": "DELIVERED",
-            "deliveryAddress": {
-              "lat": 43.565,
-              "lng": -79.6601,
-              "city": "Mississauga",
-              "label": "Home",
-              "line1": "107 Burnhamthorpe Rd",
-              "province": "ON",
-              "postalCode": "L5B 2B1"
-            },
+            "type": "PICKUP",
+            "fulfilment": "PICKUP",
+            "status": "CANCELLED",
+            "deliveryAddress": null,
             "isScheduled": false,
             "scheduledFor": null,
-            "prepTimeMin": 30,
-            "estimatedReadyAt": "2026-10-15T18:57:00.927Z",
-            "estimatedDeliveryAt": "2026-10-15T19:11:00.873Z",
-            "acceptDeadlineAt": "2026-10-15T18:30:00.910Z",
-            "kitchenReleaseAt": "2026-10-15T18:27:00.873Z",
-            "kitchenReleasedAt": "2026-10-15T18:27:00.904Z",
-            "acceptedAt": "2026-10-15T18:27:00.927Z",
-            "driverAssignedAt": "2026-10-15T18:27:02.521Z",
-            "preparingAt": "2026-10-15T18:27:00.964Z",
-            "readyAt": "2026-10-15T18:27:02.607Z",
-            "pickedUpAt": "2026-10-15T18:27:02.747Z",
+            "prepTimeMin": 25,
+            "estimatedReadyAt": "2026-10-15T20:09:55.428Z",
+            "estimatedDeliveryAt": "2026-10-15T20:09:55.428Z",
+            "acceptDeadlineAt": "2026-10-15T19:49:55.428Z",
+            "kitchenReleaseAt": "2026-10-15T19:46:55.428Z",
+            "kitchenReleasedAt": null,
+            "acceptedAt": null,
+            "driverAssignedAt": null,
+            "preparingAt": null,
+            "readyAt": null,
+            "pickedUpAt": null,
             "onTheWayAt": null,
-            "deliveredAt": "2026-10-15T18:27:02.923Z",
-            "cancelledAt": null,
-            "driverArrivedRestaurantAt": "2026-10-15T18:27:02.668Z",
-            "driverArrivedCustomerAt": "2026-10-15T18:27:02.812Z",
-            "subtotal": 20.44,
-            "deliveryFee": 4.18,
-            "serviceFee": 2.04,
+            "deliveredAt": null,
+            "cancelledAt": "2026-10-15T19:45:02.637Z",
+            "driverArrivedRestaurantAt": null,
+            "driverArrivedCustomerAt": null,
+            "subtotal": 25.93,
+            "deliveryFee": 0,
+            "serviceFee": 2.59,
             "smallOrderFee": 0,
-            "taxAmount": 2.75,
-            "tip": 2,
+            "taxAmount": 2.28,
+            "tip": 0,
             "discountTotal": 0,
             "platformPromoAmount": 0,
             "restaurantPromoAmount": 0
           },
           {
-            "id": "24a224b2-1f08-4f0e-bff7-c753bb8ce0c3",
-            "createdAt": "2026-10-15T18:26:53.987Z",
-            "updatedAt": "2026-10-15T18:27:00.624Z",
-            "code": "FK-841792",
+            "id": "806ec9f3-37e1-41cd-8a80-23c268d39074",
+            "createdAt": "2026-10-15T19:42:42.902Z",
+            "updatedAt": "2026-10-15T19:42:42.940Z",
+            "code": "FK-534505",
             "customerId": "ef653976-10da-4495-93b2-4fc41048e729",
             "restaurantId": "ce48f8d2-13e2-44d5-9a83-af9625316e97",
-            "driverId": "97bbacad-c05b-4b01-8fd7-ec67b01a426e",
+            "driverId": null,
             "zoneId": "d9bdacc0-de7c-45b3-8243-5c2927a34bee",
             "cityId": "47af69c0-a727-4831-8cd7-1ef9e34a102e",
             "type": "DELIVERY",
             "fulfilment": "PLATFORM_DRIVER",
-            "status": "DELIVERED",
+            "status": "CANCELLED",
             "deliveryAddress": {
-              "lat": 43.565,
-              "lng": -79.6601,
+              "lat": 43.5925,
+              "lng": -79.6428,
               "city": "Mississauga",
-              "label": "Home",
-              "line1": "107 Burnhamthorpe Rd",
+              "label": "Test door",
+              "line1": "1 Test Street",
               "province": "ON",
-              "postalCode": "L5B 2B1"
+              "postalCode": "L5B 2C9"
             },
             "isScheduled": false,
             "scheduledFor": null,
             "prepTimeMin": 30,
-            "estimatedReadyAt": "2026-10-15T18:56:54.041Z",
-            "estimatedDeliveryAt": "2026-10-15T19:07:54.041Z",
-            "acceptDeadlineAt": "2026-10-15T18:29:54.025Z",
-            "kitchenReleaseAt": "2026-10-15T18:26:53.985Z",
-            "kitchenReleasedAt": "2026-10-15T18:26:54.018Z",
-            "acceptedAt": "2026-10-15T18:26:54.041Z",
-            "driverAssignedAt": "2026-10-15T18:26:54.075Z",
-            "preparingAt": "2026-10-15T18:26:54.072Z",
-            "readyAt": "2026-10-15T18:27:00.370Z",
-            "pickedUpAt": "2026-10-15T18:27:00.554Z",
+            "estimatedReadyAt": "2026-10-15T20:12:42.898Z",
+            "estimatedDeliveryAt": "2026-10-15T20:18:42.898Z",
+            "acceptDeadlineAt": "2026-10-15T19:47:42.898Z",
+            "kitchenReleaseAt": "2026-10-15T19:44:42.898Z",
+            "kitchenReleasedAt": null,
+            "acceptedAt": null,
+            "driverAssignedAt": null,
+            "preparingAt": null,
+            "readyAt": null,
+            "pickedUpAt": null,
             "onTheWayAt": null,
-            "deliveredAt": "2026-10-15T18:27:00.721Z",
-            "cancelledAt": null,
-            "driverArrivedRestaurantAt": "2026-10-15T18:27:00.475Z",
-            "driverArrivedCustomerAt": "2026-10-15T18:27:00.617Z",
-            "subtotal": 20.44,
-            "deliveryFee": 4.18,
-            "serviceFee": 2.04,
+            "deliveredAt": null,
+            "cancelledAt": "2026-10-15T19:43:15.807Z",
+            "driverArrivedRestaurantAt": null,
+            "driverArrivedCustomerAt": null,
+            "subtotal": 39.75,
+            "deliveryFee": 2.16,
+            "serviceFee": 3.98,
             "smallOrderFee": 0,
-            "taxAmount": 2.75,
-            "tip": 2,
+            "taxAmount": 4.69,
+            "tip": 5.96,
             "discountTotal": 0,
             "platformPromoAmount": 0,
             "restaurantPromoAmount": 0
@@ -37261,8 +37262,8 @@
         "meta": {
           "page": 1,
           "limit": 20,
-          "total": 55,
-          "totalPages": 3
+          "total": 76,
+          "totalPages": 4
         }
       }
     },
@@ -68130,6 +68131,9 @@
       "schema": {
         "type": "object",
         "properties": {
+          "ageConfirmationRequired": {
+            "type": "boolean"
+          },
           "availableFulfilment": {
             "type": "object",
             "properties": {
@@ -68209,6 +68213,9 @@
             "type": "integer"
           },
           "distanceKm": {
+            "nullable": true
+          },
+          "dropoffMethod": {
             "nullable": true
           },
           "etaMinutes": {
@@ -68385,6 +68392,7 @@
           }
         },
         "required": [
+          "ageConfirmationRequired",
           "availableFulfilment",
           "basket",
           "cityId",
@@ -68393,6 +68401,7 @@
           "deliveryFee",
           "discountTotal",
           "distanceKm",
+          "dropoffMethod",
           "etaMinutes",
           "fulfilment",
           "lines",
@@ -68424,8 +68433,10 @@
         "storeType": "GROCERY",
         "requiresIdCheck": true,
         "minAge": 19,
+        "ageConfirmationRequired": false,
+        "dropoffMethod": null,
         "basket": {
-          "units": 10,
+          "units": 9,
           "lines": 5,
           "weighed": 1,
           "chilled": 0,

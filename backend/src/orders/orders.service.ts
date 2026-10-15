@@ -141,8 +141,10 @@ export class OrdersService implements IOrdersService {
         : null;
 
     const code = await this.codes.orderCode();
-    const dropoffMethod = methodFromLegacy(input.contactless, input.dropoffMethod);
+    let dropoffMethod = methodFromLegacy(input.contactless, input.dropoffMethod);
     if (!Object.values(DropoffMethod).includes(dropoffMethod)) throw new BadRequestException('Unknown delivery method');
+    // age-restricted products are handed over in person: a saved "leave at the door" of the address is replaced (an explicit choice was refused at the quote)
+    if (quote.requiresIdCheck && quote.type === OrderType.DELIVERY && dropoffMethod === DropoffMethod.LEAVE_AT_DOOR) dropoffMethod = DropoffMethod.HAND_TO_ME;
     const usePin = input.usePin !== false;
     const requiresPin = this.proof.shouldHavePin(dropoffMethod, quote.total, quote.fulfilment, usePin);
     const autoRejectSec = restaurant.autoRejectSeconds || this.settings.get<number>('orders.autoRejectSeconds', 180);

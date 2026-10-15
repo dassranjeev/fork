@@ -196,7 +196,7 @@ export interface BasketLine {
   removed?: boolean;
 }
 
-/** What the picker and the driver need to know about a basket: units, weighed lines, cold chain, rough weight. */
+/** What the picker and the driver need to know about a basket: items (pieces, plus one per weighed product), weighed lines, cold chain, rough weight. */
 export function basketOf(lines: BasketLine[]) {
   const live = lines.filter((l) => !l.removed);
   let units = 0;
@@ -204,7 +204,8 @@ export function basketOf(lines: BasketLine[]) {
   let kg = 0;
   for (const l of live) {
     const q = Number(l.quantity) || 0;
-    units += q;
+    // a weighed product is ONE item to pick (its quantity is a number of weight steps, not pieces)
+    units += l.sellBy === 'WEIGHT' ? 1 : q;
     if (l.sellBy === 'WEIGHT') {
       weighed++;
       const w = round3(q * (Number(l.stepSize ?? 1) || 1));

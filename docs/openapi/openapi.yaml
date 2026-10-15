@@ -46501,6 +46501,7 @@ paths:
           content:
             application/json:
               example:
+                ageConfirmationRequired: false
                 availableFulfilment:
                   delivery: true
                   ownDelivery: false
@@ -46513,7 +46514,7 @@ paths:
                   estimatedKg: 1
                   frozen: 1
                   lines: 5
-                  units: 10
+                  units: 9
                   weighed: 1
                 cityId: 47af69c0-a727-4831-8cd7-1ef9e34a102e
                 commissionAmount: 2.72
@@ -46521,6 +46522,7 @@ paths:
                 deliveryFee: 0
                 discountTotal: 0
                 distanceKm: null
+                dropoffMethod: null
                 etaMinutes: 25
                 fulfilment: PICKUP
                 lines:
@@ -46585,6 +46587,8 @@ paths:
                 zoneId: d9bdacc0-de7c-45b3-8243-5c2927a34bee
               schema:
                 properties:
+                  ageConfirmationRequired:
+                    type: boolean
                   availableFulfilment:
                     properties:
                       delivery:
@@ -46641,6 +46645,8 @@ paths:
                   discountTotal:
                     type: integer
                   distanceKm:
+                    nullable: true
+                  dropoffMethod:
                     nullable: true
                   etaMinutes:
                     type: integer
@@ -46766,6 +46772,7 @@ paths:
                     format: uuid
                     type: string
                 required:
+                  - ageConfirmationRequired
                   - availableFulfilment
                   - basket
                   - cityId
@@ -46774,6 +46781,7 @@ paths:
                   - deliveryFee
                   - discountTotal
                   - distanceKm
+                  - dropoffMethod
                   - etaMinutes
                   - fulfilment
                   - lines
@@ -48705,105 +48713,98 @@ paths:
             application/json:
               example:
                 data:
-                  - acceptDeadlineAt: '2026-10-15T18:30:00.910Z'
-                    acceptedAt: '2026-10-15T18:27:00.927Z'
-                    cancelledAt: null
+                  - acceptDeadlineAt: '2026-10-15T19:49:55.428Z'
+                    acceptedAt: null
+                    cancelledAt: '2026-10-15T19:45:02.637Z'
                     cityId: 47af69c0-a727-4831-8cd7-1ef9e34a102e
-                    code: FK-352142
-                    createdAt: '2026-10-15T18:27:00.875Z'
+                    code: FK-557841
+                    createdAt: '2026-10-15T19:44:55.431Z'
                     customerId: ef653976-10da-4495-93b2-4fc41048e729
-                    deliveredAt: '2026-10-15T18:27:02.923Z'
-                    deliveryAddress:
-                      city: Mississauga
-                      label: Home
-                      lat: 43.565
-                      line1: 107 Burnhamthorpe Rd
-                      lng: -79.6601
-                      postalCode: L5B 2B1
-                      province: 'ON'
-                    deliveryFee: 4.18
+                    deliveredAt: null
+                    deliveryAddress: null
+                    deliveryFee: 0
                     discountTotal: 0
-                    driverArrivedCustomerAt: '2026-10-15T18:27:02.812Z'
-                    driverArrivedRestaurantAt: '2026-10-15T18:27:02.668Z'
-                    driverAssignedAt: '2026-10-15T18:27:02.521Z'
-                    driverId: 97bbacad-c05b-4b01-8fd7-ec67b01a426e
-                    estimatedDeliveryAt: '2026-10-15T19:11:00.873Z'
-                    estimatedReadyAt: '2026-10-15T18:57:00.927Z'
-                    fulfilment: PLATFORM_DRIVER
-                    id: ec60ee26-d7ff-49a5-bc0e-29c9c4889cb6
+                    driverArrivedCustomerAt: null
+                    driverArrivedRestaurantAt: null
+                    driverAssignedAt: null
+                    driverId: null
+                    estimatedDeliveryAt: '2026-10-15T20:09:55.428Z'
+                    estimatedReadyAt: '2026-10-15T20:09:55.428Z'
+                    fulfilment: PICKUP
+                    id: 65f374f7-10cf-4dd5-9d70-e13a4ed7558e
                     isScheduled: false
-                    kitchenReleaseAt: '2026-10-15T18:27:00.873Z'
-                    kitchenReleasedAt: '2026-10-15T18:27:00.904Z'
+                    kitchenReleaseAt: '2026-10-15T19:46:55.428Z'
+                    kitchenReleasedAt: null
                     onTheWayAt: null
-                    pickedUpAt: '2026-10-15T18:27:02.747Z'
+                    pickedUpAt: null
                     platformPromoAmount: 0
-                    prepTimeMin: 30
-                    preparingAt: '2026-10-15T18:27:00.964Z'
-                    readyAt: '2026-10-15T18:27:02.607Z'
+                    prepTimeMin: 25
+                    preparingAt: null
+                    readyAt: null
                     restaurantId: ce48f8d2-13e2-44d5-9a83-af9625316e97
                     restaurantPromoAmount: 0
                     scheduledFor: null
-                    serviceFee: 2.04
+                    serviceFee: 2.59
                     smallOrderFee: 0
-                    status: DELIVERED
-                    subtotal: 20.44
-                    taxAmount: 2.75
-                    tip: 2
-                    type: DELIVERY
-                    updatedAt: '2026-10-15T18:27:02.983Z'
+                    status: CANCELLED
+                    subtotal: 25.93
+                    taxAmount: 2.28
+                    tip: 0
+                    type: PICKUP
+                    updatedAt: '2026-10-15T19:44:56.472Z'
                     zoneId: d9bdacc0-de7c-45b3-8243-5c2927a34bee
-                  - acceptDeadlineAt: '2026-10-15T18:29:54.025Z'
-                    acceptedAt: '2026-10-15T18:26:54.041Z'
-                    cancelledAt: null
+                  - acceptDeadlineAt: '2026-10-15T19:47:42.898Z'
+                    acceptedAt: null
+                    cancelledAt: '2026-10-15T19:43:15.807Z'
                     cityId: 47af69c0-a727-4831-8cd7-1ef9e34a102e
-                    code: FK-841792
-                    createdAt: '2026-10-15T18:26:53.987Z'
+                    code: FK-534505
+                    createdAt: '2026-10-15T19:42:42.902Z'
                     customerId: ef653976-10da-4495-93b2-4fc41048e729
-                    deliveredAt: '2026-10-15T18:27:00.721Z'
+                    deliveredAt: null
                     deliveryAddress:
                       city: Mississauga
-                      label: Home
-                      lat: 43.565
-                      line1: 107 Burnhamthorpe Rd
-                      lng: -79.6601
-                      postalCode: L5B 2B1
+                      label: Test door
+                      lat: 43.5925
+                      line1: 1 Test Street
+                      lng: -79.6428
+                      postalCode: L5B 2C9
                       province: 'ON'
-                    deliveryFee: 4.18
+                    deliveryFee: 2.16
                     discountTotal: 0
-                    driverArrivedCustomerAt: '2026-10-15T18:27:00.617Z'
-                    driverArrivedRestaurantAt: '2026-10-15T18:27:00.475Z'
-                    driverAssignedAt: '2026-10-15T18:26:54.075Z'
-                    driverId: 97bbacad-c05b-4b01-8fd7-ec67b01a426e
-                    estimatedDeliveryAt: '2026-10-15T19:07:54.041Z'
-                    estimatedReadyAt: '2026-10-15T18:56:54.041Z'
+                    driverArrivedCustomerAt: null
+                    driverArrivedRestaurantAt: null
+                    driverAssignedAt: null
+                    driverId: null
+                    estimatedDeliveryAt: '2026-10-15T20:18:42.898Z'
+                    estimatedReadyAt: '2026-10-15T20:12:42.898Z'
                     fulfilment: PLATFORM_DRIVER
-                    id: 24a224b2-1f08-4f0e-bff7-c753bb8ce0c3
+                    id: 806ec9f3-37e1-41cd-8a80-23c268d39074
                     isScheduled: false
-                    kitchenReleaseAt: '2026-10-15T18:26:53.985Z'
-                    kitchenReleasedAt: '2026-10-15T18:26:54.018Z'
+                    kitchenReleaseAt: '2026-10-15T19:44:42.898Z'
+                    kitchenReleasedAt: null
                     onTheWayAt: null
-                    pickedUpAt: '2026-10-15T18:27:00.554Z'
+                    pickedUpAt: null
                     platformPromoAmount: 0
                     prepTimeMin: 30
-                    preparingAt: '2026-10-15T18:26:54.072Z'
-                    readyAt: '2026-10-15T18:27:00.370Z'
+                    preparingAt: null
+                    readyAt: null
                     restaurantId: ce48f8d2-13e2-44d5-9a83-af9625316e97
                     restaurantPromoAmount: 0
                     scheduledFor: null
-                    serviceFee: 2.04
+                    serviceFee: 3.98
                     smallOrderFee: 0
-                    status: DELIVERED
-                    subtotal: 20.44
-                    taxAmount: 2.75
-                    tip: 2
+                    status: CANCELLED
+                    subtotal: 39.75
+                    taxAmount: 4.69
+                    tip: 5.96
                     type: DELIVERY
-                    updatedAt: '2026-10-15T18:27:00.624Z'
+                    updatedAt: '2026-10-15T19:42:42.940Z'
                     zoneId: d9bdacc0-de7c-45b3-8243-5c2927a34bee
                 meta:
                   limit: 20
                   page: 1
-                  total: 55
-                  totalPages: 3
+                  total: 76
+                  totalPages: 4
               schema:
                 properties:
                   data:
@@ -48814,6 +48815,7 @@ paths:
                           type: string
                         acceptedAt:
                           format: date-time
+                          nullable: true
                           type: string
                         accessCodePurgedAt:
                           nullable: true
@@ -48842,16 +48844,13 @@ paths:
                             - weighed
                           type: object
                         cancelReason:
-                          nullable: true
                           type: string
                         cancellationFee:
                           type: integer
                         cancelledAt:
                           format: date-time
-                          nullable: true
                           type: string
                         cancelledBy:
-                          nullable: true
                           type: string
                         cityId:
                           format: uuid
@@ -48873,10 +48872,9 @@ paths:
                         customerNotes:
                           nullable: true
                         deliveredAt:
-                          format: date-time
                           nullable: true
-                          type: string
                         deliveryAddress:
+                          nullable: true
                           properties:
                             city:
                               type: string
@@ -48904,31 +48902,25 @@ paths:
                         deliveryFee:
                           type: number
                         deliveryPin:
+                          nullable: true
                           type: string
                         discountTotal:
                           type: integer
                         distanceKm:
+                          nullable: true
                           type: number
                         driverArrivedCustomerAt:
-                          format: date-time
                           nullable: true
-                          type: string
                         driverArrivedRestaurantAt:
-                          format: date-time
                           nullable: true
-                          type: string
                         driverAssignedAt:
-                          format: date-time
                           nullable: true
-                          type: string
                         driverBoost:
                           type: integer
                         driverId:
-                          format: uuid
                           nullable: true
-                          type: string
                         driverPay:
-                          type: number
+                          type: integer
                         driverWaitFee:
                           type: integer
                         driverWaitMinutes:
@@ -48952,6 +48944,21 @@ paths:
                         id:
                           format: uuid
                           type: string
+                        idCheck:
+                          nullable: true
+                          properties:
+                            minAge:
+                              type: integer
+                            required:
+                              type: boolean
+                            result:
+                              nullable: true
+                              type: string
+                          required:
+                            - minAge
+                            - required
+                            - result
+                          type: object
                         isLate:
                           type: boolean
                         isScheduled:
@@ -48961,6 +48968,7 @@ paths:
                           type: string
                         kitchenReleasedAt:
                           format: date-time
+                          nullable: true
                           type: string
                         meta:
                           properties:
@@ -48987,9 +48995,6 @@ paths:
                               type: object
                             dispatch:
                               properties:
-                                assignedDriverId:
-                                  format: uuid
-                                  type: string
                                 boost:
                                   type: integer
                                 cycle:
@@ -49005,14 +49010,9 @@ paths:
                                   type: integer
                                 nextAttemptAt:
                                   format: date-time
-                                  nullable: true
                                   type: string
                                 offeredIds:
-                                  items:
-                                    oneOf:
-                                      - {}
-                                      - format: uuid
-                                        type: string
+                                  items: {}
                                   type: array
                                 offersInRound:
                                   type: integer
@@ -49045,6 +49045,7 @@ paths:
                                 - nextAttemptAt
                                 - offeredIds
                                 - offersInRound
+                                - pendingOfferId
                                 - radiusKm
                                 - sequence
                                 - startAt
@@ -49055,15 +49056,11 @@ paths:
                               type: object
                             idCheck:
                               properties:
-                                at:
-                                  format: date-time
-                                  type: string
                                 minAge:
                                   type: integer
                                 result:
                                   type: string
                               required:
-                                - at
                                 - minAge
                                 - result
                               type: object
@@ -49072,35 +49069,8 @@ paths:
                               type: string
                             stockRestored:
                               type: boolean
-                            waitFee:
-                              properties:
-                                amount:
-                                  type: integer
-                                chargeableMinutes:
-                                  type: integer
-                                from:
-                                  format: date-time
-                                  type: string
-                                graceMinutes:
-                                  type: integer
-                                perMinute:
-                                  type: number
-                                to:
-                                  format: date-time
-                                  type: string
-                                waitMinutes:
-                                  type: integer
-                              required:
-                                - amount
-                                - chargeableMinutes
-                                - from
-                                - graceMinutes
-                                - perMinute
-                                - to
-                                - waitMinutes
-                              type: object
                           required:
-                            - promisedReadyAt
+                            - stockRestored
                           type: object
                         minAge:
                           type: integer
@@ -49113,9 +49083,27 @@ paths:
                         paymentStatus:
                           type: string
                         pickedUpAt:
-                          format: date-time
                           nullable: true
-                          type: string
+                        picking:
+                          nullable: true
+                          properties:
+                            lines:
+                              type: integer
+                            outOfStock:
+                              type: integer
+                            pending:
+                              type: integer
+                            picked:
+                              type: integer
+                            replaced:
+                              type: integer
+                          required:
+                            - lines
+                            - outOfStock
+                            - pending
+                            - picked
+                            - replaced
+                          type: object
                         pickupCode:
                           type: string
                         platformPromoAmount:
@@ -49135,9 +49123,7 @@ paths:
                         proofPhotoUrl:
                           nullable: true
                         readyAt:
-                          format: date-time
                           nullable: true
-                          type: string
                         rejectReason:
                           nullable: true
                         requiresIdCheck:
@@ -49147,10 +49133,16 @@ paths:
                         restaurantId:
                           format: uuid
                           type: string
+                        restaurantName:
+                          type: string
                         restaurantPayout:
                           type: number
                         restaurantPromoAmount:
                           type: integer
+                        restaurantSlug:
+                          type: string
+                        retail:
+                          type: boolean
                         scheduledFor:
                           nullable: true
                         serviceFee:
@@ -49161,12 +49153,18 @@ paths:
                           type: string
                         status:
                           type: string
+                        statusLabel:
+                          type: string
+                        storeType:
+                          type: string
+                        storeTypeLabel:
+                          type: string
                         subtotal:
                           type: number
                         taxAmount:
                           type: number
                         tip:
-                          type: integer
+                          type: number
                         tipEditableUntil:
                           nullable: true
                         total:
@@ -49225,6 +49223,7 @@ paths:
                         - fulfilment
                         - hasAllergyFlag
                         - id
+                        - idCheck
                         - isLate
                         - isScheduled
                         - kitchenReleaseAt
@@ -49236,6 +49235,7 @@ paths:
                         - paymentMethod
                         - paymentStatus
                         - pickedUpAt
+                        - picking
                         - pickupCode
                         - platformPromoAmount
                         - platformRevenue
@@ -49249,13 +49249,19 @@ paths:
                         - requiresIdCheck
                         - requiresPin
                         - restaurantId
+                        - restaurantName
                         - restaurantPayout
                         - restaurantPromoAmount
+                        - restaurantSlug
+                        - retail
                         - scheduledFor
                         - serviceFee
                         - smallOrderFee
                         - source
                         - status
+                        - statusLabel
+                        - storeType
+                        - storeTypeLabel
                         - subtotal
                         - taxAmount
                         - tip

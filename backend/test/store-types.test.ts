@@ -76,7 +76,7 @@ const basket = basketOf([
   { quantity: 5, sellBy: 'UNIT', temperature: 'CHILLED' },
   { quantity: 9, sellBy: 'UNIT', removed: true },
 ]);
-check('basket: units, lines, weighed lines, cold chain lines', basket.units === 14 && basket.lines === 4 && basket.weighed === 2 && basket.chilled === 2 && basket.frozen === 1, basket);
+check('basket: items (pieces + one per weighed product), lines, weighed lines, cold chain lines', basket.units === 10 && basket.lines === 4 && basket.weighed === 2 && basket.chilled === 2 && basket.frozen === 1, basket);
 check('basket: rough weight in kg (1 kg + 2 lb = 1.91 kg)', basket.estimatedKg === 1.91, basket.estimatedKg);
 check('basket of nothing', basketOf([]).units === 0 && basketOf([]).estimatedKg === 0);
 check('a grocery order is "picked" and "packed", a restaurant order is "prepared"', statusLabel(StoreType.GROCERY, OrderStatus.PREPARING) === 'Picking your items' && statusLabel(StoreType.GROCERY, OrderStatus.READY) === 'Packed and ready' && statusLabel(StoreType.RESTAURANT, OrderStatus.PREPARING) === 'Being prepared' && statusLabel(StoreType.CAFE, OrderStatus.READY) === 'Ready for pickup');

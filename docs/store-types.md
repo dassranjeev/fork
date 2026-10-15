@@ -86,15 +86,21 @@ automatically, the shop window is computed from the number.
 ## Checkout
 
 * The cart line takes `substitution`: `ALLOW` (default: the store may replace it) or `REFUND` (refund it, no replacement).
-* `ageConfirmed: true` is required in the quote, the payment intent and the order when the basket has an age-restricted product (`400 AGE_CONFIRMATION_REQUIRED`, `details.minAge`). The string
-  `"false"` is not a confirmation. Such a basket cannot be left at the door (`400 ID_CHECK_NO_LEAVE_AT_DOOR`): the driver checks ID in person.
+* `ageConfirmed: true` is required in the payment intent and the order when the basket has an age-restricted product (`400 AGE_CONFIRMATION_REQUIRED`, `details.minAge`). The string
+  `"false"` is not a confirmation. The **quote** is more forgiving so a page can show the totals before the box is ticked: it prices the basket and answers `ageConfirmationRequired: true`
+  (`false` once `ageConfirmed: true` was sent), together with `requiresIdCheck` and `minAge`.
+* An age-restricted basket is handed over in person (the driver checks ID). A `dropoffMethod: LEAVE_AT_DOOR` (or `contactless: true`) **sent in the request** is refused with
+  `400 ID_CHECK_NO_LEAVE_AT_DOOR`; a "leave at the door" that only comes from the **saved default of the address** is replaced by `HAND_TO_ME`: the quote's `dropoffMethod` says what the order will use.
+  Pickup orders carry the same ID check (the store checks at the counter) and have no hand-over method.
 * Errors a cart or checkout client must handle: `INSUFFICIENT_STOCK` (`details.available`), `MAX_PER_ORDER`, `AGE_CONFIRMATION_REQUIRED`, `ID_CHECK_NO_LEAVE_AT_DOOR`, `AGE_RESTRICTED_DISABLED`.
-* The quote (`POST /customer/checkout/quote`, now described in the OpenAPI file) adds `storeType`, `requiresIdCheck`, `minAge`, `basket` (`units`, `lines`, `weighed`, `chilled`, `frozen`, `estimatedKg`) and
-  per line `sku`, `barcode`, `packSize`, `sellBy`, `weightUnit`, `stepSize`, `estimatedWeight`, `minAge`, `temperature`, `substitution`.
-* **Picking time:** a retail quote's `prepTimeMin` is the larger of the store's own prep time and `orders.retail.prepBaseMinutes` (10) + `orders.retail.prepSecondsPerUnit` (20 s) per unit, capped at
+* The quote (`POST /customer/checkout/quote`, now described in the OpenAPI file) adds `storeType`, `requiresIdCheck`, `minAge`, `ageConfirmationRequired`, `dropoffMethod`, `basket` (`units`, `lines`, `weighed`,
+  `chilled`, `frozen`, `estimatedKg`; `units` counts the items to pick: every piece, and a weighed product once however many weight steps were ordered) and per line `sku`, `barcode`, `packSize`, `sellBy`, `weightUnit`, `stepSize`, `estimatedWeight`, `minAge`, `temperature`, `substitution`.
+* **Picking time:** a retail quote's `prepTimeMin` is the larger of the store's own prep time and `orders.retail.prepBaseMinutes` (10) + `orders.retail.prepSecondsPerUnit` (20 s) per item, capped at
   `orders.retail.prepMaxMinutes` (90). Restaurants are unchanged.
 * Orders: `requiresIdCheck`, `minAge`, `ageConfirmed`, `basket`; every order item keeps the facts of the product when it was ordered (and `pickStatus`, `actualWeight`, `replacement`, `adjustmentRefund`).
   The customer's order and the tracking view add `statusLabel`, `picking` (`lines`, `picked`, `replaced`, `outOfStock`, `pending`) and `idCheck`; tracking lists `removedItems` with the refund of each.
+  The rows of `GET /customer/orders` carry `statusLabel`, `retail`, `storeType`, `restaurantName` and `restaurantSlug` too, so a list can word the status the way the store does ("Picking your items")
+  and say where the order came from without opening each one.
 
 ## Picking and substitutions
 

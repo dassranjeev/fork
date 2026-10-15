@@ -109,12 +109,14 @@ export class PricingService implements IPricingService {
     const basket = basketOf(lines);
     // age-restricted goods: the customer confirms their age, and they are never left at the door (ID is checked at hand-over)
     const minAge = lines.reduce((m, l) => Math.max(m, l.minAge ?? 0), 0);
+    const ageConfirmationRequired = minAge > 0 && !input.ageConfirmed;
     if (minAge > 0) {
       const names = lines.filter((l) => (l.minAge ?? 0) > 0).map((l) => l.name);
-      if (!input.ageConfirmed) {
+      if (ageConfirmationRequired && input.requireAgeConfirmation !== false) {
         throw new BadRequestException({ message: `You must be at least ${minAge} to order ${names.slice(0, 3).join(', ')}${names.length > 3 ? ' and more' : ''}. Confirm your age to continue.`, code: 'AGE_CONFIRMATION_REQUIRED', details: { minAge, items: names } });
       }
-      if (type === OrderType.DELIVERY && input.dropoffMethod === DropoffMethod.LEAVE_AT_DOOR) {
+      // only a hand-over the customer chose in this very request is refused: a saved "leave at the door" of the address is simply replaced by an in-person hand-over
+      if (type === OrderType.DELIVERY && input.dropoffExplicit && input.dropoffMethod === DropoffMethod.LEAVE_AT_DOOR) {
         throw new BadRequestException({ message: 'Orders with age-restricted products are handed over in person (the driver checks ID). Choose "Hand it to me" or "Meet outside".', code: 'ID_CHECK_NO_LEAVE_AT_DOOR', details: { minAge } });
       }
     }
@@ -262,6 +264,8 @@ export class PricingService implements IPricingService {
       storeType: restaurant.storeType,
       requiresIdCheck: minAge > 0,
       minAge,
+      ageConfirmationRequired,
+      dropoffMethod: type === OrderType.DELIVERY ? (minAge > 0 && input.dropoffMethod === DropoffMethod.LEAVE_AT_DOOR ? DropoffMethod.HAND_TO_ME : input.dropoffMethod ?? null) : null,
       basket,
       lines,
       subtotal,
