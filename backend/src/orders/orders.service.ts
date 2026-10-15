@@ -592,15 +592,27 @@ export class OrdersService implements IOrdersService {
     await this.addEvent(order.id, 'SENT_TO_KITCHEN', { type: ActorType.SYSTEM }, 'Cancellation window over - order sent to the restaurant');
     this.realtime.emitToRestaurant(order.restaurantId, 'order.new', { orderId: order.id, code: order.code });
     this.realtime.emitToOrder(order.id, 'order.released', { orderId: order.id });
-    const qty = (order.items ?? []).filter((i: any) => !i.removed).reduce((n: number, i: any) => n + Number(i.quantity ?? 1), 0);
-    await this.notifications.notifyRestaurant(
-      order.restaurantId,
-      'order.placed',
-      { code: order.code, type: String(order.fulfilment ?? 'delivery').toLowerCase().replace('_', ' '), itemCount: qty || (order.items ?? []).length, total: `$${Number(order.total ?? 0).toFixed(2)}`, acceptMinutes: Math.max(1, Math.round(sec / 60)) },
-      { orderId: order.id },
-    );
+    // Who tells the restaurant, and how loudly, is decided right after: the order is either accepted automatically (a quiet notice) or it waits for the
+    // restaurant to accept it (the loud alarm + popup). See OrderAutomationService.onPlaced / tellRestaurantNewOrder.
     this.emitter.emit(Events.ORDER_RELEASED, { order });
     return true;
+  }
+
+  /**
+   * Tell the restaurant about an order that has just been handed to it.
+   *  MANUAL: it must be accepted by a person: THE loud alert (alarm sound, push that stays on screen, and the Accept / Reject popup in the portal).
+   *  AUTO:   it was accepted automatically: a quiet notice only, nobody has to do anything.
+   * MANUAL is skipped when somebody already handled the order in the meantime.
+   */
+  async tellRestaurantNewOrder(orderId: string, mode: 'MANUAL' | 'AUTO'): Promise<void> {
+    const order = await this.getById(orderId);
+    if (mode === 'MANUAL' && order.status !== OrderStatus.PLACED) return;
+    const r = await this.restaurants.findOne({ where: { id: order.restaurantId } });
+    const sec = r?.autoRejectSeconds || this.settings.get<number>('orders.autoRejectSeconds', 180);
+    const qty = (order.items ?? []).filter((i: any) => !i.removed).reduce((n: number, i: any) => n + Number(i.quantity ?? 1), 0);
+    const vars = { code: order.code, type: String(order.fulfilment ?? 'delivery').toLowerCase().replace('_', ' '), itemCount: qty || (order.items ?? []).length, total: `$${Number(order.total ?? 0).toFixed(2)}` };
+    if (mode === 'MANUAL') await this.notifications.notifyRestaurant(order.restaurantId, 'order.placed', { ...vars, acceptMinutes: Math.max(1, Math.round(sec / 60)) }, { orderId: order.id });
+    else await this.notifications.notifyRestaurant(order.restaurantId, 'order.auto_accepted', { ...vars, prepMinutes: order.prepTimeMin ?? '' }, { orderId: order.id });
   }
 
   /** Safety net for the in-process timer (restarts, clock drift): release everything whose window has closed. */

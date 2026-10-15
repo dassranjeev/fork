@@ -11,6 +11,9 @@ import NotificationBell from "../features/notifications/NotificationBell";
 import PushBanner from "../features/notifications/PushBanner";
 import AlarmBanner from "../features/notifications/AlarmBanner";
 
+// the Accept / Reject popup for new orders (restaurant portal only): loaded on demand so the other surfaces do not carry it
+const NewOrderPopup = React.lazy(() => import("../features/notifications/NewOrderPopup"));
+
 /** Sidebar order of sections. Feature menus declare `section`; unknown sections go last. */
 export const SECTION_ORDER = [
   "MAIN",
@@ -319,6 +322,11 @@ function Shell({ menu, home = "/", portal = "admin", topbarLeft, extraNav }) {
         </div>
 
         {portal === "restaurant" && <AlarmBanner />}
+        {portal === "restaurant" && (
+          <React.Suspense fallback={null}>
+            <NewOrderPopup />
+          </React.Suspense>
+        )}
 
         <div className="dashboard-main-body">
           <PushBanner portal={portal} />

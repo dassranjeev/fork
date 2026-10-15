@@ -97,10 +97,19 @@ export class OrderAutomationService {
   // ------------------------------------------------------------------ 1. placement -> accepted
   @OnEvent(Events.ORDER_RELEASED, { async: true })
   async onPlaced({ order }: { order: Order }) {
+    let accepted = false;
     try {
-      await this.autoAccept(order.id);
+      accepted = await this.autoAccept(order.id);
     } catch (e) {
       this.logger.warn(`auto-accept ${order.code}: ${(e as Error).message}`);
+    }
+    // accepted automatically: a quiet notice. Not accepted (the restaurant accepts by hand, or something blocks auto-accept): THE loud alert + the Accept / Reject
+    // popup in the portal, which stays until somebody answers (or the order is rejected for lack of an answer). Whatever goes wrong here, the alert is still sent.
+    try {
+      await this.ordersService.tellRestaurantNewOrder(order.id, accepted ? 'AUTO' : 'MANUAL');
+    } catch (e) {
+      this.logger.warn(`telling the restaurant about ${order.code}: ${(e as Error).message}`);
+      await this.ordersService.tellRestaurantNewOrder(order.id, 'MANUAL').catch(() => undefined);
     }
   }
 
@@ -194,6 +203,24 @@ export class OrderAutomationService {
         if (!cache.has(id)) cache.set(id, await this.restaurants.findOne({ where: { id } }));
         return cache.get(id)!;
       };
+
+      // orders that were left for manual acceptance only because something blocked auto-accept at that moment (kitchen overloaded, store paused,
+      // platform pause): once the blocker is gone they are accepted automatically if the restaurant accepts automatically
+      const waiting = await this.orders
+        .createQueryBuilder('o')
+        .where('o.status = :p AND o.kitchenReleasedAt IS NOT NULL', { p: OrderStatus.PLACED })
+        .orderBy('o.createdAt', 'ASC')
+        .take(100)
+        .getMany();
+      for (const o of waiting) {
+        const r = await rest(o.restaurantId);
+        if (!r || !this.effective(r).autoAccept) continue; // accepts by hand: the popup is the way
+        const ok = await this.autoAccept(o.id).catch((e) => {
+          this.logger.warn(`auto-accept retry ${o.code}: ${(e as Error).message}`);
+          return false;
+        });
+        if (ok) await this.ordersService.tellRestaurantNewOrder(o.id, 'AUTO').catch(() => undefined);
+      }
 
       // scheduled / deferred starts and accepted orders whose start was missed (restart, restaurant switched the option on later)
       const accepted = await this.orders.find({ where: { status: In([OrderStatus.ACCEPTED, OrderStatus.DRIVER_ASSIGNED]) }, take: 200 });

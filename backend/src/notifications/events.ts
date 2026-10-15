@@ -90,6 +90,14 @@ export const EVENTS: Record<string, EventDef> = {
       RESTAURANT: { channels: PI, push: { title: 'New order {{code}}', body: 'New {{type}} order, {{itemCount}} items. Open the portal to accept it.' }, url: R_ORDER, critical: true, urgency: 'high', requireInteraction: true, tag: 'order:{orderId}', ttl: 900 },
     },
   },
+  // the restaurant accepts automatically: nothing to do, so this is a quiet notice (no alarm, no popup); the loud alert is `order.placed`
+  'order.auto_accepted': {
+    category: 'orders',
+    pushVars: ['code', 'type', 'itemCount', 'prepMinutes'],
+    pushData: ['orderId'],
+    audiences: { RESTAURANT: { channels: PI, push: { title: 'Order {{code}} accepted automatically', body: 'New {{type}} order, {{itemCount}} items, accepted for you. Ready in about {{prepMinutes}} min.' }, url: R_ORDER, urgency: 'normal', tag: 'order:{orderId}' } },
+    msg: { RESTAURANT: { title: 'Order {{code}} accepted automatically', body: 'New {{type}} order {{code}} - {{itemCount}} items, {{total}}. It was accepted for you; ready in about {{prepMinutes}} min.' } },
+  },
   'order.sent_to_restaurant': {
     category: 'orders',
     pushVars: ['code', 'restaurant'],
