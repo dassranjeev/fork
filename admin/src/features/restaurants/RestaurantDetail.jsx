@@ -9,7 +9,7 @@ import OrderAutomationCard from "../portal/Automation";
 import AssistantCard from "./AssistantCard";
 import { http } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-import { RestaurantActions, PRE_LIVE } from "./shared";
+import { RestaurantActions, PRE_LIVE, StoreTypeBadge } from "./shared";
 import PayoutAccountBadge from "../finance/PayoutAccountBadge";
 import VerificationCard from "../verification/VerificationCard";
 import { VerificationBadge } from "../verification/shared";
@@ -67,7 +67,7 @@ export default function RestaurantDetail() {
         back="/restaurants"
         title={
           <span className="d-inline-flex align-items-center gap-3 flex-wrap">
-            <Avatar name={r.name} src={r.logoUrl} size={40} /> {r.name} <StatusBadge status={r.status} />
+            <Avatar name={r.name} src={r.logoUrl} size={40} /> {r.name} <StoreTypeBadge type={r.storeType} /> <StatusBadge status={r.status} />
             {r.verification && <VerificationBadge status={r.verification.status} />}
             {r.status === "LIVE" && <ServiceModeBadge mode={r.serviceMode} />}
             {r.menuEditStatus === "REQUESTED" && <MenuAccessBadge status="REQUESTED" />}

@@ -92,6 +92,8 @@ export function usePagedList(path, { limit = 20, filters = {}, sortBy, sortDir =
   return {
     rows,
     meta,
+    /** the whole answer (lists that also return counts or totals next to `data`) */
+    data,
     loading,
     error,
     reload,

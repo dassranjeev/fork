@@ -201,6 +201,8 @@ export class RetailService {
     else if (dto.status === 'REPLACED') await this.markReplaced(order, item, dto, actor);
     else throw new BadRequestException('status must be PICKED, OUT_OF_STOCK or REPLACED');
 
+    // the order itself changed as far as every screen is concerned (they refresh an order when its updatedAt moves)
+    await this.orders.createQueryBuilder().update(Order).set({ updatedAt: () => 'now()' }).where('id = :id', { id: order.id }).execute();
     this.realtime.emitToOrder(order.id, 'order.item_picked', { orderId: order.id, itemId, status: dto.status });
     const fresh = await this.orders.findOneOrFail({ where: { id: orderId }, relations: ['items'] });
     return { order: fresh, allRemoved: fresh.items.length > 0 && fresh.items.every((i) => i.removed) };

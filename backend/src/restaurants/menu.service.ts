@@ -151,6 +151,38 @@ export class MenuService {
     };
   }
 
+  /**
+   * The structure of the menu without its items: departments with their product counts, modifier groups, stations and counts. A store with a big catalog loads its
+   * products page by page (listItems) and only needs this.
+   */
+  async structure(restaurantId: string) {
+    const [cats, groups, stations, perCat, totals] = await Promise.all([
+      this.categories.find({ where: { restaurantId }, order: { sortOrder: 'ASC', name: 'ASC' } }),
+      this.groups.find({ where: { restaurantId }, order: { sortOrder: 'ASC', name: 'ASC' } }),
+      this.stations.find({ where: { restaurantId }, order: { sortOrder: 'ASC' } }),
+      this.items.createQueryBuilder('i').select('i.categoryId', 'id').addSelect('COUNT(*)', 'n').where('i.restaurantId = :restaurantId', { restaurantId }).groupBy('i.categoryId').getRawMany<{ id: string | null; n: string }>(),
+      this.items
+        .createQueryBuilder('i')
+        .select('COUNT(*)', 'items')
+        .addSelect('COUNT(*) FILTER (WHERE i.available = false)', 'unavailable')
+        .addSelect(`COUNT(*) FILTER (WHERE i."trackStock" = true AND COALESCE(i."stockQty", 0) <= 0)`, 'outOfStock')
+        .addSelect(`COUNT(*) FILTER (WHERE i."trackStock" = true AND COALESCE(i."stockQty", 0) > 0 AND i."lowStockThreshold" IS NOT NULL AND i."stockQty" <= i."lowStockThreshold")`, 'lowStock')
+        .where('i.restaurantId = :restaurantId', { restaurantId })
+        .getRawOne<Record<string, string>>(),
+    ]);
+    const opts = groups.length ? await this.options.find({ where: { groupId: In(groups.map((g) => g.id)) }, order: { sortOrder: 'ASC', name: 'ASC' } }) : [];
+    const n = new Map(perCat.map((r) => [r.id, +r.n]));
+    return {
+      categories: cats.map((c) => ({ ...c, itemCount: n.get(c.id) ?? 0, items: [] as any[] })),
+      uncategorized: [] as any[],
+      uncategorizedCount: n.get(null) ?? 0,
+      combos: [] as any[],
+      modifierGroups: groups.map((g) => ({ ...g, options: opts.filter((o) => o.groupId === g.id) })),
+      stations,
+      counts: { items: +(totals?.items ?? 0), unavailable: +(totals?.unavailable ?? 0), outOfStock: +(totals?.outOfStock ?? 0), lowStock: +(totals?.lowStock ?? 0), categories: cats.length, modifierGroups: groups.length },
+    };
+  }
+
   // ------------------------------------------------------------------ categories
   async createCategory(restaurantId: string, dto: CategoryDto) {
     this.checkDayparts(dto.dayparts);
@@ -379,7 +411,7 @@ export class MenuService {
   async listItems(restaurantId: string, q: Record<string, string | undefined>) {
     const { page, limit } = clampPaging(q.page, q.limit, 200, 50);
     const qb = this.items.createQueryBuilder('i').where('i.restaurantId = :restaurantId', { restaurantId });
-    const text = (q.q ?? '').trim();
+    const text = (q.q ?? q.search ?? '').trim();
     if (text) qb.andWhere('(i.name ILIKE :s OR i.sku ILIKE :s OR i.barcode ILIKE :s OR i.brand ILIKE :s)', { s: like(text) });
     if (q.categoryId === 'none') qb.andWhere('i.categoryId IS NULL');
     else if (q.categoryId && /^[0-9a-f-]{36}$/i.test(q.categoryId)) qb.andWhere('i.categoryId = :cat', { cat: q.categoryId });

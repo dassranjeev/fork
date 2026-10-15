@@ -98,7 +98,7 @@ export default function Dashboard() {
                 <StatCard label="Waiting to accept" value={d.today.pendingAccept} icon="solar:bell-bing-outline" tone={d.today.pendingAccept ? "danger" : "info"} to="/portal/orders" />
               </div>
               <div className="col-xl-3 col-sm-6">
-                <StatCard label="In kitchen" value={d.today.inKitchen} icon="solar:chef-hat-outline" tone="warning" hint={`${d.today.ready} ready · ${d.today.late} late`} to="/portal/kds" />
+                <StatCard label={d.restaurant.retail ? "Being picked" : "In kitchen"} value={d.today.inKitchen} icon={d.restaurant.retail ? "solar:cart-large-minimalistic-outline" : "solar:chef-hat-outline"} tone="warning" hint={`${d.today.ready} ready · ${d.today.late} late`} to={d.restaurant.retail ? "/portal/orders" : "/portal/kds"} />
               </div>
             </div>
             <div className="row gy-4">
@@ -128,8 +128,8 @@ export default function Dashboard() {
                   <Card title="Quick links">
                     <div className="d-flex flex-wrap gap-2">
                       <Link to="/portal/orders" className="btn btn-outline-primary-600 radius-8">Live orders</Link>
-                      <Link to="/portal/kds" className="btn btn-outline-primary-600 radius-8">Kitchen display</Link>
-                      {role !== "KITCHEN" && <Link to="/portal/menu" className="btn btn-outline-primary-600 radius-8">86 an item</Link>}
+                      {!d.restaurant.retail && <Link to="/portal/kds" className="btn btn-outline-primary-600 radius-8">Kitchen display</Link>}
+                      {role !== "KITCHEN" && <Link to="/portal/menu" className="btn btn-outline-primary-600 radius-8">{d.restaurant.retail ? "Count stock" : "86 an item"}</Link>}
                     </div>
                   </Card>
                 )}

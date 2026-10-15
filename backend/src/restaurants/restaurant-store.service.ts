@@ -782,6 +782,13 @@ export class RestaurantStoreService {
         id: r.id,
         name: r.name,
         status: r.status,
+        // what kind of store this is: the portal words its screens by it (Menu / Catalog, Kitchen display / Picking) - docs/store-types.md
+        storeType: r.storeType,
+        storeTypeLabel: profileOf(r.storeType).label,
+        retail: profileOf(r.storeType).retail,
+        itemLabel: profileOf(r.storeType).itemLabel,
+        itemLabelPlural: profileOf(r.storeType).itemLabelPlural,
+        categoryLabel: profileOf(r.storeType).categoryLabel,
         acceptingOrders: r.acceptingOrders,
         ...this.modeInfo(r),
         pausedUntil: r.pausedUntil,

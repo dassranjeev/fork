@@ -43,9 +43,10 @@ export class RestaurantMenuController {
   }
 
   @Get()
-  async tree(@CurrentUser() user: AuthUser, @Query('restaurantId') restaurantId?: string, @Query('includeInactive') includeInactive?: string) {
+  async tree(@CurrentUser() user: AuthUser, @Query('restaurantId') restaurantId?: string, @Query('includeInactive') includeInactive?: string, @Query('items') items?: string) {
     const id = this.rid(user, restaurantId);
-    const [tree, access] = await Promise.all([this.menu.tree(id, includeInactive !== 'false'), this.access.access(id)]);
+    // items=false: the structure only (departments with their product counts): for stores whose products are loaded page by page (GET /restaurant/menu/items)
+    const [tree, access] = await Promise.all([items === 'false' ? this.menu.structure(id) : this.menu.tree(id, includeInactive !== 'false'), this.access.access(id)]);
     return { ...tree, access };
   }
 

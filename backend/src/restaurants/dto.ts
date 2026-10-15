@@ -160,6 +160,8 @@ export class ProductListQuery {
   @IsOptional() @IsString() restaurantId?: string;
   /** search over name, SKU, barcode and brand */
   @IsOptional() @IsString() @MaxLength(100) q?: string;
+  /** same as q (the name the portal's paged lists use) */
+  @IsOptional() @IsString() @MaxLength(100) search?: string;
   /** a category id, or "none" for products without one */
   @IsOptional() @IsString() categoryId?: string;
   /** out | low | in | tracked | untracked */

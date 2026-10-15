@@ -8,13 +8,13 @@ import { Card, DataTable, FilterSelect, ListToolbar, PageHeader, StatusBadge } f
 import OpenPanelButton from "./OpenPanelButton";
 import { MenuAccessBadge } from "./MenuAccess";
 import { STATUS_OPTIONS, VerificationCell } from "../verification/shared";
-import { RESTAURANT_STATUSES, useLookups } from "./shared";
+import { RESTAURANT_STATUSES, STORE_TYPES, StoreTypeBadge, useLookups } from "./shared";
 
 export default function RestaurantList() {
   const nav = useNavigate();
   const { can } = useAuth();
   const { cities, zones, tiers, zoneName, tierName } = useLookups();
-  const list = usePagedList("/admin/restaurants", { filters: { status: "", menuAccess: "", cityId: "", zoneId: "", commissionTierId: "", hasExpiringDocs: "", expiringDays: "", verification: "" }, sortBy: "createdAt" });
+  const list = usePagedList("/admin/restaurants", { filters: { status: "", storeType: "", menuAccess: "", cityId: "", zoneId: "", commissionTierId: "", hasExpiringDocs: "", expiringDays: "", verification: "" }, sortBy: "createdAt" });
   const f = list.filters;
   const waiting = useFetch("/admin/restaurants/menu-access", { status: "REQUESTED" });
   const pending = waiting.data?.pending || 0;
@@ -33,6 +33,7 @@ export default function RestaurantList() {
         </div>
       ),
     },
+    { key: "storeType", title: "Type", render: (r) => <StoreTypeBadge type={r.storeType} /> },
     { key: "city", title: "City / Zone", render: (r) => [r.city, zoneName(r.zoneId)].filter(Boolean).join(" · ") || "—" },
     { key: "status", title: "Status", render: (r) => <StatusBadge status={r.status} /> },
     { key: "verification", title: "Verification", render: (r) => (r.verification ? <VerificationCell status={r.verification.status} dueAt={r.verification.dueAt} /> : <span className="text-secondary-light">—</span>) },
@@ -52,13 +53,13 @@ export default function RestaurantList() {
   return (
     <>
       <PageHeader
-        title="Restaurants"
-        subtitle="All restaurant locations on the platform"
+        title="Restaurants and stores"
+        subtitle="Every location on the platform: restaurants, cafes, bakeries, grocery, convenience and specialty food stores"
         crumbs={[{ label: "Restaurants" }]}
         actions={
           can("restaurants", "create") && (
             <Link to="/restaurants/new" className="btn btn-primary-600 btn-sm radius-8 px-16 py-8">
-              + Add restaurant
+              + Add restaurant or store
             </Link>
           )
         }
@@ -80,6 +81,7 @@ export default function RestaurantList() {
           filters={
             <>
               <FilterSelect value={f.status} onChange={(v) => list.setFilter("status", v)} options={RESTAURANT_STATUSES} placeholder="All statuses" />
+              <FilterSelect value={f.storeType} onChange={(v) => list.setFilter("storeType", v)} options={STORE_TYPES.map((t) => ({ value: t.value, label: t.label }))} placeholder="All store types" />
               <FilterSelect
                 value={f.cityId}
                 onChange={(v) => list.setFilters({ cityId: v, zoneId: "" })}

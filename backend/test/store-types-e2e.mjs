@@ -228,6 +228,12 @@ async function main() {
     r = await api('GET', '/restaurant/menu/items?sortBy=hack;drop', S.owner);
     check('an unknown sort column is refused (400), never put into SQL', r.s === 400, r.s);
 
+    r = await api('GET', '/restaurant/dashboard', S.owner);
+    check('the portal dashboard says what kind of store this is (storeType, retail, the words for its items and groups)', r.j.restaurant.storeType === 'GROCERY' && r.j.restaurant.retail === true && r.j.restaurant.categoryLabel === 'Department' && r.j.restaurant.itemLabelPlural === 'products', r.j.restaurant);
+    r = await api('GET', '/restaurant/menu?items=false', S.owner);
+    check('menu?items=false is the light structure for big catalogs: departments with their product counts and no items', r.s === 200 && r.j.categories.length >= 8 && r.j.categories.every((c) => c.itemCount >= 1 && c.items.length === 0) && r.j.counts.items >= 40 && !!r.j.access && Array.isArray(r.j.modifierGroups), { s: r.s, cats: r.j?.categories?.length });
+    r = await api('GET', '/restaurant/menu/items?search=milk', S.owner);
+    check('the paged list also takes the portal list parameter "search" (same as q)', r.s === 200 && r.j.data.some((i) => /Milk/.test(i.name)), r);
     const cats = (await api('GET', '/restaurant/menu', S.owner)).j.categories;
     const pantryId = cats.find((c) => c.name === 'Pantry').id;
     const newItem = { name: 'E2E Test Honey', price: 6.5, categoryId: pantryId, taxClassCode: 'ZERO_RATED', sku: 'E2E-HONEY-1', barcode: '0123456789012', brand: 'Test', packSize: '500 g', trackStock: true, stockQty: 10, lowStockThreshold: 2 };
@@ -391,9 +397,13 @@ async function main() {
     const paid = money(po.total);
     const pick = (sku, body) => api('POST', `/restaurant/orders/${o2.id}/items/${line(sku).id}/pick`, S.owner, body);
 
+    const touched0 = po.updatedAt;
     r = await pick('FB-P-001', { status: 'PICKED' });
     check('a weighed product needs its weight (400)', r.s === 400, r);
     r = await pick('FB-P-001', { status: 'PICKED', actualWeight: 0.9 });
+    await sleep(300);
+    po = await portal();
+    check('every picking step touches the order (the screens refresh an order when its updatedAt moves)', po.updatedAt !== touched0, { before: touched0, after: po.updatedAt });
     check('weighed lighter than ordered (0.9 kg of ~1 kg): picked, 10% of the line refunded', r.s < 300 && (await refundsOf(o2.id)).some((x) => x.reasonCode === 'WEIGHT_ADJUSTMENT' && x.amount === 0.22), await refundsOf(o2.id));
     po = await portal();
     check('...the line shows the weight and what was given back', Number(line('FB-P-001').actualWeight) === 0.9 && money(line('FB-P-001').adjustmentRefund) === 0.22 && line('FB-P-001').pickStatus === 'PICKED');

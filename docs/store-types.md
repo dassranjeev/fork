@@ -126,6 +126,21 @@ Marking the order **ready** is unchanged (`POST /restaurant/orders/:id/ready`, o
   `?vertical=RETAIL` filter the list.
 * The document checklist follows the type; the Super Admin can set a list per type in `restaurant.requiredDocumentsByType`.
 
+## Screens
+
+* **Admin Console.** Restaurants and stores: a **Type** column and badge, a store-type filter, "Kind of store" on the add form and the edit form (the Super Admin / staff with edit rights change it; an owner cannot).
+  Commission tiers: "Used by these kinds of store" (the seeded **Grocery & retail** tier is the default for grocery, convenience and specialty stores).
+* **Restaurant Portal of a grocery-type store.** The sidebar says **Catalog** (instead of Menu) and **Orders & picking** and has no kitchen display; the dashboard says "Being picked".
+  * **Catalog** (`/portal/menu`): the Products tab is a paged table (25 at a time) with search (name, brand, SKU, barcode), department and stock filters, the stock of every product **edited in the table** (type a number, Enter),
+    low / sold-out counters you can click, **Count stock** (one product per line: `SKU or barcode, quantity`; `+24` = received), **Import CSV**, **Export CSV**, **Add product** and a product editor with SKU, barcode, brand,
+    pack size, sold by piece or weight (unit and step), stock counting with a low-stock alert, most per order, age limit, cold chain and tax (zero-rated or standard). Departments replace categories.
+    The page loads the light menu structure (`GET /restaurant/menu?items=false`) and the products page by page.
+  * **Orders & picking** (`/portal/orders`): the order card of an accepted order is the **picking list**: progress, the ID-check and cold-chain badges, and per line **Found**, **Weighed** (type what the scale says),
+    **Out of stock** (asks first) and **Replace...** (search the store's products; the dialog says what the customer pays). Lines show what happened (weighed 0.9 kg, replaced with X, refunded $...).
+    "All N found" ticks the products that need no weighing. **Packed: ready for the driver** marks the order ready.
+* **Restaurants and cafes** keep the menu screens and the kitchen display exactly as before. The product editor is shared: a restaurant dish gets the same stock / age-limit fields one click away ("Stock, weight, age limit and product codes").
+* **Customer website** (`/order`): see `docs/storefront.md` (store type tiles, grocery store pages with departments, search and paging, weighed products, substitution choice, age confirmation, picking progress on the tracking page).
+
 ## Settings
 
 `restaurant.requiredDocumentsByType` (JSON), `restaurant.ageRestricted.enabled`, `restaurant.ageRestricted.requireLicence`, `orders.retail.prepBaseMinutes`, `orders.retail.prepSecondsPerUnit`,

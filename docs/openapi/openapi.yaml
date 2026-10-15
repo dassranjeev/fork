@@ -73920,6 +73920,11 @@ paths:
           required: false
           schema:
             type: string
+        - in: query
+          name: items
+          required: false
+          schema:
+            type: string
       responses:
         '200':
           content:
@@ -75254,6 +75259,13 @@ paths:
         - description: search over name, SKU, barcode and brand
           in: query
           name: q
+          required: false
+          schema:
+            maxLength: 100
+            type: string
+        - description: same as q (the name the portal's paged lists use)
+          in: query
+          name: search
           required: false
           schema:
             maxLength: 100
