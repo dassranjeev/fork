@@ -2558,12 +2558,19 @@ components:
           items:
             type: string
           type: array
+        galleryUrls:
+          description: more photos (at most 8, replaces the current gallery); [] clears it
+          items:
+            type: string
+          maxItems: 8
+          type: array
         groupIds:
           description: modifier group ids attached to this item (replaces the current set)
           items:
             type: string
           type: array
         imageUrl:
+          description: 'the featured photo: a picture uploaded with POST /uploads (JPG, PNG, WebP, GIF) or an https:// picture address; null removes it'
           nullable: true
           type: string
         isCombo:
@@ -5402,6 +5409,11 @@ components:
         dietaryTags:
           items:
             type: string
+          type: array
+        galleryUrls:
+          items:
+            type: string
+          maxItems: 8
           type: array
         groupIds:
           items:

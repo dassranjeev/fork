@@ -1,5 +1,6 @@
 import { Type, Transform } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsDateString,
@@ -64,7 +65,10 @@ export class ItemDto extends CatalogFieldsDto {
   @IsString() name: string;
   @IsNumber() @Min(0) price: number;
   @IsOptional() @IsString() description?: string | null;
+  /** the featured photo: a picture uploaded with POST /uploads (JPG, PNG, WebP, GIF) or an https:// picture address; null removes it */
   @IsOptional() @IsString() imageUrl?: string | null;
+  /** more photos (at most 8, replaces the current gallery); [] clears it */
+  @IsOptional() @IsArray() @ArrayMaxSize(8) @IsString({ each: true }) galleryUrls?: string[];
   @IsOptional() @IsNumber() @Min(0) pickupPrice?: number | null;
   @IsOptional() @IsString() taxClassCode?: string | null;
   @IsOptional() @IsInt() @Min(0) calories?: number | null;
@@ -89,6 +93,7 @@ export class UpdateItemDto extends CatalogFieldsDto {
   @IsOptional() @IsNumber() @Min(0) price?: number;
   @IsOptional() @IsString() description?: string | null;
   @IsOptional() @IsString() imageUrl?: string | null;
+  @IsOptional() @IsArray() @ArrayMaxSize(8) @IsString({ each: true }) galleryUrls?: string[];
   @IsOptional() @IsNumber() @Min(0) pickupPrice?: number | null;
   @IsOptional() @IsString() taxClassCode?: string | null;
   @IsOptional() @IsInt() @Min(0) calories?: number | null;

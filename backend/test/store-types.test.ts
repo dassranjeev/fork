@@ -26,6 +26,7 @@ import {
   weightLabel,
 } from '../src/common/store-types';
 import { RetailService } from '../src/orders/retail.service';
+import { MAX_GALLERY_IMAGES, cleanGallery, cleanImageUrl } from '../src/common/image-url';
 
 let failed = 0;
 const check = (name: string, ok: boolean, detail: unknown = '') => {
@@ -33,6 +34,24 @@ const check = (name: string, ok: boolean, detail: unknown = '') => {
   if (!ok) failed++;
 };
 const eq = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+// ------------------------------------------------------------------ photo addresses of menu items
+const refused = (fn: () => unknown) => {
+  try {
+    fn();
+    return false;
+  } catch (e: any) {
+    return e?.response?.code === 'INVALID_IMAGE_URL' || e?.response?.code === 'TOO_MANY_IMAGES';
+  }
+};
+check('photo address: an upload of ours (relative or with the host) and an https picture are accepted', cleanImageUrl('/uploads/0b9f.jpg') === '/uploads/0b9f.jpg' && cleanImageUrl('http://localhost:4000/uploads/0b9f.PNG') === 'http://localhost:4000/uploads/0b9f.PNG' && cleanImageUrl('https://cdn.example.com/p?w=400') === 'https://cdn.example.com/p?w=400');
+check('photo address: javascript:, data:, ftp:, protocol-relative, logins, spaces, path climbing and plain text are refused', ['javascript:alert(1)', 'data:image/png;base64,AAAA', 'ftp://x.com/a.png', '//evil.com/a.png', 'https://u:p@x.com/a.png', 'https://x.com/a b.png', '/uploads/../a.png', 'hello', '', '   '].every((u) => refused(() => cleanImageUrl(u))));
+check('photo address: our uploads must be JPG, PNG, WebP or GIF (HEIC and PDF cannot be shown)', refused(() => cleanImageUrl('/uploads/a.heic')) && refused(() => cleanImageUrl('/uploads/a.pdf')) && refused(() => cleanImageUrl('/uploads/a.csv')) && !refused(() => cleanImageUrl('/uploads/a.webp')) && !refused(() => cleanImageUrl('/uploads/a.gif')));
+check('photo address: not text, or longer than 500 characters, is refused', refused(() => cleanImageUrl(42)) && refused(() => cleanImageUrl(null)) && refused(() => cleanImageUrl('https://x.com/' + 'a'.repeat(500))));
+check('gallery: cleaned, without repeats and without the featured photo, in order', eq(cleanGallery(['/uploads/a.jpg', '/uploads/b.jpg', '/uploads/a.jpg', '/uploads/f.jpg'], '/uploads/f.jpg'), ['/uploads/a.jpg', '/uploads/b.jpg']));
+check('gallery: nothing or null is an empty gallery; a non-list is refused', eq(cleanGallery(undefined), []) && eq(cleanGallery(null), []) && refused(() => cleanGallery('/uploads/a.jpg')));
+check(`gallery: at most ${MAX_GALLERY_IMAGES} photos`, cleanGallery(Array.from({ length: MAX_GALLERY_IMAGES }, (_, i) => `/uploads/${i}.jpg`)).length === MAX_GALLERY_IMAGES && refused(() => cleanGallery(Array.from({ length: MAX_GALLERY_IMAGES + 1 }, (_, i) => `/uploads/${i}.jpg`))));
+check('gallery: a bad address says which entry it is', (() => { try { cleanGallery(['/uploads/a.jpg', 'javascript:1']); return false; } catch (e: any) { return /galleryUrls\[1\]/.test(e?.response?.message || ''); } })());
 
 // ------------------------------------------------------------------ profiles
 check('six kinds of store', STORE_TYPES.length === 6 && STORE_TYPES.every((t) => STORE_PROFILES[t].type === t));

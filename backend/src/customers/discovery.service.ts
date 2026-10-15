@@ -599,6 +599,7 @@ export class DiscoveryService {
           name: i.name,
           description: i.description,
           imageUrl: i.imageUrl,
+          galleryUrls: i.galleryUrls ?? [],
           price: i.price,
           pickupPrice: i.pickupPrice,
           calories: i.calories,

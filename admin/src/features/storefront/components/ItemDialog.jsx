@@ -3,6 +3,7 @@ import { SUBSTITUTION_CHOICES, ageNotice, coldChain, isWeighed, perUnitPrice, st
 import { money } from "../lib/sfApi";
 import { Dialog, Notice, Pic, Ri, Spinner } from "./ui";
 import { QtyStepper } from "./CartPanel";
+import PhotoGallery from "./PhotoGallery";
 
 /** Minimum / maximum picks for a modifier group. */
 export const groupLimits = (g) => ({ min: g.required ? Math.max(1, g.minSelect || 0) : g.minSelect || 0, max: g.maxSelect > 0 ? g.maxSelect : Infinity });
@@ -111,7 +112,7 @@ export default function ItemDialog({ item, open, onClose, onAdd, disabledReason,
         </div>
       }
     >
-      {item.imageUrl && <Pic src={item.imageUrl} name={item.name} className="sf-item-hero" />}
+      <PhotoGallery photos={[item.imageUrl, ...(item.galleryUrls || [])].filter(Boolean)} name={item.name} />
       {(item.brand || (item.packSize && !weighed)) && <p className="sf-muted mb-1" data-testid="item-brand">{[item.brand, !weighed && item.packSize].filter(Boolean).join(" - ")}</p>}
       {weighed && (
         <p className="mb-1" data-testid="item-weight-price">

@@ -608,6 +608,92 @@ async function main() {
     await api('DELETE', '/customer/cart', S.c1).catch(() => undefined);
     // tidy: the stores this section made are rejected (hidden from customers)
     for (const id of created.filter(Boolean)) await api('POST', `/admin/restaurants/${id}/reject`, S.admin, { reason: 'store-types-e2e cleanup' });
+
+    // ============================================================ J. photos of items: featured photo + gallery
+    section('J. photos of an item (featured photo and gallery)');
+    const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+    const upload = async (bytes, name, type) => {
+      const fd = new FormData();
+      fd.append('file', new Blob([bytes], { type }), name);
+      const res = await fetch(`${API}/uploads`, { method: 'POST', headers: { authorization: `Bearer ${S.owner}` }, body: fd });
+      let j = null;
+      try { j = await res.json(); } catch { /* none */ }
+      return { s: res.status, j };
+    };
+    const ups = [];
+    for (let i = 0; i < 5; i++) ups.push((await upload(PNG, `photo${i}.png`, 'image/png')).j?.url);
+    check('five pictures uploaded through POST /uploads', ups.every(Boolean) && new Set(ups).size === 5, ups);
+    const first = await fetch(new URL(ups[0]).pathname.replace(/^/, API.replace(/\/api\/v1$/, '')));
+    check('an uploaded picture is served as an inline image', first.status === 200 && /image\/png/.test(first.headers.get('content-type') || ''), first.status);
+
+    const photoItem = { name: `E2E Photo Item ${tag}`, price: 1.5, imageUrl: ups[0], galleryUrls: [ups[1], ups[2], ups[3]] };
+    r = await api('POST', '/restaurant/menu/items', S.owner, photoItem);
+    const pid = r.j?.id;
+    check('an item is created with a featured photo and a gallery of 3', r.s < 300 && r.j.imageUrl === ups[0] && JSON.stringify(r.j.galleryUrls) === JSON.stringify([ups[1], ups[2], ups[3]]), r);
+    r = await api('GET', `/public/stores/${SUPER}/products/${pid}`);
+    check('the customer product answer carries the featured photo and the gallery', r.s === 200 && r.j.product?.imageUrl === ups[0] && r.j.product?.galleryUrls?.length === 3, r.j?.product);
+    r = await api('GET', `/public/stores/${SUPER}/catalog?q=${encodeURIComponent('E2E Photo Item ' + tag)}`);
+    const cat0 = (r.j?.data || []).find((p) => p.id === pid);
+    check('the catalog list shows the photos too', cat0?.imageUrl === ups[0] && cat0?.galleryUrls?.length === 3, cat0);
+    r = await api('GET', '/restaurant/menu', S.owner);
+    const inTree = [...(r.j.categories || []).flatMap((c) => c.items), ...(r.j.uncategorized || [])].find((x) => x.id === pid);
+    check('the portal menu has them (featured + gallery)', inTree?.imageUrl === ups[0] && inTree?.galleryUrls?.length === 3, inTree && { i: inTree.imageUrl, g: inTree.galleryUrls });
+    r = await api('GET', `/restaurant/menu/items?q=${encodeURIComponent('E2E Photo Item ' + tag)}`, S.owner);
+    check('the paged catalog list has them', (r.j.data || []).find((x) => x.id === pid)?.galleryUrls?.length === 3, r.j?.data?.[0]);
+    // the cart line shows the featured photo
+    await api('POST', '/customer/cart/replace', S.c1, { restaurantId: (await api('GET', `/public/stores/${SUPER}`)).j.restaurant.id, items: [{ menuItemId: pid, quantity: 1 }] });
+    r = await api('GET', '/customer/cart', S.c1);
+    check('the cart line carries the featured photo', r.j.lines?.[0]?.imageUrl === ups[0], r.j.lines?.[0]);
+    await api('DELETE', '/customer/cart', S.c1).catch(() => undefined);
+
+    // the gallery never repeats the featured photo, nor itself
+    r = await api('PATCH', `/restaurant/menu/items/${pid}`, S.owner, { galleryUrls: [ups[0], ups[1], ups[1], ups[2]] });
+    check('a gallery that repeats the featured photo or a photo is cleaned (2 left)', r.s < 300 && JSON.stringify(r.j.galleryUrls) === JSON.stringify([ups[1], ups[2]]) && r.j.imageUrl === ups[0], r.j?.galleryUrls);
+    // making a gallery photo the featured one takes it out of the gallery (the page swaps the old featured into it)
+    r = await api('PATCH', `/restaurant/menu/items/${pid}`, S.owner, { imageUrl: ups[2], galleryUrls: [ups[1], ups[0]] });
+    check('swap: new featured + old featured in the gallery', r.s < 300 && r.j.imageUrl === ups[2] && JSON.stringify(r.j.galleryUrls) === JSON.stringify([ups[1], ups[0]]), r.j && { i: r.j.imageUrl, g: r.j.galleryUrls });
+    r = await api('PATCH', `/restaurant/menu/items/${pid}`, S.owner, { imageUrl: ups[1] });
+    check('only a new featured photo is sent: it leaves the gallery, the rest stays', r.s < 300 && r.j.imageUrl === ups[1] && JSON.stringify(r.j.galleryUrls) === JSON.stringify([ups[0]]), r.j && { i: r.j.imageUrl, g: r.j.galleryUrls });
+    r = await api('PATCH', `/restaurant/menu/items/${pid}`, S.owner, { name: `E2E Photo Item ${tag} b` });
+    check('saving something else keeps the photos', r.s < 300 && r.j.imageUrl === ups[1] && r.j.galleryUrls?.length === 1, r.j && { i: r.j.imageUrl, g: r.j.galleryUrls });
+    r = await api('PATCH', `/restaurant/menu/items/${pid}`, S.owner, { imageUrl: null });
+    check('removing the featured photo keeps the gallery', r.s < 300 && r.j.imageUrl === null && r.j.galleryUrls?.length === 1, r.j && { i: r.j.imageUrl, g: r.j.galleryUrls });
+    r = await api('PATCH', `/restaurant/menu/items/${pid}`, S.owner, { galleryUrls: [] });
+    check('an empty gallery clears it', r.s < 300 && r.j.galleryUrls?.length === 0, r.j?.galleryUrls);
+    r = await api('PATCH', `/restaurant/menu/items/${pid}`, S.owner, { imageUrl: 'https://images.example.com/pasta.jpg?w=400', galleryUrls: ['https://images.example.com/pasta2.webp'] });
+    check('an https picture address is accepted', r.s < 300 && r.j.imageUrl === 'https://images.example.com/pasta.jpg?w=400', r);
+
+    // refused addresses (the platform's general address guard answers some of them, the item rules the rest: both are a 400 naming the field)
+    const imageRefused = (x) => x.s === 400 && (x.j?.code === 'INVALID_IMAGE_URL' || /Invalid input/.test(x.j?.message || ''));
+    const bads = [
+      ['javascript:alert(1)', 'javascript:'],
+      ['data:image/png;base64,AAAA', 'data:'],
+      ['//evil.example/x.png', 'protocol-relative'],
+      ['ftp://example.com/a.png', 'ftp:'],
+      ['https://user:pw@example.com/a.png', 'login in the address'],
+      ['/uploads/../../etc/passwd.png', 'path climbing'],
+      ['/uploads/abc.heic', 'a HEIC upload (browsers cannot show it)'],
+      ['/uploads/abc.pdf', 'a PDF upload'],
+      ['not a url', 'plain text'],
+    ];
+    for (const [bad, why] of bads) {
+      r = await api('PATCH', `/restaurant/menu/items/${pid}`, S.owner, { imageUrl: bad });
+      check(`featured photo refused: ${why} (400)`, imageRefused(r) && /imageUrl/.test(r.j?.message || ''), r);
+    }
+    r = await api('PATCH', `/restaurant/menu/items/${pid}`, S.owner, { galleryUrls: [ups[3], 'javascript:alert(1)'] });
+    check('a bad address in the gallery is refused and says which one', imageRefused(r) && /galleryUrls\[1\]/.test(r.j?.message || ''), r);
+    r = await api('PATCH', `/restaurant/menu/items/${pid}`, S.owner, { galleryUrls: Array.from({ length: 9 }, (_, i) => `https://images.example.com/${i}.jpg`) });
+    check('nine gallery photos are too many (400)', r.s === 400, r);
+    r = await api('PATCH', `/restaurant/menu/items/${pid}`, S.owner, { galleryUrls: 'https://images.example.com/a.jpg' });
+    check('a gallery must be a list (400)', r.s === 400, r);
+    r = await api('POST', '/restaurant/menu/items', S.owner, { name: `E2E Photo Bad ${tag}`, price: 2, imageUrl: 'javascript:alert(1)' });
+    check('a new item with a bad address is refused as well (nothing is created)', imageRefused(r), r);
+    r = await api('GET', `/restaurant/menu/items?q=${encodeURIComponent('E2E Photo Bad ' + tag)}`, S.owner);
+    check('...and it does not exist', (r.j.data || []).length === 0, r.j?.data?.length);
+    // a customer cannot put photos on a menu
+    r = await api('PATCH', `/restaurant/menu/items/${pid}`, S.c1, { imageUrl: ups[0] });
+    check('a customer cannot change an item (401/403)', r.s === 401 || r.s === 403, r.s);
+    await api('DELETE', `/restaurant/menu/items/${pid}`, S.owner);
   } finally {
     // ------------------------------------------------------------ restore everything this run changed
     for (const id of placed) { try { const st = await adminOrder(id); if (st?.status && !['DELIVERED', 'CANCELLED', 'REJECTED', 'COLLECTED'].includes(st.status)) await cancelAdmin(id); } catch { /* best effort */ } }
