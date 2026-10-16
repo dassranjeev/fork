@@ -5,7 +5,7 @@ Everything is data in the database, changed through the API below; the customer 
 
 * Admin API: `/api/v1/admin/site/*` (sign in as staff, permission **site**: `view` to read, `edit` to change). **Custom CSS / JavaScript can only be changed by a Super Admin.**
 * Public API: `/api/v1/public/site/*` (no sign-in, cached, CORS as the rest of the API).
-* Interactive reference: Swagger `/docs` (tags *Admin / site* and *Public / site*) and `docs/openapi/openapi.json`.
+* Interactive reference: Swagger `/docs` (on the live server `https://api.forky.ca/docs`, behind the docs password; type "website settings" in its filter box). The endpoints are under the tags **Admin / website settings** and **Public / website settings**, each with a description that links to this guide; the same document is `docs/openapi/openapi.json`.
 * Code: `backend/src/site/` (`site.schema.ts` = the fields, `site.render.ts` = the generators, `site.service.ts`, `site.controller.ts`), tables `site_settings` and `site_setting_revisions`.
 * Tests: `backend/test/site.test.ts` (unit, in CI) and `backend/test/site-e2e.mjs` (real HTTP).
 
