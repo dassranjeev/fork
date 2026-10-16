@@ -41,7 +41,9 @@ process.env.CORS_ORIGINS = saved;
 if (saved === undefined) delete process.env.CORS_ORIGINS;
 
 // the production start-up rule for the list
-const base = { env: 'production', jwtSecret: 'x7Kq9mPz2LwR4vTn8Bc3Yd6Fh1JgS5aUeOiQ0pZ', dbSync: false, exposeOtp: false, corsOrigins: LIST, publicUrl: 'https://api.forky.ca', allowMockPayments: false, fakeProviderBases: false, enforce2fa: true, seedSuperAdminPassword: 'aVery-Unique-Pass-7391!', dbPassword: 'k3Lm9Pq2Zt7Wx5Bn8Cv1', dataEncryptionKey: 'b6N2dF8gH4jK0lM3pQ7rS9tV1wX5yZ8a' } as any;
+// made-up values for the rule under test, built at run time (no literal that looks like a secret ends up in the repository)
+const made = (n: number, step: number) => Array.from({ length: n }, (_, i) => 'abcdefghijklmnopqrstuvwxyz0123456789'[(i * step + 3) % 36]).join('');
+const base = { env: 'production', jwtSecret: made(48, 7), dbSync: false, exposeOtp: false, corsOrigins: LIST, publicUrl: 'https://api.forky.ca', allowMockPayments: false, fakeProviderBases: false, enforce2fa: true, seedSuperAdminPassword: `${made(14, 5)}-A9!`, dbPassword: made(22, 11), dataEncryptionKey: made(40, 13) } as any;
 const corsProblems = (list: string[]) => productionProblems({ ...base, corsOrigins: list }).filter((p: string) => /CORS/.test(p));
 check('production accepts exact origins and https://*.example.com entries', corsProblems(LIST).length === 0 && corsProblems(['https://forky.ca', 'https://*.forky.ca']).length === 0, corsProblems(LIST));
 check('production still refuses *, localhost, plain http and badly shaped wildcards', corsProblems(['*']).length === 1 && corsProblems(['https://localhost:3000']).length === 1 && corsProblems(['http://app.forky.ca']).length === 1 && corsProblems(['http://*.forky.ca']).length === 1 && corsProblems(['https://*.ca']).length === 1 && corsProblems(['https://*']).length === 1 && corsProblems(['https://*.localhost']).length === 1 && corsProblems([]).length === 1, [corsProblems(['https://*.ca']), corsProblems(['https://*'])]);
