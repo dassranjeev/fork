@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useId, useRef, useState } from "react";
 import { safeImgUrl, safeUrl } from "../lib/safe";
 import { Icon } from "@iconify/react/offline";
 import { toast } from "react-toastify";
@@ -91,11 +91,12 @@ export function Select({ label, hint, error, required, col, className, value, on
 }
 
 export function Switch({ label, hint, checked, onChange, className = "mb-16", col, disabled }) {
+  const id = useId();
   return (
     <div className={`${col ? `col-md-${col}` : ""} ${className}`}>
       <div className="form-check form-switch switch-primary d-flex align-items-center gap-3">
-        <input className="form-check-input" type="checkbox" role="switch" aria-label={typeof label === "string" ? label : undefined} checked={!!checked} disabled={disabled} onChange={(e) => onChange?.(e.target.checked)} />
-        <label className="form-check-label fw-medium text-primary-light">{label}</label>
+        <input id={id} className="form-check-input" type="checkbox" role="switch" aria-label={typeof label === "string" ? label : undefined} checked={!!checked} disabled={disabled} onChange={(e) => onChange?.(e.target.checked)} />
+        <label htmlFor={id} className="form-check-label fw-medium text-primary-light" style={{ cursor: disabled ? "default" : "pointer" }}>{label}</label>
       </div>
       {hint && <div className="text-secondary-light text-xs mt-4 ms-5 ps-3">{hint}</div>}
     </div>

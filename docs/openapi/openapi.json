@@ -56860,7 +56860,7 @@
         ],
         "summary": "Every section with its saved values (or the defaults), version and who changed it last",
         "tags": [
-          "Admin / site"
+          "Admin / website settings"
         ]
       }
     },
@@ -56911,7 +56911,7 @@
         ],
         "summary": "Remove a logo or icon (the uploaded file is kept on the server)",
         "tags": [
-          "Admin / site"
+          "Admin / website settings"
         ]
       },
       "post": {
@@ -56979,7 +56979,7 @@
         ],
         "summary": "Upload a logo or icon: checks the picture (type, size, square), stores it and puts its address in the branding section",
         "tags": [
-          "Admin / site"
+          "Admin / website settings"
         ]
       }
     },
@@ -57009,7 +57009,7 @@
         ],
         "summary": "What is missing or wrong (SEO, branding, GEO, AEO, AIO), in plain words, errors first",
         "tags": [
-          "Admin / site"
+          "Admin / website settings"
         ]
       }
     },
@@ -57039,7 +57039,7 @@
         ],
         "summary": "Lists for dropdowns: social networks, AI crawlers, placeholders, the picture slots with their size rules",
         "tags": [
-          "Admin / site"
+          "Admin / website settings"
         ]
       }
     },
@@ -57069,7 +57069,7 @@
         ],
         "summary": "The fields of every section (type, limits, allowed values, defaults, help text): build the forms from this",
         "tags": [
-          "Admin / site"
+          "Admin / website settings"
         ]
       }
     },
@@ -57120,7 +57120,7 @@
         ],
         "summary": "One section",
         "tags": [
-          "Admin / site"
+          "Admin / website settings"
         ]
       },
       "patch": {
@@ -57181,7 +57181,7 @@
         ],
         "summary": "Change some fields of a section: send only the top-level fields that change (a field that holds an object or a list is replaced as a whole)",
         "tags": [
-          "Admin / site"
+          "Admin / website settings"
         ]
       },
       "put": {
@@ -57242,7 +57242,7 @@
         ],
         "summary": "Replace a section: the body is the whole section, fields left out go back to their defaults. Nothing is saved when any field is wrong (400 with every problem listed)",
         "tags": [
-          "Admin / site"
+          "Admin / website settings"
         ]
       }
     },
@@ -57293,7 +57293,7 @@
         ],
         "summary": "Put a section back to its defaults",
         "tags": [
-          "Admin / site"
+          "Admin / website settings"
         ]
       }
     },
@@ -57352,7 +57352,7 @@
         ],
         "summary": "The last saved versions of a section (newest first, 50 are kept)",
         "tags": [
-          "Admin / site"
+          "Admin / website settings"
         ]
       }
     },
@@ -57411,7 +57411,7 @@
         ],
         "summary": "One saved version with its values",
         "tags": [
-          "Admin / site"
+          "Admin / website settings"
         ]
       }
     },
@@ -57470,7 +57470,7 @@
         ],
         "summary": "Put an earlier version back (saved as a new version)",
         "tags": [
-          "Admin / site"
+          "Admin / website settings"
         ]
       }
     },
@@ -98619,7 +98619,7 @@
         },
         "summary": "The website settings, ready to use: pictures as full addresses, the footer, SEO defaults, structured data facts, analytics ids and the custom code addresses with their hashes",
         "tags": [
-          "Public / site"
+          "Public / website settings"
         ]
       }
     },
@@ -98644,7 +98644,7 @@
         },
         "summary": "The custom JavaScript for the end of <body> (404 when switched off)",
         "tags": [
-          "Public / site"
+          "Public / website settings"
         ]
       }
     },
@@ -98669,7 +98669,7 @@
         },
         "summary": "The custom CSS (empty 404 when switched off)",
         "tags": [
-          "Public / site"
+          "Public / website settings"
         ]
       }
     },
@@ -98703,7 +98703,7 @@
         },
         "summary": "The questions and answers (own entries and the customer FAQ of the content section)",
         "tags": [
-          "Public / site"
+          "Public / website settings"
         ]
       }
     },
@@ -98750,7 +98750,7 @@
         },
         "summary": "Everything for the <head> of one page: title, description, canonical, robots, meta tags, links, JSON-LD structured data, and the same as ready-made HTML",
         "tags": [
-          "Public / site"
+          "Public / website settings"
         ]
       }
     },
@@ -98775,7 +98775,7 @@
         },
         "summary": "The custom JavaScript for <head> (404 when switched off)",
         "tags": [
-          "Public / site"
+          "Public / website settings"
         ]
       }
     },
@@ -98800,7 +98800,7 @@
         },
         "summary": "llms-full.txt: the same with the full FAQ, terms and store descriptions",
         "tags": [
-          "Public / site"
+          "Public / website settings"
         ]
       }
     },
@@ -98825,7 +98825,7 @@
         },
         "summary": "llms.txt: a short Markdown summary of the site for AI assistants (404 when switched off)",
         "tags": [
-          "Public / site"
+          "Public / website settings"
         ]
       }
     },
@@ -98850,7 +98850,7 @@
         },
         "summary": "The web app manifest: name, colours and the icons of the branding section",
         "tags": [
-          "Public / site"
+          "Public / website settings"
         ]
       }
     },
@@ -98875,7 +98875,7 @@
         },
         "summary": "robots.txt: crawler rules, AI crawler policies and the sitemap address (404 when switched off)",
         "tags": [
-          "Public / site"
+          "Public / website settings"
         ]
       }
     },
@@ -98900,7 +98900,7 @@
         },
         "summary": "sitemap.xml: the home page, the kinds of store and every live store (404 when switched off)",
         "tags": [
-          "Public / site"
+          "Public / website settings"
         ]
       }
     },
@@ -119429,9 +119429,6 @@
       "name": "Admin / settings"
     },
     {
-      "name": "Admin / site"
-    },
-    {
       "name": "Admin / staff"
     },
     {
@@ -119448,6 +119445,10 @@
     },
     {
       "name": "Admin / verification"
+    },
+    {
+      "description": "Control of the website from the Admin Console: logo and icons, title, footer, meta tags and descriptions, SEO, GEO (generative engines and local signals), AEO (answers: FAQ, HowTo), AIO (AI crawlers, llms.txt), analytics ids and custom CSS / JavaScript (Super Admin only). Needs the staff permission \"site\". Start with GET /admin/site/schema (the fields of every section) and GET /admin/site (the values). Guide with examples: docs/site-settings.md (https://github.com/iwebkokri/fork/blob/main/docs/site-settings.md).",
+      "name": "Admin / website settings"
     },
     {
       "name": "Admin / zones"
@@ -119630,9 +119631,6 @@
       "name": "Public / search"
     },
     {
-      "name": "Public / site"
-    },
-    {
       "name": "Public / status"
     },
     {
@@ -119643,6 +119641,10 @@
     },
     {
       "name": "Public / unsubscribe"
+    },
+    {
+      "description": "What the website reads, no sign-in: GET /public/site (all settings), GET /public/site/head?path=/order (title, meta tags and structured data of one page), robots.txt, sitemap.xml, llms.txt, the web app manifest and the custom code files. Guide: docs/site-settings.md.",
+      "name": "Public / website settings"
     },
     {
       "name": "Auth"
@@ -119709,13 +119711,13 @@
         "Admin / restaurants",
         "Admin / roles",
         "Admin / settings",
-        "Admin / site",
         "Admin / staff",
         "Admin / support",
         "Admin / support/chat",
         "Admin / system health",
         "Admin / tax-classes",
         "Admin / verification",
+        "Admin / website settings",
         "Admin / zones"
       ]
     },
@@ -119796,11 +119798,11 @@
         "Public / restaurants",
         "Public / root",
         "Public / search",
-        "Public / site",
         "Public / status",
         "Public / store-types",
         "Public / stores",
-        "Public / unsubscribe"
+        "Public / unsubscribe",
+        "Public / website settings"
       ]
     },
     {

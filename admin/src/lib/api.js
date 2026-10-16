@@ -137,7 +137,7 @@ api.interceptors.response.use(
 export function errorMessage(err) {
   const d = err?.response?.data;
   if (d) {
-    if (Array.isArray(d.details) && d.details.length) return d.details.join(", ");
+    if (Array.isArray(d.details) && d.details.length) return d.details.map((x) => (x && typeof x === "object" ? `${x.path ? `${x.path} ` : ""}${x.message ?? ""}`.trim() : x)).join(", ");
     if (Array.isArray(d.message)) return d.message.join(", ");
     if (d.message) return d.message;
   }

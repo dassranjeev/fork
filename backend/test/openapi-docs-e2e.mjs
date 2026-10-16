@@ -63,6 +63,9 @@ const deliver = live.components.schemas.DeliverDto;
 check('the delivery body documents the ID check (idChecked / idRefused)', !!deliver && 'idChecked' in deliver.properties && 'idRefused' in deliver.properties, Object.keys(deliver?.properties ?? {}));
 const cat = live.paths['/api/v1/public/stores/{slug}/catalog']?.get?.responses?.['200']?.content?.['application/json']?.schema?.properties;
 check('the catalog answer is described (products, departments, paging)', !!cat && 'data' in cat && 'categories' in cat && 'meta' in cat, Object.keys(cat ?? {}));
+const siteTags = Object.fromEntries((live.tags ?? []).map((t) => [t.name, t.description ?? '']));
+const siteOps = Object.entries(live.paths).filter(([p]) => /\/(admin|public)\/site\b/.test(p)).flatMap(([, o]) => Object.values(o));
+check('the website settings endpoints are all under "Admin / website settings" or "Public / website settings" (one tag each), described, with a link to the guide', siteOps.length >= 20 && siteOps.every((op) => op.tags?.length === 1 && /website settings$/.test(op.tags[0])) && /site-settings\.md/.test(siteTags['Admin / website settings'] ?? '') && /site-settings\.md/.test(siteTags['Public / website settings'] ?? ''), siteTags);
 
 console.log(failed ? `\n${failed} check(s) FAILED` : '\nall OpenAPI / Swagger checks passed');
 process.exit(failed ? 1 : 0);

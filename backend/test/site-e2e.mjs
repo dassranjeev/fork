@@ -156,6 +156,13 @@ async function main() {
 
     // ============================================================ D. logo and icons
     section('D. logo and icons');
+    r = await upload(admin, 'favicon', png(40, 40));
+    if (r.j?.url) uploadedUrls.push(r.j.url);
+    check('a picture is set', r.s === 201 && r.j.branding.faviconUrl === r.j.url, r);
+    r = await api('POST', '/admin/site/branding/reset', admin);
+    check('resetting the branding section works (it is not mistaken for a picture slot called "reset") and clears the pictures', r.s < 300 && r.j.value.faviconUrl === null && r.j.value.logoUrl === null, r);
+    r = await api('POST', '/admin/site/branding/nope', admin);
+    check('...while a real unknown slot name is still a 404', r.s === 404 && /Unknown picture slot/.test(r.j?.message || ''), r);
     r = await upload(admin, 'logo', png(240, 80));
     check('a logo is uploaded, checked and put in the branding section', r.s === 201 && /\/uploads\/[0-9a-f-]+\.png$/.test(r.j.url) && r.j.width === 240 && r.j.height === 80 && r.j.branding.logoUrl === r.j.url && r.j.field === 'logoUrl', r);
     if (r.j?.url) uploadedUrls.push(r.j.url);

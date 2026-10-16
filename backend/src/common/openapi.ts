@@ -97,6 +97,14 @@ const ERROR_SCHEMA = {
 
 const METHOD_ORDER = ['get', 'post', 'put', 'patch', 'delete', 'options', 'head'];
 
+/** what a tag is for, shown under its name in the API reference */
+const TAG_DESCRIPTIONS: Record<string, string> = {
+  'Admin / website settings':
+    'Control of the website from the Admin Console: logo and icons, title, footer, meta tags and descriptions, SEO, GEO (generative engines and local signals), AEO (answers: FAQ, HowTo), AIO (AI crawlers, llms.txt), analytics ids and custom CSS / JavaScript (Super Admin only). Needs the staff permission "site". Start with GET /admin/site/schema (the fields of every section) and GET /admin/site (the values). Guide with examples: docs/site-settings.md (https://github.com/iwebkokri/fork/blob/main/docs/site-settings.md).',
+  'Public / website settings':
+    'What the website reads, no sign-in: GET /public/site (all settings), GET /public/site/head?path=/order (title, meta tags and structured data of one page), robots.txt, sitemap.xml, llms.txt, the web app manifest and the custom code files. Guide: docs/site-settings.md.',
+};
+
 const GROUPS: { name: string; test: (tag: string) => boolean }[] = [
   { name: 'Admin console', test: (t) => /^Admin\b/i.test(t) },
   { name: 'Restaurant portal', test: (t) => /^Restaurant\b/i.test(t) },
@@ -151,7 +159,7 @@ export function enrichOpenApi(doc: OpenAPIObject): OpenAPIObject {
     const gb = [...GROUPS.map((g) => g.name), 'Shared and other'].indexOf(groupOf(b));
     return ga - gb || a.localeCompare(b);
   });
-  doc.tags = tags.map((name) => ({ name }));
+  doc.tags = tags.map((name) => ({ name, ...(TAG_DESCRIPTIONS[name] ? { description: TAG_DESCRIPTIONS[name] } : {}) }));
   (doc as any)['x-tagGroups'] = [...GROUPS.map((g) => g.name), 'Shared and other']
     .map((name) => ({ name, tags: tags.filter((t) => groupOf(t) === name) }))
     .filter((g) => g.tags.length);

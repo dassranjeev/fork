@@ -1,12 +1,13 @@
-import { BadRequestException, Body, Delete, Get, Header, NotFoundException, Param, ParseIntPipe, Patch, Post, Put, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Header, NotFoundException, Param, ParseIntPipe, Patch, Post, Put, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiQuery } from '@nestjs/swagger';
+import { applyDecorators } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 import { memoryStorage } from 'multer';
 import { AuthUser } from '../common/auth.types';
-import { AdminController, CurrentUser, Permission, PublicController } from '../common/decorators';
-import { Action, Module } from '../common/enums';
+import { CurrentUser, Permission, Public, UserTypes } from '../common/decorators';
+import { Action, Module, UserType } from '../common/enums';
 import { BRANDING_SLOTS, SiteService } from './site.service';
 import { SECTION_NAMES } from './site.schema';
 
@@ -17,6 +18,11 @@ class HeadQueryDto {
   @IsOptional() @Matches(/^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8})*$/) @MaxLength(12) lang?: string;
 }
 
+/** /api/v1/admin/site: staff + super admin. Tagged "Admin / website settings" so it is found by that name in the API reference (Swagger). */
+const AdminSiteController = () => applyDecorators(Controller('admin/site'), UserTypes(UserType.STAFF, UserType.SUPER_ADMIN), ApiTags('Admin / website settings'), ApiBearerAuth());
+/** /api/v1/public/site: no sign-in. */
+const PublicSiteController = () => applyDecorators(Controller('public/site'), Public(), ApiTags('Public / website settings'));
+
 const BODY = { schema: { type: 'object', additionalProperties: true, description: 'The fields of the section: see GET /admin/site/schema for the fields, their limits and their defaults' } } as const;
 const SECTION_PARAM = { name: 'section', enum: [...SECTION_NAMES], description: 'general | branding | seo | geo | aeo | aio | footer | integrations | scripts' } as const;
 const SLOT_PARAM = { name: 'slot', enum: Object.keys(BRANDING_SLOTS), description: 'Which picture: logo, logo-dark, logo-square, favicon, apple-touch-icon, pwa-icon-192, pwa-icon-512, og-image, twitter-image' } as const;
@@ -25,7 +31,7 @@ const SLOT_PARAM = { name: 'slot', enum: Object.keys(BRANDING_SLOTS), descriptio
  * General settings of the website (docs/site-settings.md): logo and icons, title, footer, meta tags and descriptions, SEO, GEO, AEO, AIO, analytics ids and custom CSS / JavaScript.
  * Reading needs site:view, changing needs site:edit; the custom CSS / JavaScript section (scripts) can only be changed by a Super Admin.
  */
-@AdminController('site')
+@AdminSiteController()
 export class SiteAdminController {
   constructor(private site: SiteService) {}
 
@@ -56,6 +62,15 @@ export class SiteAdminController {
   @ApiOperation({ summary: 'What is missing or wrong (SEO, branding, GEO, AEO, AIO), in plain words, errors first' })
   checks() {
     return this.site.checks();
+  }
+
+  // NOTE: declared before 'branding/:slot': POST /admin/site/branding/reset must reset the branding section, not upload to a picture slot named "reset"
+  @Post(':section/reset')
+  @Permission(Module.SITE, Action.EDIT)
+  @ApiOperation({ summary: 'Put a section back to its defaults' })
+  @ApiParam(SECTION_PARAM)
+  reset(@Param('section') section: string, @CurrentUser() user: AuthUser) {
+    return this.site.reset(this.site.assertSection(section), user);
   }
 
   @Post('branding/:slot')
@@ -105,14 +120,6 @@ export class SiteAdminController {
     return this.site.save(this.site.assertSection(section), 'merge', body, user);
   }
 
-  @Post(':section/reset')
-  @Permission(Module.SITE, Action.EDIT)
-  @ApiOperation({ summary: 'Put a section back to its defaults' })
-  @ApiParam(SECTION_PARAM)
-  reset(@Param('section') section: string, @CurrentUser() user: AuthUser) {
-    return this.site.reset(this.site.assertSection(section), user);
-  }
-
   @Get(':section/revisions')
   @Permission(Module.SITE, Action.VIEW)
   @ApiOperation({ summary: 'The last saved versions of a section (newest first, 50 are kept)' })
@@ -143,7 +150,7 @@ export class SiteAdminController {
  * What the website reads (no sign-in). JSON answers are cached for a minute; robots.txt, sitemap.xml, llms.txt and the manifest are plain files
  * (serve them from the website's own address: see docs/site-settings.md "Serving the files").
  */
-@PublicController('site')
+@PublicSiteController()
 export class SitePublicController {
   constructor(private site: SiteService) {}
 
