@@ -5,6 +5,8 @@ import { DEFAULT_LIMITS, InputRejected, sanitizeDeep } from './security';
 /** admin endpoints whose body / answer fields may legitimately contain formatted (HTML) text */
 const RICH_ROUTE = /^\/api\/v1\/admin\/(cms-pages|faqs)(\/|$)/;
 const RICH_KEYS = /^(body|answer|content)$/i;
+/** the custom CSS / JavaScript of the website settings: code is not text, it must reach the service exactly as typed (Super Admin only, checked and audited there) */
+const CODE_ROUTE = /^\/api\/v1\/admin\/site\/scripts(\/|$)/;
 
 /**
  * Global input hardening, runs after guards and BEFORE the ValidationPipe:
@@ -22,7 +24,7 @@ export class InputSanitizerInterceptor implements NestInterceptor {
     const ct = String(req.headers['content-type'] ?? '');
     try {
       const rich = RICH_ROUTE.test(String(req.path ?? '')) ? RICH_KEYS : undefined;
-      if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body) && !ct.startsWith('multipart/')) req.body = sanitizeDeep(req.body, '', 0, DEFAULT_LIMITS, '', rich);
+      if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body) && !ct.startsWith('multipart/') && !(CODE_ROUTE.test(String(req.path ?? '')) && req.method !== 'GET')) req.body = sanitizeDeep(req.body, '', 0, DEFAULT_LIMITS, '', rich);
       if (req.query && Object.keys(req.query).length) {
         const q = sanitizeDeep({ ...req.query });
         for (const [k, min, max] of [['page', 1, 10_000], ['limit', 1, 1000]] as const) {

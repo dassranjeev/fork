@@ -38,6 +38,7 @@ import { CustomersModule } from './customers/customers.module';
 import { FinanceModule } from './finance/finance.module';
 import { SupportModule } from './support/support.module';
 import { MarketingModule } from './marketing/marketing.module';
+import { SiteModule } from './site/site.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { RatingsModule } from './ratings/ratings.module';
 import { AssistantModule } from './assistant/assistant.module';
@@ -106,6 +107,7 @@ import { VerificationModule } from './verification/verification.module';
     FinanceModule,
     SupportModule,
     MarketingModule,
+    SiteModule,
     AnalyticsModule,
     RatingsModule,
     AssistantModule,
