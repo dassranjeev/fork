@@ -184,7 +184,7 @@ npm run seed:demo-stores -- --remove                                            
 
 It uses the database only (no API process is started), adds only what is missing (the zones, the Grocery & retail tier and the retail cuisines are filled in when an older site lacks them), is safe to
 run twice, and never uses the public demo password: `DEMO_STORES_PASSWORD` is required and becomes the password of the demo owner and staff accounts (`owner27@`, `manager27@`, `cashier27@`,
-`kitchen27@` ... `demo-restaurant.ca`). `--remove` deletes the stores with their menus, hours, documents, merchants and those accounts; it refuses (and changes nothing) when an order, ledger
+`kitchen27@` ... `stores.forky.ca`: **not** the `@demo-restaurant.ca` of `npm run seed`, because a production API refuses to start while any `@demo-restaurant.ca` or `@demo.forky.ca` account exists in its database). `--remove` deletes the stores with their menus, hours, documents, merchants and those accounts; it refuses (and changes nothing) when an order, ledger
 entry, review or support ticket exists for them, then suspend the stores in the Admin Console instead. The demo products have no photos: add them in the portal (Catalog > Edit > Photos).
 
 ## Tests

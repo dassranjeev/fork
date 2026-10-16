@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { AppDataSource } from './data-source';
 import { seedPlatform } from '../platform/platform.seed';
-import { DEMO_STORE_SLUGS, removeDemoStores, seedDemoStores } from '../restaurants/restaurants.seed';
+import { DEMO_STORE_ACCOUNT_DOMAIN, DEMO_STORE_SLUGS, removeDemoStores, seedDemoStores } from '../restaurants/restaurants.seed';
 
 /**
  * Puts three demo stores on a site that has none (or takes them out again). Uses the database only (no API process is started), so it is safe next to a running API.
@@ -9,7 +9,7 @@ import { DEMO_STORE_SLUGS, removeDemoStores, seedDemoStores } from '../restauran
  *   DEMO_STORES_PASSWORD='<at least 12 characters>' npm run seed:demo-stores         (production image: node dist/database/seed-demo-stores)
  *   npm run seed:demo-stores -- --remove
  *
- * DEMO_STORES_PASSWORD becomes the password of the demo owner and staff accounts (owner27@, manager27@, cashier27@, kitchen27@ ... demo-restaurant.ca). It has no default
+ * DEMO_STORES_PASSWORD becomes the password of the demo owner and staff accounts (owner27@, manager27@, cashier27@, kitchen27@ ... stores.forky.ca). It has no default
  * on purpose: the demo password of the repository is public. Docs: docs/store-types.md ("Demo data").
  */
 async function main() {
@@ -30,7 +30,7 @@ async function main() {
     await seedPlatform(AppDataSource, opts); // zones, taxes, the "Grocery & retail" commission tier and the store cuisines (only what is missing)
     await seedDemoStores(AppDataSource, opts);
     console.log(`Demo stores ready: ${DEMO_STORE_SLUGS.join(', ')}`);
-    console.log('Owner logins: owner27@demo-restaurant.ca, owner28@demo-restaurant.ca, owner29@demo-restaurant.ca (restaurant portal, /portal)');
+    console.log(`Owner logins: owner27@${DEMO_STORE_ACCOUNT_DOMAIN}, owner28@${DEMO_STORE_ACCOUNT_DOMAIN}, owner29@${DEMO_STORE_ACCOUNT_DOMAIN} (restaurant portal, /portal)`);
   } finally {
     await AppDataSource.destroy();
   }

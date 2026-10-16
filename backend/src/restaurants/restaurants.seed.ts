@@ -123,7 +123,10 @@ export async function seedRestaurantsExtra(ds: DataSource, opts: SeedOptions): P
   await seedDefs(ds, opts, [...DEFS, ...EXTRA_DEFS, ...STORE_DEFS], { ...MENUS, ...EXTRA_MENUS, ...STORE_MENUS }, true);
 }
 
-async function seedDefs(ds: DataSource, opts: SeedOptions, defs: Def[], menus: Record<string, Menu>, extraOnly: boolean): Promise<void> {
+/** the demo accounts of `npm run seed` end in this; the production start-up check refuses a database that has any (docs/deployment.md) */
+const DEMO_ACCOUNT_DOMAIN = 'demo-restaurant.ca';
+
+async function seedDefs(ds: DataSource, opts: SeedOptions, defs: Def[], menus: Record<string, Menu>, extraOnly: boolean, domain: string = DEMO_ACCOUNT_DOMAIN): Promise<void> {
   const merchants = ds.getRepository(Merchant);
   const restaurants = ds.getRepository(Restaurant);
   const users = ds.getRepository(User);
@@ -156,7 +159,7 @@ async function seedDefs(ds: DataSource, opts: SeedOptions, defs: Def[], menus: R
           businessName: brand,
           legalName: brand,
           hstNumber: `8${String(10000000 + d.merchant * 1111).slice(0, 8)}RT0001`,
-          contactEmail: `owner${d.merchant}@demo-restaurant.ca`,
+          contactEmail: `owner${d.merchant}@${domain}`,
           contactPhone: `+1416555${String(1000 + d.merchant).padStart(4, '0')}`,
           bank: { institution: '004', transit: '12345', accountLast4: '6789', holder: brand, verified: true },
           agreementSignedAt: new Date(Date.now() - 90 * 86400_000),
@@ -172,7 +175,7 @@ async function seedDefs(ds: DataSource, opts: SeedOptions, defs: Def[], menus: R
 
     // ---- people (one owner per merchant; manager/cashier/kitchen at the merchant's first location) ----
     const m = d.merchant;
-    const owner = await ensureUser(`owner${m}@demo-restaurant.ca`, 'Olivia', `Owner${m}`, `+1416555${String(2000 + m).padStart(4, '0')}`);
+    const owner = await ensureUser(`owner${m}@${domain}`, 'Olivia', `Owner${m}`, `+1416555${String(2000 + m).padStart(4, '0')}`);
     await ensureMember(owner.id, merchant.id, RestaurantRole.OWNER, null);
 
     const slug = slugify(d.name);
@@ -194,7 +197,7 @@ async function seedDefs(ds: DataSource, opts: SeedOptions, defs: Def[], menus: R
           kdsEnabled: profileOf(storeType).kdsDefault,
           description: profileOf(storeType).retail ? `${d.name} - ${profileOf(storeType).label.toLowerCase()} in ${d.city ?? 'Mississauga'}. Picked fresh for you and delivered.` : `${d.name} - fresh, made to order in ${d.city ?? 'Mississauga'}.`,
           phone: `+1416555${String(3000 + i).padStart(4, '0')}`,
-          email: `orders+${slug}@demo-restaurant.ca`,
+          email: `orders+${slug}@${domain}`,
           addressLine1: d.street,
           city: d.city ?? 'Mississauga',
           province: 'ON',
@@ -235,12 +238,12 @@ async function seedDefs(ds: DataSource, opts: SeedOptions, defs: Def[], menus: R
     // first location of each merchant gets the staff roles; merchant 1's second location gets its own manager
     const firstOfMerchant = defs.findIndex((x) => x.merchant === d.merchant) === i;
     const suffix = firstOfMerchant ? '' : 'b';
-    const manager = await ensureUser(`manager${m}${suffix}@demo-restaurant.ca`, 'Marco', `Manager${m}${suffix}`, `+1416555${String(4000 + m * 2 + (firstOfMerchant ? 0 : 1)).padStart(4, '0')}`);
+    const manager = await ensureUser(`manager${m}${suffix}@${domain}`, 'Marco', `Manager${m}${suffix}`, `+1416555${String(4000 + m * 2 + (firstOfMerchant ? 0 : 1)).padStart(4, '0')}`);
     await ensureMember(manager.id, merchant.id, RestaurantRole.LOCATION_MANAGER, r.id);
     if (firstOfMerchant) {
-      const cashier = await ensureUser(`cashier${m}@demo-restaurant.ca`, 'Casey', `Cashier${m}`, `+1416555${String(5000 + m).padStart(4, '0')}`);
+      const cashier = await ensureUser(`cashier${m}@${domain}`, 'Casey', `Cashier${m}`, `+1416555${String(5000 + m).padStart(4, '0')}`);
       await ensureMember(cashier.id, merchant.id, RestaurantRole.CASHIER, r.id);
-      const kitchen = await ensureUser(`kitchen${m}@demo-restaurant.ca`, 'Kim', `Kitchen${m}`, `+1416555${String(6000 + m).padStart(4, '0')}`);
+      const kitchen = await ensureUser(`kitchen${m}@${domain}`, 'Kim', `Kitchen${m}`, `+1416555${String(6000 + m).padStart(4, '0')}`);
       await ensureMember(kitchen.id, merchant.id, RestaurantRole.KITCHEN, r.id);
     }
   }
@@ -311,14 +314,20 @@ async function seedMenu(ds: DataSource, restaurantId: string, menu: Menu) {
 // ------------------------------------------------------------------ the three demo stores (for a live site that has no restaurants yet)
 /** Fresh Basket Supermarket, Seoul Asian Market and Prime Cut Halal Butcher: a grocery with ~40 products in 10 departments (weighed, chilled, age-restricted), an Asian grocery and a halal butcher. */
 export const DEMO_STORE_SLUGS: string[] = STORE_DEFS.map((d) => slugify(d.name));
-const DEMO_STORE_EMAILS: string[] = STORE_DEFS.flatMap((d) => ['owner', 'manager', 'cashier', 'kitchen'].map((role) => `${role}${d.merchant}@demo-restaurant.ca`));
+/**
+ * The accounts of the demo stores end in this, NOT in the demo domain of `npm run seed`: a production API refuses to start while any @demo-restaurant.ca account exists, and these
+ * accounts have a password of the owner's choosing, so they are not what that check protects against.
+ */
+export const DEMO_STORE_ACCOUNT_DOMAIN = 'stores.forky.ca';
+/** also the demo domain: stores seeded by an earlier version of this command used it */
+const DEMO_STORE_EMAILS: string[] = STORE_DEFS.flatMap((d) => ['owner', 'manager', 'cashier', 'kitchen'].flatMap((role) => [DEMO_STORE_ACCOUNT_DOMAIN, DEMO_ACCOUNT_DOMAIN].map((dom) => `${role}${d.merchant}@${dom}`)));
 
 /**
  * Only the three demo stores, with their merchants, owner and staff accounts (all with `opts.demoPassword`). No customers, drivers or orders.
  * Idempotent: a store that exists is left as it is. Run `seedPlatform` first (zones, the "Grocery & retail" commission tier, cuisines).
  */
 export async function seedDemoStores(ds: DataSource, opts: SeedOptions): Promise<void> {
-  await seedDefs(ds, { ...opts, demo: true }, STORE_DEFS, STORE_MENUS, false);
+  await seedDefs(ds, { ...opts, demo: true }, STORE_DEFS, STORE_MENUS, false, DEMO_STORE_ACCOUNT_DOMAIN);
 }
 
 /** Tables that carry a store's own rows (by restaurantId) and may simply go with it. Orders, ledger entries, reviews and tickets are real activity: they stop a removal. */
