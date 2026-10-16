@@ -38811,6 +38811,424 @@ paths:
         - bearer: []
       tags:
         - Admin / settings
+  /api/v1/admin/site:
+    get:
+      operationId: SiteAdminController_all
+      parameters: []
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      security:
+        - bearer: []
+      summary: Every section with its saved values (or the defaults), version and who changed it last
+      tags:
+        - Admin / site
+  /api/v1/admin/site/branding/{slot}:
+    delete:
+      operationId: SiteAdminController_clearBranding
+      parameters:
+        - description: 'Which picture: logo, logo-dark, logo-square, favicon, apple-touch-icon, pwa-icon-192, pwa-icon-512, og-image, twitter-image'
+          in: path
+          name: slot
+          required: true
+          schema:
+            enum:
+              - logo
+              - logo-dark
+              - logo-square
+              - favicon
+              - apple-touch-icon
+              - pwa-icon-192
+              - pwa-icon-512
+              - og-image
+              - twitter-image
+            type: string
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      security:
+        - bearer: []
+      summary: Remove a logo or icon (the uploaded file is kept on the server)
+      tags:
+        - Admin / site
+    post:
+      operationId: SiteAdminController_uploadBranding
+      parameters:
+        - description: 'Which picture: logo, logo-dark, logo-square, favicon, apple-touch-icon, pwa-icon-192, pwa-icon-512, og-image, twitter-image'
+          in: path
+          name: slot
+          required: true
+          schema:
+            enum:
+              - logo
+              - logo-dark
+              - logo-square
+              - favicon
+              - apple-touch-icon
+              - pwa-icon-192
+              - pwa-icon-512
+              - og-image
+              - twitter-image
+            type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              properties:
+                file:
+                  format: binary
+                  type: string
+              required:
+                - file
+              type: object
+        required: true
+      responses:
+        '201':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      security:
+        - bearer: []
+      summary: 'Upload a logo or icon: checks the picture (type, size, square), stores it and puts its address in the branding section'
+      tags:
+        - Admin / site
+  /api/v1/admin/site/checks:
+    get:
+      operationId: SiteAdminController_checks
+      parameters: []
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      security:
+        - bearer: []
+      summary: What is missing or wrong (SEO, branding, GEO, AEO, AIO), in plain words, errors first
+      tags:
+        - Admin / site
+  /api/v1/admin/site/options:
+    get:
+      operationId: SiteAdminController_options
+      parameters: []
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      security:
+        - bearer: []
+      summary: 'Lists for dropdowns: social networks, AI crawlers, placeholders, the picture slots with their size rules'
+      tags:
+        - Admin / site
+  /api/v1/admin/site/schema:
+    get:
+      operationId: SiteAdminController_schema
+      parameters: []
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      security:
+        - bearer: []
+      summary: 'The fields of every section (type, limits, allowed values, defaults, help text): build the forms from this'
+      tags:
+        - Admin / site
+  /api/v1/admin/site/{section}:
+    get:
+      operationId: SiteAdminController_one
+      parameters:
+        - description: general | branding | seo | geo | aeo | aio | footer | integrations | scripts
+          in: path
+          name: section
+          required: true
+          schema:
+            enum:
+              - general
+              - branding
+              - seo
+              - geo
+              - aeo
+              - aio
+              - footer
+              - integrations
+              - scripts
+            type: string
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      security:
+        - bearer: []
+      summary: One section
+      tags:
+        - Admin / site
+    patch:
+      operationId: SiteAdminController_merge
+      parameters:
+        - description: general | branding | seo | geo | aeo | aio | footer | integrations | scripts
+          in: path
+          name: section
+          required: true
+          schema:
+            enum:
+              - general
+              - branding
+              - seo
+              - geo
+              - aeo
+              - aio
+              - footer
+              - integrations
+              - scripts
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              description: 'The fields of the section: see GET /admin/site/schema for the fields, their limits and their defaults'
+              type: object
+        required: true
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      security:
+        - bearer: []
+      summary: 'Change some fields of a section: send only the top-level fields that change (a field that holds an object or a list is replaced as a whole)'
+      tags:
+        - Admin / site
+    put:
+      operationId: SiteAdminController_replace
+      parameters:
+        - description: general | branding | seo | geo | aeo | aio | footer | integrations | scripts
+          in: path
+          name: section
+          required: true
+          schema:
+            enum:
+              - general
+              - branding
+              - seo
+              - geo
+              - aeo
+              - aio
+              - footer
+              - integrations
+              - scripts
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              description: 'The fields of the section: see GET /admin/site/schema for the fields, their limits and their defaults'
+              type: object
+        required: true
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      security:
+        - bearer: []
+      summary: 'Replace a section: the body is the whole section, fields left out go back to their defaults. Nothing is saved when any field is wrong (400 with every problem listed)'
+      tags:
+        - Admin / site
+  /api/v1/admin/site/{section}/reset:
+    post:
+      operationId: SiteAdminController_reset
+      parameters:
+        - description: general | branding | seo | geo | aeo | aio | footer | integrations | scripts
+          in: path
+          name: section
+          required: true
+          schema:
+            enum:
+              - general
+              - branding
+              - seo
+              - geo
+              - aeo
+              - aio
+              - footer
+              - integrations
+              - scripts
+            type: string
+      responses:
+        '201':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      security:
+        - bearer: []
+      summary: Put a section back to its defaults
+      tags:
+        - Admin / site
+  /api/v1/admin/site/{section}/revisions:
+    get:
+      operationId: SiteAdminController_revisions
+      parameters:
+        - description: general | branding | seo | geo | aeo | aio | footer | integrations | scripts
+          in: path
+          name: section
+          required: true
+          schema:
+            enum:
+              - general
+              - branding
+              - seo
+              - geo
+              - aeo
+              - aio
+              - footer
+              - integrations
+              - scripts
+            type: string
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      security:
+        - bearer: []
+      summary: The last saved versions of a section (newest first, 50 are kept)
+      tags:
+        - Admin / site
+  /api/v1/admin/site/{section}/revisions/{version}:
+    get:
+      operationId: SiteAdminController_revision
+      parameters:
+        - description: general | branding | seo | geo | aeo | aio | footer | integrations | scripts
+          in: path
+          name: section
+          required: true
+          schema:
+            enum:
+              - general
+              - branding
+              - seo
+              - geo
+              - aeo
+              - aio
+              - footer
+              - integrations
+              - scripts
+            type: string
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: number
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      security:
+        - bearer: []
+      summary: One saved version with its values
+      tags:
+        - Admin / site
+  /api/v1/admin/site/{section}/revisions/{version}/restore:
+    post:
+      operationId: SiteAdminController_restore
+      parameters:
+        - description: general | branding | seo | geo | aeo | aio | footer | integrations | scripts
+          in: path
+          name: section
+          required: true
+          schema:
+            enum:
+              - general
+              - branding
+              - seo
+              - geo
+              - aeo
+              - aio
+              - footer
+              - integrations
+              - scripts
+            type: string
+        - in: path
+          name: version
+          required: true
+          schema:
+            type: number
+      responses:
+        '201':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      security:
+        - bearer: []
+      summary: Put an earlier version back (saved as a new version)
+      tags:
+        - Admin / site
   /api/v1/admin/staff:
     get:
       operationId: StaffController_list
@@ -67291,6 +67709,208 @@ paths:
           description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
       tags:
         - Public / search
+  /api/v1/public/site:
+    get:
+      operationId: SitePublicController_config
+      parameters:
+        - description: 'Only some parts, comma separated: site, contact, social, appLinks, branding, seo, footer, geo, aeo, aio, integrations, scripts'
+          in: query
+          name: sections
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      summary: 'The website settings, ready to use: pictures as full addresses, the footer, SEO defaults, structured data facts, analytics ids and the custom code addresses with their hashes'
+      tags:
+        - Public / site
+  /api/v1/public/site/body.js:
+    get:
+      operationId: SitePublicController_bodyJs
+      parameters: []
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      summary: The custom JavaScript for the end of <body> (404 when switched off)
+      tags:
+        - Public / site
+  /api/v1/public/site/custom.css:
+    get:
+      operationId: SitePublicController_css
+      parameters: []
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      summary: The custom CSS (empty 404 when switched off)
+      tags:
+        - Public / site
+  /api/v1/public/site/faq:
+    get:
+      operationId: SitePublicController_faq
+      parameters:
+        - in: query
+          name: lang
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      summary: The questions and answers (own entries and the customer FAQ of the content section)
+      tags:
+        - Public / site
+  /api/v1/public/site/head:
+    get:
+      operationId: SitePublicController_head
+      parameters:
+        - description: 'the page of the customer website: a path with an optional query, e.g. /order/r/fresh-basket-supermarket or /order?t=GROCERY'
+          in: query
+          name: path
+          required: false
+          schema:
+            maxLength: 300
+            type: string
+        - description: 'language of the page, e.g. en-CA or fr (default: the site''s default language)'
+          in: query
+          name: lang
+          required: false
+          schema:
+            maxLength: 12
+            pattern: ^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8})*$
+            type: string
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      summary: 'Everything for the <head> of one page: title, description, canonical, robots, meta tags, links, JSON-LD structured data, and the same as ready-made HTML'
+      tags:
+        - Public / site
+  /api/v1/public/site/head.js:
+    get:
+      operationId: SitePublicController_headJs
+      parameters: []
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      summary: The custom JavaScript for <head> (404 when switched off)
+      tags:
+        - Public / site
+  /api/v1/public/site/llms-full.txt:
+    get:
+      operationId: SitePublicController_llmsFull
+      parameters: []
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      summary: 'llms-full.txt: the same with the full FAQ, terms and store descriptions'
+      tags:
+        - Public / site
+  /api/v1/public/site/llms.txt:
+    get:
+      operationId: SitePublicController_llms
+      parameters: []
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      summary: 'llms.txt: a short Markdown summary of the site for AI assistants (404 when switched off)'
+      tags:
+        - Public / site
+  /api/v1/public/site/manifest.webmanifest:
+    get:
+      operationId: SitePublicController_manifest
+      parameters: []
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      summary: 'The web app manifest: name, colours and the icons of the branding section'
+      tags:
+        - Public / site
+  /api/v1/public/site/robots.txt:
+    get:
+      operationId: SitePublicController_robots
+      parameters: []
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      summary: 'robots.txt: crawler rules, AI crawler policies and the sitemap address (404 when switched off)'
+      tags:
+        - Public / site
+  /api/v1/public/site/sitemap.xml:
+    get:
+      operationId: SitePublicController_sitemap
+      parameters: []
+      responses:
+        '200':
+          description: ''
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+          description: Error (400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 429 too many requests)
+      summary: 'sitemap.xml: the home page, the kinds of store and every live store (404 when switched off)'
+      tags:
+        - Public / site
   /api/v1/public/status:
     get:
       operationId: PublicStatusController_status
@@ -81070,6 +81690,7 @@ tags:
   - name: Admin / restaurants
   - name: Admin / roles
   - name: Admin / settings
+  - name: Admin / site
   - name: Admin / staff
   - name: Admin / support
   - name: Admin / support/chat
@@ -81136,6 +81757,7 @@ tags:
   - name: Public / restaurants
   - name: Public / root
   - name: Public / search
+  - name: Public / site
   - name: Public / status
   - name: Public / store-types
   - name: Public / stores
@@ -81189,6 +81811,7 @@ x-tagGroups:
       - Admin / restaurants
       - Admin / roles
       - Admin / settings
+      - Admin / site
       - Admin / staff
       - Admin / support
       - Admin / support/chat
@@ -81263,6 +81886,7 @@ x-tagGroups:
       - Public / restaurants
       - Public / root
       - Public / search
+      - Public / site
       - Public / status
       - Public / store-types
       - Public / stores

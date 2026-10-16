@@ -135,6 +135,7 @@ async function bootstrap() {
   const small = config.get<string>('limits.jsonBody')!;
   const large = config.get<string>('limits.jsonBodyLarge')!;
   app.use(/^\/api\/v1\/restaurant\/menu\/csv$/, json({ limit: large })); // first parser wins; the default one below skips already-parsed bodies
+  app.use(/^\/api\/v1\/admin\/site\/scripts$/, json({ limit: '400kb' })); // custom CSS + two JavaScript fields of up to 60 000 characters each
   // Stripe webhook: the signature is computed over the EXACT raw bytes, so this one route gets the raw body (a Buffer) instead of parsed JSON
   app.use('/api/v1/webhooks/stripe', raw({ type: '*/*', limit: '1mb' }));
   // Certn webhook: parsed as JSON as usual, but its HMAC is also computed over the raw bytes (req.rawBody)

@@ -135,6 +135,7 @@ export const DEFAULT_ROLES: DefaultRole[] = [
       [M.DASHBOARD]: V,
       [M.PROMOTIONS]: ALL,
       [M.CONTENT]: ALL,
+      [M.SITE]: [A.VIEW, A.EDIT],
       [M.NOTIFICATIONS]: ALL,
       [M.CUSTOMERS]: V,
       [M.RESTAURANTS]: V,

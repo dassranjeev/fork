@@ -32,6 +32,8 @@ jobs:
         run: npx ts-node --transpile-only test/maps.test.ts
       - name: Store types (profiles, filters, weight and basket maths, status words, stock bookkeeping with a fake database)
         run: npx ts-node --transpile-only test/store-types.test.ts
+      - name: Unit tests - website settings (schema, validation, robots / sitemap / llms.txt / structured data generators)
+        run: npx ts-node --transpile-only test/site.test.ts
 
   # The production schema comes from migrations, so they must exactly match the entities: apply them to an empty database and
   # fail if TypeORM still sees a difference. Fix: npm run migration:generate -- src/database/migrations/<Name>  (commit the file)

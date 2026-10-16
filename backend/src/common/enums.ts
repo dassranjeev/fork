@@ -37,6 +37,8 @@ export enum Module {
   REPORTS = 'reports',
   NOTIFICATIONS = 'notifications',
   OPERATIONS = 'operations',
+  /** the website's General settings: logo, meta tags, SEO / GEO / AEO / AIO, footer (custom CSS / JS needs the Super Admin on top) */
+  SITE = 'site',
 }
 
 export enum Action {

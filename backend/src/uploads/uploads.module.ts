@@ -75,7 +75,10 @@ export class UploadsService {
   readonly dir: string;
   /** Private area (NOT served statically): delivery proof photos are moved here once they become evidence. */
   readonly privateDir: string;
-  constructor(private config: ConfigService) {
+  constructor(
+    private config: ConfigService,
+    @InjectRepository(UploadedFileRow) private registry: Repository<UploadedFileRow>,
+  ) {
     this.dir = join(process.cwd(), config.get<string>('uploads.dir') ?? 'uploads');
     if (!existsSync(this.dir)) mkdirSync(this.dir, { recursive: true });
     this.privateDir = join(process.cwd(), config.get<string>('uploads.privateDir') ?? 'private-uploads');
@@ -83,6 +86,23 @@ export class UploadsService {
   }
   publicUrl(filename: string) {
     return `${this.config.get('publicUrl')}/uploads/${filename}`;
+  }
+
+  /**
+   * Stores one uploaded file the same way POST /uploads does: the type is detected from the bytes (never from the client), the size is limited per type, the file gets a random name
+   * and the registry remembers who uploaded it. `only` narrows what is accepted (the site settings take pictures only).
+   */
+  async store(file: { buffer: Buffer; originalname: string; size: number }, user: AuthUser | undefined, only?: Kind[]) {
+    const type = detectFileType(file.buffer, file.originalname);
+    if (!type) throw new UnsupportedMediaTypeException('Unsupported or unrecognised file type (allowed: JPG, PNG, GIF, WebP, HEIC, PDF, CSV)');
+    const t = TYPES[type];
+    if (only && !only.includes(t.kind)) throw new UnsupportedMediaTypeException(`This needs a ${only.join(' or ')} file`);
+    if (file.size > t.maxBytes) throw new BadRequestException(`File too large (max ${Math.round(t.maxBytes / 1024 / 1024)} MB for this type)`);
+    const filename = `${uuid()}${t.ext}`; // random server-side name; the client name is never used on disk
+    await writeFile(join(this.dir, filename), file.buffer, { flag: 'wx', mode: 0o640 });
+    // registry: who uploaded which file (a delivery proof photo must have been uploaded by the delivering driver)
+    await this.registry.insert({ filename, userId: user?.id ?? null, userType: user?.type ?? null, sha256: createHash('sha256').update(file.buffer).digest('hex'), size: file.size, mimetype: t.mime });
+    return { url: this.publicUrl(filename), filename, originalName: file.originalname.replace(/[^\w.\- ]/g, '_').slice(0, 100), size: file.size, mimetype: t.mime, type };
   }
 }
 
@@ -95,10 +115,7 @@ export class UploadsService {
 @ApiBearerAuth()
 @Controller('uploads')
 class UploadsController {
-  constructor(
-    private svc: UploadsService,
-    @InjectRepository(UploadedFileRow) private registry: Repository<UploadedFileRow>,
-  ) {}
+  constructor(private svc: UploadsService) {}
 
   @Post()
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
@@ -111,15 +128,9 @@ class UploadsController {
   )
   async upload(@UploadedFile() file: Express.Multer.File, @CurrentUser() user: AuthUser) {
     if (!file) throw new BadRequestException('file is required');
-    const type = detectFileType(file.buffer, file.originalname);
-    if (!type) throw new UnsupportedMediaTypeException('Unsupported or unrecognised file type (allowed: JPG, PNG, GIF, WebP, HEIC, PDF, CSV)');
-    const t = TYPES[type];
-    if (file.size > t.maxBytes) throw new BadRequestException(`File too large (max ${Math.round(t.maxBytes / 1024 / 1024)} MB for this type)`);
-    const filename = `${uuid()}${t.ext}`; // random server-side name; the client name is never used on disk
-    await writeFile(join(this.svc.dir, filename), file.buffer, { flag: 'wx', mode: 0o640 });
-    // registry: who uploaded which file (a delivery proof photo must have been uploaded by the delivering driver)
-    await this.registry.insert({ filename, userId: user?.id ?? null, userType: user?.type ?? null, sha256: createHash('sha256').update(file.buffer).digest('hex'), size: file.size, mimetype: t.mime });
-    return { url: this.svc.publicUrl(filename), filename, originalName: file.originalname.replace(/[^\w.\- ]/g, '_').slice(0, 100), size: file.size, mimetype: t.mime };
+    const { type: _type, ...saved } = await this.svc.store(file, user);
+    void _type;
+    return saved;
   }
 }
 
