@@ -149,7 +149,7 @@ Everything else needs a JWT; every `/admin/*` handler (362) has an explicit `@Pe
 
 * `JWT_SECRET` ≥ 32 random chars (not a known default), `DATA_ENCRYPTION_KEY` ≥ 32 chars
 * `DB_SYNC` is not `true`, `EXPOSE_OTP` is not `true`
-* `CORS_ORIGINS` are explicit `https://` origins (no localhost, no `*`), `PUBLIC_URL` is https
+* `CORS_ORIGINS` are `https://` origins (no localhost, no bare `*`): exact origins, or subdomain patterns shaped `https://*.example.com` (every subdomain at any depth, never the domain itself and never a look-alike such as `evilexample.com`; scheme and port must match), `PUBLIC_URL` is https. The API uses bearer tokens, not cookies, so a page on an allowed subdomain still needs a signed-in user's token to do anything; keep DNS records of unused subdomains clean (a taken-over subdomain would be an allowed origin)
 * `STRIPE_SECRET_KEY` is a live key and `STRIPE_WEBHOOK_SECRET` is set
 * `ENFORCE_2FA=true`, `SEED_SUPERADMIN_PASSWORD` is not a known default, `DB_PASSWORD` is not a default
 * and, after connecting to the database: **no demo accounts** (`@demo.forksy.ca`, `@demo-restaurant.ca`) exist and **no super admin still has a known default password**.

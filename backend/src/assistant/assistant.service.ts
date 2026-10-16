@@ -11,7 +11,6 @@ import type { AssistantCartLine } from '../database/entities/assistant.entities'
 import { JwtStrategy } from '../auth/jwt.strategy';
 import { AuthUser } from '../common/auth.types';
 import { RestaurantStatus, UserType } from '../common/enums';
-import { corsAllowlist } from '../common/security';
 import { CartService } from '../customers/cart.service';
 import { SettingsService } from '../settings/settings.service';
 import { AssistantConfigService, AssistantConfig } from './assistant-config.service';
