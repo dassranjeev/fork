@@ -8,7 +8,7 @@ import { Restaurant } from '../database/entities';
 import { AuditService } from '../audit/audit.service';
 import { SettingsService } from '../settings/settings.service';
 import { AuthUser } from '../common/auth.types';
-import { corsAllowlist } from '../common/security';
+import { corsOriginAllowed } from '../common/security';
 
 export interface AssistantConfig {
   enabled: boolean;
@@ -461,8 +461,8 @@ export class AssistantConfigService implements OnModuleInit, OnModuleDestroy {
   /** Is `origin` allowed to call the public assistant endpoints at all? (CORS layer; the handlers then check the exact restaurant) */
   originInUnion(origin: string): boolean {
     const o = origin.replace(/\/$/, '').toLowerCase();
-    if (!this.platformEnabled()) return corsAllowlist().map((x) => x.toLowerCase()).includes(o);
-    if (corsAllowlist().map((x) => x.toLowerCase()).includes(o)) return true;
+    if (!this.platformEnabled()) return corsOriginAllowed(o);
+    if (corsOriginAllowed(o)) return true;
     if (!this.embedEnabled()) return false;
     if (this.union.has(o)) return true;
     return this.localWildcard && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(o);
@@ -476,6 +476,6 @@ export class AssistantConfigService implements OnModuleInit, OnModuleDestroy {
 
   /** origins of the FORKY web apps (env CORS_ORIGINS): allowed for the "site" modes */
   isSiteOrigin(origin: string): boolean {
-    return corsAllowlist().map((x) => x.toLowerCase()).includes(origin.replace(/\/$/, '').toLowerCase());
+    return corsOriginAllowed(origin);
   }
 }

@@ -13,6 +13,8 @@ description = "fake credentials used by local test fixtures"
 # Old template Google API key (public, owner confirmed) in an early commit; the file is long gone.
 commits = [
   "0544d95cc489ec16c1b273101720c94c1fa0de94",
+  # made-up JWT secret / DB password / encryption key inside backend/test/cors.test.ts (a test of the production start-up rule); replaced by generated values in the next commit
+  "9b3c5de2fa42680beecaa61ad72cd9883ef8eefd",
 ]
 paths = [
   '''backend/test/payments-e2e\.mjs''',

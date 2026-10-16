@@ -29,7 +29,7 @@ Stripe **live** keys.
 3. **Edit `backend/.env.production`** and fill in every empty value. The ones the API will not start without:
    - `JWT_SECRET` and `DATA_ENCRYPTION_KEY`: two different random strings of 32+ characters
      (`node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`).
-   - `PUBLIC_URL`, `WEB_URL`, `CORS_ORIGINS`: the real `https://` URLs (they must match step 2).
+   - `PUBLIC_URL`, `WEB_URL`, `CORS_ORIGINS`: the real `https://` URLs (they must match step 2). `CORS_ORIGINS` is a comma separated list; an entry may be a subdomain pattern: `CORS_ORIGINS=https://app.example.ca,https://example.ca,https://*.example.ca` lets the domain and every subdomain call the API (HTTP and Socket.IO). `https://*.example.ca` does not cover `example.ca` itself, so list both. Localhost and a bare `*` are refused in production.
    - `SEED_SUPERADMIN_EMAIL` and a strong, unique `SEED_SUPERADMIN_PASSWORD`.
    - **`STRIPE_SECRET_KEY` (`sk_live_...`), `STRIPE_PUBLISHABLE_KEY` (`pk_live_...`), `STRIPE_WEBHOOK_SECRET`.** The API refuses to start
      without live Stripe keys, so for the *first* start they must be in this file. Later you can manage them on the Integrations page

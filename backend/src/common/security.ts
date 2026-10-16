@@ -14,10 +14,52 @@ export function corsAllowlist(): string[] {
     .filter(Boolean);
 }
 
+/** a CORS_ORIGINS entry that covers subdomains: https://*.example.com (at least two labels after the *.) */
+const WILDCARD_ENTRY = /^(https?):\/\/\*\.((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)(?::(\d{1,5}))?$/i;
+export const isWildcardOrigin = (entry: string) => entry.includes('*');
+export const isValidWildcardOrigin = (entry: string) => {
+  const m = WILDCARD_ENTRY.exec(entry);
+  return !!m && m[2].split('.').length >= 2 && /[a-z]/i.test(m[2].split('.').pop()!);
+};
+
+/**
+ * Does one CORS_ORIGINS entry allow this browser origin?
+ *   exact:     https://app.example.com
+ *   wildcard:  https://*.example.com = every subdomain at any depth (a.example.com, b.a.example.com) but NOT example.com itself (list it too) and never a look-alike
+ *              such as evilexample.com or example.com.evil.com. Scheme and port must be the same.
+ * The browser origin is parsed first: anything with a login, a path, a query or a fragment is refused.
+ */
+export function originMatches(entry: string, origin: string): boolean {
+  const o = origin.trim().replace(/\/$/, '');
+  const e = entry.trim().replace(/\/$/, '');
+  if (!o || o.toLowerCase() === 'null') return false;
+  if (!isWildcardOrigin(e)) return o.toLowerCase() === e.toLowerCase();
+  const w = WILDCARD_ENTRY.exec(e);
+  if (!w) return false;
+  let u: URL;
+  try {
+    u = new URL(o);
+  } catch {
+    return false;
+  }
+  if (u.origin.toLowerCase() !== o.toLowerCase() || u.username || u.password) return false;
+  if (u.protocol !== `${w[1].toLowerCase()}:`) return false;
+  const port = w[3] ?? '';
+  if (u.port !== (port === (w[1].toLowerCase() === 'https' ? '443' : '80') ? '' : port)) return false;
+  const suffix = `.${w[2].toLowerCase()}`;
+  const host = u.hostname.toLowerCase();
+  return host.length > suffix.length && host.endsWith(suffix);
+}
+
+/** is this browser origin on the allow-list (CORS_ORIGINS, wildcards included)? */
+export function corsOriginAllowed(origin: string, list: string[] = corsAllowlist()): boolean {
+  return list.some((entry) => originMatches(entry, origin));
+}
+
 /** cors `origin` callback: no Origin header (mobile apps, curl, server-to-server) is allowed; browsers must be on the allow-list. */
 export function corsOriginCheck(origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) {
   if (!origin) return cb(null, true);
-  return cb(null, corsAllowlist().includes(origin.replace(/\/$/, '')));
+  return cb(null, corsOriginAllowed(origin));
 }
 
 // ------------------------------------------------------------------ client IP
@@ -105,6 +147,8 @@ export function productionProblems(i: SafetyInput): string[] {
   for (const o of i.corsOrigins) {
     if (o === '*' || /localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0/i.test(o)) p.push(`CORS_ORIGINS contains a local/wildcard origin: ${o}`);
     else if (!/^https:\/\//i.test(o)) p.push(`CORS_ORIGINS contains a non-HTTPS origin: ${o}`);
+    // a subdomain pattern is allowed when it is shaped https://*.example.com (never a bare * or https://*.com)
+    else if (isWildcardOrigin(o) && !isValidWildcardOrigin(o)) p.push(`CORS_ORIGINS contains a wildcard that is not of the form https://*.example.com: ${o}`);
   }
   if (!/^https:\/\//i.test(i.publicUrl) || /localhost|127\.0\.0\.1/i.test(i.publicUrl)) p.push('PUBLIC_URL must be the public https URL (not localhost / http)');
   if (i.allowMockPayments) p.push('ALLOW_MOCK_PAYMENTS is set (the mock payment provider is a development tool and must not exist in production)');
