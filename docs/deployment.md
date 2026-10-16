@@ -85,6 +85,12 @@ for production prefer a database backup restore).
 Two entity-writing rules that keep `migration:check` quiet: do not set `enumName` on enum columns, and write fractional numeric defaults through
 `MoneyColumn` / `PctColumn` (they handle it). Both caused endless "differences" while the baseline was created.
 
+## Demo stores on a new site
+
+A site without restaurants can show three demo stores (a supermarket, an Asian market, a halal butcher) so there is something to look at: `docker compose --env-file deploy/.env exec -e DEMO_STORES_PASSWORD='...'
+api node dist/database/seed-demo-stores` (the password of their demo owner accounts, at least 12 characters, there is no default), and `... node dist/database/seed-demo-stores --remove` takes them out again.
+Details: docs/store-types.md ("Demo data").
+
 ## Updating a running system
 
 ```bash

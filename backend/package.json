@@ -20,7 +20,9 @@
     "migration:show": "npm run typeorm -- migration:show",
     "migration:check": "npm run typeorm -- migration:generate --check src/database/migrations/Check",
     "migrate:prod": "node dist/database/migrate",
-    "seed:prod": "node dist/database/seed"
+    "seed:prod": "node dist/database/seed",
+    "seed:demo-stores": "ts-node -r tsconfig-paths/register src/database/seed-demo-stores.ts",
+    "seed:demo-stores:prod": "node dist/database/seed-demo-stores"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

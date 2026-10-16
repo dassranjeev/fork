@@ -175,6 +175,18 @@ Marking the order **ready** is unchanged (`POST /restaurant/orders/:id/ready`, o
 **Seoul Asian Market** (GROCERY, shares a barcode with the supermarket) and **Prime Cut Halal Butcher** (SPECIALTY, no alcohol licence), tags the existing cafes, the bakery and the convenience stores with
 their types, and adds the retail cuisines and the Grocery & retail commission tier. Owners: `owner27@`, `owner28@`, `owner29@demo-restaurant.ca` (demo password).
 
+**On a live site** (no demo data, no restaurants yet) put only these three stores there, without any customer, driver or order, with:
+
+```
+DEMO_STORES_PASSWORD='<at least 12 characters>' npm run seed:demo-stores              # production image: node dist/database/seed-demo-stores
+npm run seed:demo-stores -- --remove                                                  # take them out again
+```
+
+It uses the database only (no API process is started), adds only what is missing (the zones, the Grocery & retail tier and the retail cuisines are filled in when an older site lacks them), is safe to
+run twice, and never uses the public demo password: `DEMO_STORES_PASSWORD` is required and becomes the password of the demo owner and staff accounts (`owner27@`, `manager27@`, `cashier27@`,
+`kitchen27@` ... `demo-restaurant.ca`). `--remove` deletes the stores with their menus, hours, documents, merchants and those accounts; it refuses (and changes nothing) when an order, ledger
+entry, review or support ticket exists for them, then suspend the stores in the Admin Console instead. The demo products have no photos: add them in the portal (Catalog > Edit > Photos).
+
 ## Tests
 
 * `npx ts-node --transpile-only test/store-types.test.ts`: profiles, filter parsing, weight and basket maths, the status words, stock bookkeeping against a fake database (also runs in CI).
