@@ -27,6 +27,7 @@ import {
 } from '../src/common/store-types';
 import { RetailService } from '../src/orders/retail.service';
 import { MAX_GALLERY_IMAGES, cleanGallery, cleanImageUrl } from '../src/common/image-url';
+import { DEMO_STORE_ACCOUNT_DOMAIN } from '../src/restaurants/restaurants.seed';
 
 let failed = 0;
 const check = (name: string, ok: boolean, detail: unknown = '') => {
@@ -34,6 +35,10 @@ const check = (name: string, ok: boolean, detail: unknown = '') => {
   if (!ok) failed++;
 };
 const eq = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+// ------------------------------------------------------------------ the accounts of the demo stores
+// the production API refuses to start while any account matches these patterns (main.ts, productionDbGate): the demo stores of a live site must never match them
+check('demo store accounts never match the production start-up check (a live API would refuse to restart)', ['owner27', 'manager27', 'cashier27', 'kitchen27', 'owner29'].every((u) => !/@demo\.forksy\.ca$|@demo-restaurant\.ca$/i.test(`${u}@${DEMO_STORE_ACCOUNT_DOMAIN}`)) && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(DEMO_STORE_ACCOUNT_DOMAIN), DEMO_STORE_ACCOUNT_DOMAIN);
 
 // ------------------------------------------------------------------ photo addresses of menu items
 const refused = (fn: () => unknown) => {
