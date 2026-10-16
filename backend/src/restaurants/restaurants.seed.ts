@@ -307,3 +307,47 @@ async function seedMenu(ds: DataSource, restaurantId: string, menu: Menu) {
     }
   }
 }
+
+// ------------------------------------------------------------------ the three demo stores (for a live site that has no restaurants yet)
+/** Fresh Basket Supermarket, Seoul Asian Market and Prime Cut Halal Butcher: a grocery with ~40 products in 10 departments (weighed, chilled, age-restricted), an Asian grocery and a halal butcher. */
+export const DEMO_STORE_SLUGS: string[] = STORE_DEFS.map((d) => slugify(d.name));
+const DEMO_STORE_EMAILS: string[] = STORE_DEFS.flatMap((d) => ['owner', 'manager', 'cashier', 'kitchen'].map((role) => `${role}${d.merchant}@demo-restaurant.ca`));
+
+/**
+ * Only the three demo stores, with their merchants, owner and staff accounts (all with `opts.demoPassword`). No customers, drivers or orders.
+ * Idempotent: a store that exists is left as it is. Run `seedPlatform` first (zones, the "Grocery & retail" commission tier, cuisines).
+ */
+export async function seedDemoStores(ds: DataSource, opts: SeedOptions): Promise<void> {
+  await seedDefs(ds, { ...opts, demo: true }, STORE_DEFS, STORE_MENUS, false);
+}
+
+/** Tables that carry a store's own rows (by restaurantId) and may simply go with it. Orders, ledger entries, reviews and tickets are real activity: they stop a removal. */
+const STORE_OWN_TABLES = ['assistant_kb_drafts', 'assistant_kb_requests', 'assistant_sessions', 'carts', 'favorites', 'kitchen_stations', 'promotions', 'restaurant_closures', 'restaurant_documents', 'restaurant_hours', 'restaurant_integrations', 'restaurant_members'];
+const STORE_ACTIVITY_TABLES: [string, string][] = [['orders', 'order'], ['ledger_entries', 'ledger entry'], ['reviews', 'review'], ['tickets', 'support ticket']];
+
+/**
+ * Takes the demo stores out again: the stores with their menus, hours and documents, the merchants, and the owner and staff accounts.
+ * Refused (nothing changes) when an order, ledger entry, review or support ticket exists for one of them: suspend those stores in the Admin Console instead.
+ */
+export async function removeDemoStores(ds: DataSource): Promise<{ removed: string[]; refused?: string }> {
+  const stores = await ds.getRepository(Restaurant).find({ where: { slug: In(DEMO_STORE_SLUGS) } });
+  if (!stores.length) return { removed: [] };
+  const ids = stores.map((s) => s.id);
+  for (const [table, what] of STORE_ACTIVITY_TABLES) {
+    const [{ n }] = await ds.query(`SELECT COUNT(*)::int AS n FROM "${table}" WHERE "restaurantId" = ANY($1)`, [ids]);
+    if (n > 0) return { removed: [], refused: `${n} ${what}(s) exist for the demo stores. Suspend the stores in the Admin Console instead of removing them.` };
+  }
+  const merchantIds = [...new Set(stores.map((s) => s.merchantId))];
+  await ds.transaction(async (m) => {
+    await m.query(`DELETE FROM menu_item_modifier_groups WHERE "menuItemId" IN (SELECT id FROM menu_items WHERE "restaurantId" = ANY($1))`, [ids]);
+    await m.query(`DELETE FROM menu_items WHERE "restaurantId" = ANY($1)`, [ids]);
+    await m.query(`DELETE FROM menu_categories WHERE "restaurantId" = ANY($1)`, [ids]);
+    await m.query(`DELETE FROM modifier_groups WHERE "restaurantId" = ANY($1)`, [ids]); // its options go with it
+    for (const table of STORE_OWN_TABLES) await m.query(`DELETE FROM "${table}" WHERE "restaurantId" = ANY($1)`, [ids]);
+    await m.query(`DELETE FROM restaurants WHERE id = ANY($1)`, [ids]);
+    await m.query(`DELETE FROM restaurant_members WHERE "merchantId" = ANY($1)`, [merchantIds]);
+    await m.query(`DELETE FROM merchants WHERE id = ANY($1) AND NOT EXISTS (SELECT 1 FROM restaurants r WHERE r."merchantId" = merchants.id)`, [merchantIds]);
+    await m.query(`DELETE FROM users WHERE email = ANY($1) AND type = 'RESTAURANT'`, [DEMO_STORE_EMAILS]);
+  });
+  return { removed: stores.map((s) => s.name) };
+}
