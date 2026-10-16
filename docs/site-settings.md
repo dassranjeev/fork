@@ -9,6 +9,22 @@ Everything is data in the database, changed through the API below; the customer 
 * Code: `backend/src/site/` (`site.schema.ts` = the fields, `site.render.ts` = the generators, `site.service.ts`, `site.controller.ts`), tables `site_settings` and `site_setting_revisions`.
 * Tests: `backend/test/site.test.ts` (unit, in CI) and `backend/test/site-e2e.mjs` (real HTTP).
 
+## The Admin Console screens
+
+Admin Console > sidebar **MARKETING & CONTENT > Website settings** (staff need the `site` permission; the Super Admin always has it). Ten pages:
+
+| Page | What you do there |
+|---|---|
+| **Overview & health** | the health check (what is missing or wrong, errors first, each with an *Open* link to the page that fixes it), **Preview a page** (type `/order`, a store page or any path and see the title, description, meta tags, structured data and HTML the website will use, and whether it is indexed), and links to the files the website serves (robots.txt, sitemap.xml, llms.txt, manifest) |
+| **General** | name, tagline, site address, languages, theme colours, copyright line, contact details, social profiles, app store links |
+| **Logo & icons** | one tile for each picture (logo, dark logo, square logo, favicon, iPhone icon, two app icons, share pictures): *Upload* / *Replace* / *Remove*; the server checks the picture and tells you what is wrong ("must be square (this one is 64 x 32)") |
+| **Title, SEO & meta** | default title and title template, description, robots rules, Open Graph and X cards, verification codes, extra meta and link tags, templates for store pages, rules for single pages, robots.txt, sitemap, structured data |
+| **GEO**, **AEO (answers)**, **AIO (AI search)** | the facts for AI assistants and where you operate; questions and answers, HowTo guides, speakable; a table of AI crawlers with *Allow / Disallow / Say nothing* each, llms.txt, the licence statement |
+| **Footer**, **Analytics** | link columns and bottom links; Google Analytics / Tag Manager / Ads, Meta pixel, Clarity, TikTok ids |
+| **Custom CSS / JS** | the code fields with a warning and the *Enabled* kill switch; read only unless you are a Super Admin |
+
+Every page has **Save** (only the changed fields are sent; a refused save lists every problem and marks the fields), **Discard changes**, **Reset to defaults** and **History** (every saved version with who and when, *View* and *Restore*). The forms are drawn from `GET /admin/site/schema`, so a field added in the backend shows up in the screens without a front-end change. Code: `admin/src/features/site/`.
+
 ## What the sections hold
 
 | Section | Holds |

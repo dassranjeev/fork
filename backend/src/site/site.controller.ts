@@ -64,6 +64,15 @@ export class SiteAdminController {
     return this.site.checks();
   }
 
+  // NOTE: declared before 'branding/:slot': POST /admin/site/branding/reset must reset the branding section, not upload to a picture slot named "reset"
+  @Post(':section/reset')
+  @Permission(Module.SITE, Action.EDIT)
+  @ApiOperation({ summary: 'Put a section back to its defaults' })
+  @ApiParam(SECTION_PARAM)
+  reset(@Param('section') section: string, @CurrentUser() user: AuthUser) {
+    return this.site.reset(this.site.assertSection(section), user);
+  }
+
   @Post('branding/:slot')
   @Permission(Module.SITE, Action.EDIT)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
@@ -109,14 +118,6 @@ export class SiteAdminController {
   @ApiBody(BODY)
   merge(@Param('section') section: string, @Body() body: Record<string, unknown>, @CurrentUser() user: AuthUser) {
     return this.site.save(this.site.assertSection(section), 'merge', body, user);
-  }
-
-  @Post(':section/reset')
-  @Permission(Module.SITE, Action.EDIT)
-  @ApiOperation({ summary: 'Put a section back to its defaults' })
-  @ApiParam(SECTION_PARAM)
-  reset(@Param('section') section: string, @CurrentUser() user: AuthUser) {
-    return this.site.reset(this.site.assertSection(section), user);
   }
 
   @Get(':section/revisions')
